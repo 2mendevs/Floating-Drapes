@@ -181,7 +181,7 @@ export const PORTFOLIO_DATA: PortfolioItem[] = [
   {
     id: 'p1',
     category: 'Living Room',
-    title: 'The Grand Atrium Villa',
+    title: 'Modern Living Room',
     description: 'Fitted with gold-leaf Art Deco Wallpaper paired with double-pleated Silk Sheers to control intense midday light.',
     beforeImage: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1200&q=80',
     afterImage: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=80'
@@ -189,7 +189,7 @@ export const PORTFOLIO_DATA: PortfolioItem[] = [
   {
     id: 'p2',
     category: 'Bedroom',
-    title: 'Master Bedroom Sanctuary',
+    title: 'Elegant Bedroom',
     description: 'Replaced thin curtains with premium floor-to-ceiling Acoustic Velvet Blockouts and custom-textured linen wall finishes.',
     beforeImage: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1200&q=80',
     afterImage: 'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?auto=format&fit=crop&w=1200&q=80'
@@ -197,7 +197,7 @@ export const PORTFOLIO_DATA: PortfolioItem[] = [
   {
     id: 'p3',
     category: 'Dining Room',
-    title: 'Editorial Manor Dining',
+    title: 'Luxury Dining Room',
     description: 'Bespoke biophilic wall murals and warm, earthy sateen-lined linen drapes creating an intimate dining experience.',
     beforeImage: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1200&q=80',
     afterImage: 'https://images.unsplash.com/photo-1617806118233-18e1db207faf?auto=format&fit=crop&w=1200&q=80'
@@ -205,7 +205,7 @@ export const PORTFOLIO_DATA: PortfolioItem[] = [
   {
     id: 'p4',
     category: 'Kids Room',
-    title: 'Chic Children Conservatory',
+    title: 'Kids Room Makeover',
     description: 'Installed fully fire-retardant organic sheer linens and customized dreamy constellation wallcoverings.',
     beforeImage: 'https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?auto=format&fit=crop&w=1200&q=80',
     afterImage: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80'
