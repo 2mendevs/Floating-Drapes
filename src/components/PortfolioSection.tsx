@@ -73,8 +73,8 @@ function BeforeAfterSlider({ item }: BeforeAfterSliderProps) {
         className="absolute inset-y-0 w-[2px] bg-gold cursor-ew-resize flex items-center justify-center pointer-events-none"
         style={{ left: `${sliderPosition}%` }}
       >
-        <div className="h-9 w-9 rounded-full bg-gold text-luxury-bg shadow-[0_0_15px_rgba(200,165,106,0.6)] flex items-center justify-center border border-white/20 transform -translate-x-1/2">
-          <Sliders className="h-3.5 w-3.5 rotate-90" />
+        <div className="h-9 w-9 rounded-full bg-gold text-luxury-bg shadow-[0_0_20px_rgba(196,147,63,0.75)] flex items-center justify-center border border-white/20 transform -translate-x-1/2 select-none">
+          <span className="font-sans text-[9px] font-bold tracking-tighter">◀  ▶</span>
         </div>
       </div>
 
@@ -87,14 +87,13 @@ function BeforeAfterSlider({ item }: BeforeAfterSliderProps) {
 }
 
 export default function PortfolioSection() {
-  const [activeCategory, setActiveCategory] = useState<'All' | 'Living Room' | 'Bedroom' | 'Dining Room' | 'Kids Room'>('All');
+  const [activeCategory, setActiveCategory] = useState<'All' | 'Living Room' | 'Bedroom' | 'Penthouse'>('All');
 
-  const categories: Array<'All' | 'Living Room' | 'Bedroom' | 'Dining Room' | 'Kids Room'> = [
+  const categories: Array<'All' | 'Living Room' | 'Bedroom' | 'Penthouse'> = [
     'All',
     'Living Room',
     'Bedroom',
-    'Dining Room',
-    'Kids Room'
+    'Penthouse'
   ];
 
   const filteredPortfolio = activeCategory === 'All' 
@@ -102,17 +101,17 @@ export default function PortfolioSection() {
     : PORTFOLIO_DATA.filter(item => item.category === activeCategory);
 
   return (
-    <section className="bg-[#0A0A0A] py-20 lg:py-28 border-b border-white/5 text-white" id="portfolio-showcase-section">
+    <section className="bg-luxury-bg py-20 lg:py-28 border-b border-luxury-border text-[#F5F0E8]" id="portfolio-showcase-section">
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
         
         {/* Header Block with Flex layout */}
-        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8 mb-14 pb-8 border-b border-white/5">
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8 mb-14 pb-8 border-b border-luxury-border">
           <div className="text-left">
             <span className="font-sans text-[10px] font-bold tracking-[0.45em] text-gold uppercase mb-3 block">
-              REAL SPACES. REAL TRANSFORMATIONS.
+              THE VELORA DIFFERENCE
             </span>
             <h2 className="font-serif text-3xl sm:text-4.5xl font-normal text-white">
-              See the Difference
+              Before & After Showcase
             </h2>
             <div className="h-[2px] w-14 bg-gold mt-5" />
           </div>

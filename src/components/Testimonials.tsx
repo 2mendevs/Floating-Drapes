@@ -1,18 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { TESTIMONIALS_DATA } from '../types';
-import { Quote, Star, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Star, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function Testimonials() {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [direction, setDirection] = useState(0); // -1 for left, 1 for right
   const [isPaused, setIsPaused] = useState(false);
   const autoPlayRef = useRef<(() => void) | null>(null);
 
   const nextTestimonial = () => {
+    setDirection(1);
     setCurrentIndex((prev) => (prev + 1) % TESTIMONIALS_DATA.length);
   };
 
   const prevTestimonial = () => {
+    setDirection(-1);
     setCurrentIndex((prev) => (prev - 1 + TESTIMONIALS_DATA.length) % TESTIMONIALS_DATA.length);
   };
 
@@ -28,127 +31,140 @@ export default function Testimonials() {
     };
 
     if (!isPaused) {
-      const interval = setInterval(play, 6000);
+      const interval = setInterval(play, 7000);
       return () => clearInterval(interval);
     }
   }, [isPaused]);
 
+  const current = TESTIMONIALS_DATA[currentIndex];
+
   return (
     <section 
-      className="bg-[#EAE5D9] py-20 lg:py-28 border-b border-gold/15 overflow-hidden text-zinc-900" 
+      className="bg-cream py-20 lg:py-28 border-b border-gold/15 overflow-hidden text-body-light relative" 
       id="testimonials-carousel-section"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
+      {/* Editorial Decorative Background Details */}
+      <div className="absolute top-0 right-0 p-8 font-serif text-[120px] text-gold/5 leading-none select-none pointer-events-none">
+        ❋
+      </div>
+
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
         
         {/* Header Block */}
-        <div className="mb-14 lg:mb-18 flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div className="flex flex-col">
-            <span className="font-sans text-[10px] font-bold tracking-[0.45em] text-gold-soft uppercase mb-3 block">
-              WHAT OUR CLIENTS SAY
+        <div className="mb-14 lg:mb-18 flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-gold/15">
+          <div className="text-left">
+            <span className="font-sans text-[10.5px] font-bold tracking-[0.45em] text-gold uppercase mb-3 block">
+              VOICES OF VELORA
             </span>
-            <h2 className="font-serif text-3xl sm:text-4.5xl font-normal text-zinc-950">
-              Loved by Homes, <br />
-              <span className="italic text-gold-soft">Trusted by Hearts.</span>
+            <h2 className="font-serif text-3xl sm:text-4.5xl font-normal text-body-light uppercase tracking-wide">
+              What Our Clients Say
             </h2>
-            <div className="h-[2px] w-14 bg-gold-soft mt-6" />
+            <div className="h-[2px] w-14 bg-gold mt-5" />
           </div>
 
           {/* Navigation Controls */}
-          <div className="flex items-center space-x-3 self-start md:self-auto">
+          <div className="flex items-center space-x-3.5 self-end">
             <button 
               onClick={prevTestimonial}
-              className="group flex h-11 w-11 items-center justify-center rounded-full border border-gold-soft/30 bg-white/50 text-gold-soft hover:bg-gold hover:text-luxury-bg hover:border-gold transition-all duration-300"
+              className="group flex h-11 w-11 items-center justify-center rounded-full border border-gold/35 bg-transparent text-gold hover:bg-gold hover:text-luxury-bg hover:border-gold transition-all duration-300 cursor-pointer animate-none"
               aria-label="Previous Testimonial"
               id="testimonial-prev-arrow"
             >
-              <ChevronLeft className="h-4.5 w-4.5" />
+              <ChevronLeft className="h-5 w-5" />
             </button>
             <button 
               onClick={nextTestimonial}
-              className="group flex h-11 w-11 items-center justify-center rounded-full border border-gold-soft/30 bg-white/50 text-gold-soft hover:bg-gold hover:text-luxury-bg hover:border-gold transition-all duration-300"
+              className="group flex h-11 w-11 items-center justify-center rounded-full border border-gold/35 bg-transparent text-gold hover:bg-gold hover:text-luxury-bg hover:border-gold transition-all duration-300 cursor-pointer animate-none"
               aria-label="Next Testimonial"
               id="testimonial-next-arrow"
             >
-              <ChevronRight className="h-4.5 w-4.5" />
+              <ChevronRight className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        {/* 3 cards side by side layout which rotates / highlights on desktop */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8" id="testimonials-grid">
-          {TESTIMONIALS_DATA.map((item, index) => {
-            const isHighlighted = index === currentIndex;
-            
-            return (
-              <motion.div
-                key={item.id}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6 }}
-                className={`p-8 flex flex-col justify-between relative overflow-hidden transition-all duration-500 bg-[#FAF8F5] border ${
-                  isHighlighted 
-                    ? 'border-gold-soft shadow-[0_15px_30px_rgba(200,165,106,0.15)] scale-[1.02]' 
-                    : 'border-gold-soft/15 hover:border-gold-soft/35'
-                }`}
-                id={`testimonial-card-${item.id}`}
-              >
-                {/* Accent glow for active */}
-                {isHighlighted && (
-                  <div className="absolute top-0 left-0 w-full h-[3px] bg-gold-soft" />
-                )}
-
-                {/* Quote Icon */}
-                <div className="absolute top-6 right-6 text-gold-soft/10">
-                  <Quote className="h-10 w-10 transform scale-x-[-1]" />
+        {/* Editorial Layout with Crossfade Transitions */}
+        <div className="relative min-h-[500px] sm:min-h-[440px] lg:min-h-[380px] flex items-center justify-center">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={currentIndex}
+              initial={{ opacity: 0, x: direction * 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -direction * 30 }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center w-full"
+              id={`editorial-testimonial-${current.id}`}
+            >
+              
+              {/* Left Side: Client Image with Frame (Spans 4 columns) */}
+              <div className="lg:col-span-4 flex justify-center lg:justify-start">
+                <div className="relative group/img">
+                  <div className="absolute inset-2.5 border border-gold/35 z-10 pointer-events-none transition-all duration-500 group-hover/img:inset-1.5" />
+                  <img
+                    src={current.image}
+                    alt={current.name}
+                    className="h-[320px] w-[260px] lg:h-[380px] lg:w-[300px] object-cover border border-gold/15 shadow-2xl brightness-95"
+                    referrerPolicy="no-referrer"
+                  />
+                  {/* Decorative corner highlights */}
+                  <div className="absolute top-0 left-0 h-6 w-6 border-t border-l border-gold/40" />
+                  <div className="absolute bottom-0 right-0 h-6 w-6 border-b border-r border-gold/40" />
                 </div>
+              </div>
 
-                <div className="relative z-10 flex flex-col h-full justify-between">
-                  <div>
-                    {/* Stars row */}
-                    <div className="flex items-center space-x-1.5 mb-6">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className="h-3.5 w-3.5 fill-gold text-gold" />
-                      ))}
-                    </div>
+              {/* Right Side: Editorial Review content (Spans 8 columns) */}
+              <div className="lg:col-span-8 text-left flex flex-col justify-center space-y-6 lg:pl-4">
+                
+                {/* Large Decorative Serif Asterisk */}
+                <span className="font-serif text-5xl text-gold/35 leading-none select-none">❋</span>
+                
+                {/* Review Text */}
+                <blockquote className="font-serif text-xl sm:text-2xl md:text-3xl font-light italic leading-relaxed text-body-light/95 tracking-wide">
+                  "{current.review}"
+                </blockquote>
 
-                    {/* Review text */}
-                    <p className="font-sans text-xs sm:text-sm font-light leading-relaxed text-zinc-700 italic text-left">
-                      "{item.review}"
-                    </p>
+                {/* Stars and Reviewer info */}
+                <div className="space-y-4 pt-4 border-t border-gold/15">
+                  <div className="flex items-center space-x-1.5">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="h-3.5 w-3.5 fill-gold text-gold" />
+                    ))}
                   </div>
 
-                  {/* Reviewer signature */}
-                  <div className="mt-8 flex items-center space-x-4 border-t border-gold-soft/15 pt-6 text-left">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="h-12 w-12 rounded-full object-cover border border-gold-soft/30"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="flex flex-col">
-                      <span className="font-serif text-sm font-medium text-zinc-950">{item.name}</span>
-                      <span className="font-sans text-[10px] tracking-widest text-gold-soft uppercase mt-0.5 font-bold">{item.location}</span>
-                      <span className="font-sans text-[9px] text-zinc-500">{item.role}</span>
-                    </div>
+                  <div className="flex flex-col sm:flex-row sm:items-baseline sm:space-x-4">
+                    <span className="font-serif text-lg sm:text-xl font-normal text-body-light">
+                      {current.name}
+                    </span>
+                    <span className="hidden sm:inline text-gold/50">|</span>
+                    <span className="font-sans text-[10px] font-bold tracking-[0.25em] text-gold uppercase mt-1 sm:mt-0">
+                      {current.location}
+                    </span>
                   </div>
+
+                  <p className="font-sans text-xs text-[#A69A88] uppercase tracking-widest font-medium">
+                    {current.role}
+                  </p>
                 </div>
-              </motion.div>
-            );
-          })}
+
+              </div>
+
+            </motion.div>
+          </AnimatePresence>
         </div>
 
-        {/* Dynamic State Carousel Dots */}
-        <div className="flex justify-center items-center space-x-2 mt-12">
+        {/* Custom Progress / Dots Indicator */}
+        <div className="flex justify-center items-center space-x-3 mt-14">
           {TESTIMONIALS_DATA.map((_, i) => (
             <button
               key={i}
-              onClick={() => setCurrentIndex(i)}
-              className={`h-1.5 transition-all duration-300 rounded-full ${
-                i === currentIndex ? 'w-8 bg-gold-soft' : 'w-1.5 bg-gold-soft/20 hover:bg-gold-soft/45'
+              onClick={() => {
+                setDirection(i > currentIndex ? 1 : -1);
+                setCurrentIndex(i);
+              }}
+              className={`h-2.5 transition-all duration-500 rounded-full cursor-pointer ${
+                i === currentIndex ? 'w-10 bg-gold' : 'w-2.5 bg-gold/20 hover:bg-gold/45'
               }`}
               aria-label={`Go to slide ${i + 1}`}
             />

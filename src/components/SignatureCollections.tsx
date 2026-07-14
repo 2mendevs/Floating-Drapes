@@ -24,29 +24,26 @@ export default function SignatureCollections({ openBookingModal }: SignatureProp
   };
 
   return (
-    <section className="bg-[#EAE5D9] py-20 lg:py-28 border-b border-gold/15 text-zinc-900" id="signature-collections-section">
+    <section className="bg-cream py-20 lg:py-28 border-b border-gold/15 text-body-light" id="signature-collections-section">
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
         
         {/* Header Block */}
         <div className="mb-14 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
-            <span className="font-sans text-[10px] font-bold tracking-[0.45em] text-gold-soft uppercase mb-3 block">
+            <span className="font-sans text-[10px] font-bold tracking-[0.45em] text-gold uppercase mb-3 block">
               HANDPICKED. CURATED. TIMELESS.
             </span>
-            <h2 className="font-serif text-3xl sm:text-4.5xl font-normal text-zinc-950">
+            <h2 className="font-serif text-3xl sm:text-4.5xl font-normal text-body-light">
               Signature Collections
             </h2>
-            <div className="h-[2px] w-14 bg-gold-soft mt-5" />
+            <div className="h-[2px] w-14 bg-gold mt-5" />
           </div>
           
           <button 
             onClick={openBookingModal}
-            className="text-[10.5px] font-bold tracking-[0.25em] text-gold-soft uppercase hover:text-zinc-950 transition-colors duration-300 flex items-center space-x-2.5 self-start md:self-auto"
+            className="text-[10.5px] font-bold tracking-[0.25em] text-gold uppercase hover:text-body-light transition-colors duration-300 flex items-center space-x-2.5 self-start md:self-auto cursor-pointer"
           >
-            <span>VIEW ALL COLLECTIONS</span>
-            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gold/10 hover:bg-gold-soft hover:text-white transition-colors">
-              <ArrowRight className="h-3 w-3" />
-            </div>
+            <span>VIEW ALL COLLECTIONS →</span>
           </button>
         </div>
 

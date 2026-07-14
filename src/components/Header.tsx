@@ -34,13 +34,9 @@ export default function Header({ activePage, setActivePage, openBookingModal }: 
           className="group flex cursor-pointer items-center space-x-3.5"
           id="brand-logo-container"
         >
-          {/* Custom Luxury Gold Crest Icon */}
+          {/* Custom Luxury Gold Crest Icon with Asterisk Motif */}
           <div className="relative flex h-11 w-11 items-center justify-center rounded-full border border-gold/35 bg-black/40 p-1.5 transition-all duration-500 group-hover:border-gold group-hover:scale-105">
-            <svg className="h-full w-full text-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-              <path d="M12 2C12 2 9 7 9 12C9 17 12 22 12 22C12 22 15 17 15 12C15 7 12 2 12 2Z" />
-              <path d="M2 12C2 12 7 9 12 9C17 9 22 12 22 12C22 12 17 15 12 15C7 15 2 12 2 12Z" />
-              <circle cx="12" cy="12" r="2.5" fill="currentColor" className="text-gold" />
-            </svg>
+            <span className="font-serif text-2xl text-gold leading-none select-none">❋</span>
             <div className="absolute inset-0.5 rounded-full border border-dashed border-gold/20 group-hover:border-gold/40 transition-colors" />
           </div>
           
@@ -54,24 +50,28 @@ export default function Header({ activePage, setActivePage, openBookingModal }: 
           </div>
         </div>
 
-        {/* DESKTOP NAVIGATION */}
-        <nav className="hidden lg:flex items-center space-x-9">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => handleNavClick(item.id)}
-              className="relative py-2 text-[10.5px] font-bold tracking-[0.22em] uppercase text-muted-text hover:text-white transition-colors duration-300"
-              id={`nav-link-${item.id}`}
-            >
-              {item.label}
-              {activePage === item.id && (
-                <motion.div
-                  layoutId="activeNavLine"
-                  className="absolute bottom-0 left-0 h-[1.5px] w-full bg-gold"
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                />
+        {/* DESKTOP NAVIGATION WITH MIDDLE DOT SEPARATORS */}
+        <nav className="hidden lg:flex items-center">
+          {navItems.map((item, index) => (
+            <div key={item.id} className="flex items-center">
+              <button
+                onClick={() => handleNavClick(item.id)}
+                className="relative py-2 text-[10.5px] font-bold tracking-[0.22em] uppercase text-muted-text hover:text-white transition-colors duration-300 cursor-pointer"
+                id={`nav-link-${item.id}`}
+              >
+                {item.label}
+                {activePage === item.id && (
+                  <motion.div
+                    layoutId="activeNavLine"
+                    className="absolute bottom-0 left-0 h-[1.5px] w-full bg-gold"
+                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  />
+                )}
+              </button>
+              {index < navItems.length - 1 && (
+                <span className="text-gold/40 mx-4 text-[9px] select-none">·</span>
               )}
-            </button>
+            </div>
           ))}
         </nav>
 
@@ -79,7 +79,7 @@ export default function Header({ activePage, setActivePage, openBookingModal }: 
         <div className="flex items-center space-x-4">
           <button
             onClick={openBookingModal}
-            className="group relative overflow-hidden rounded-none border border-gold/40 bg-black/20 px-5.5 py-3 text-[10px] font-bold tracking-[0.25em] text-white transition-all duration-300 hover:border-gold hover:bg-gold hover:text-luxury-bg uppercase"
+            className="group relative overflow-hidden rounded-none border border-gold text-gold hover:text-luxury-bg hover:bg-gold bg-transparent px-5.5 py-3 text-[10px] font-bold tracking-[0.25em] transition-all duration-300 uppercase cursor-pointer"
             id="header-cta-booking"
           >
             <span className="relative z-10 flex items-center space-x-2.5">

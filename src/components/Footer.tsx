@@ -30,7 +30,7 @@ export default function Footer({ setActivePage, openBookingModal }: FooterProps)
   };
 
   return (
-    <footer className="relative bg-[#0A0A0A] border-t border-gold/15 text-white pt-20 pb-8" id="velora-luxury-footer">
+    <footer className="relative bg-luxury-bg border-t border-luxury-border text-white pt-20 pb-8" id="velora-luxury-footer">
       
       {/* Texture noise background */}
       <div 
@@ -47,11 +47,11 @@ export default function Footer({ setActivePage, openBookingModal }: FooterProps)
           
           {/* Logo brand info */}
           <div className="lg:col-span-5 flex flex-col space-y-4">
-            <div className="flex items-baseline space-x-1">
-              <span className="font-serif text-3xl font-semibold tracking-widest text-white">VELORA</span>
-              <span className="h-1.5 w-1.5 rounded-full bg-gold animate-ping" />
+            <div className="flex items-baseline space-x-2">
+              <span className="font-serif text-2xl font-normal tracking-[0.2em] text-white">VELORA</span>
+              <span className="font-serif text-lg text-gold select-none">❋</span>
             </div>
-            <span className="font-sans text-[10px] font-bold tracking-[0.35em] text-gold uppercase block">
+            <span className="font-sans text-[7.5px] font-bold tracking-[0.45em] text-gold uppercase block">
               CURTAINS & WALLPAPERS
             </span>
             <p className="font-sans text-xs font-light text-muted-text max-w-sm leading-relaxed pt-2">
