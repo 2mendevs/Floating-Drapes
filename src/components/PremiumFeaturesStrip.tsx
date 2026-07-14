@@ -1,32 +1,32 @@
 import { motion } from 'motion/react';
-import { Shield, Truck, Target, Scissors } from 'lucide-react';
+import { Gem, ShieldAlert, Sparkle, Wind } from 'lucide-react';
 
 export default function PremiumFeaturesStrip() {
   const items = [
     {
-      icon: Shield,
-      title: '10-Year Warranty',
-      desc: 'Written architectural warranty on all luxury tracks, fabrics, and stitching.'
+      icon: Gem,
+      title: 'Premium Materials',
+      desc: 'European linen, sateen linings, and mulberry silk thread.'
     },
     {
-      icon: Truck,
-      title: 'Complimentary White Glove Delivery',
-      desc: 'Personalized premium shipping, room-by-room staging, and expert unpacking.'
+      icon: Sparkle,
+      title: 'Bespoke Designs',
+      desc: 'Made-to-order patterns sculpted for high-end home architectures.'
     },
     {
-      icon: Target,
-      title: 'Laser Precision Measurement',
-      desc: 'Millimeter-perfect structural scans to guarantee beautiful, fluid drapery.'
+      icon: Wind,
+      title: 'Expert Installation',
+      desc: 'Seamless wall paste application and motorized track calibration.'
     },
     {
-      icon: Scissors,
-      title: 'Master Tailoring',
-      desc: 'Painstakingly crafted by expert textile technicians in our European partner mills.'
+      icon: ShieldAlert,
+      title: 'Timeless Beauty',
+      desc: 'Materials treated for UV defense to guarantee long-lasting vibrance.'
     }
   ];
 
   return (
-    <section className="bg-luxury-bg py-16 border-b border-luxury-border relative" id="premium-features-strip">
+    <section className="bg-luxury-bg py-16 border-b border-white/5 relative" id="premium-features-strip">
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gold/5 to-transparent pointer-events-none" />
       
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
@@ -41,20 +41,20 @@ export default function PremiumFeaturesStrip() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: i * 0.1 }}
                 whileHover={{ scale: 1.02 }}
-                className="group relative p-6 bg-white/[0.02] border border-gold/10 hover:border-gold/30 hover:shadow-[0_0_25px_rgba(196,147,63,0.08)] transition-all duration-300 rounded-none flex flex-col justify-between"
+                className="group relative p-6 bg-white/[0.02] border border-gold/10 hover:border-gold/30 hover:shadow-[0_0_25px_rgba(200,165,106,0.08)] transition-all duration-300 rounded-none flex flex-col justify-between"
                 id={`feature-strip-card-${i}`}
               >
                 {/* Glow effect */}
                 <div className="absolute inset-0 bg-gradient-to-b from-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
-                <div className="relative z-10 text-left">
+                <div className="relative z-10">
                   <div className="mb-4 text-gold group-hover:scale-110 transition-transform duration-300">
-                    <Icon className="h-5.5 w-5.5" />
+                    <Icon className="h-6 w-6" />
                   </div>
                   <h4 className="font-serif text-base font-normal tracking-wide text-white mb-2">
                     {el.title}
                   </h4>
-                  <p className="font-sans text-xs font-light text-[#A69A88] leading-relaxed">
+                  <p className="font-sans text-xs font-light text-muted-text leading-relaxed">
                     {el.desc}
                   </p>
                 </div>

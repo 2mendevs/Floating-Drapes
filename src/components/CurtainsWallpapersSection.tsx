@@ -7,7 +7,7 @@ interface SectionProps {
 
 export default function CurtainsWallpapersSection({ onSelectCategory }: SectionProps) {
   return (
-    <section className="bg-cream py-20 lg:py-28 border-b border-gold/15 text-body-light" id="categories-overview-section">
+    <section className="bg-[#EAE5D9] py-20 lg:py-28 border-b border-gold/15 text-zinc-900" id="categories-overview-section">
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
@@ -15,23 +15,23 @@ export default function CurtainsWallpapersSection({ onSelectCategory }: SectionP
           {/* LEFT SIDE COLUMN: Title and Description (Spans 4 columns on desktop) */}
           <div className="lg:col-span-4 flex flex-col justify-between h-full py-2">
             <div>
-              <span className="font-sans text-[10px] font-bold tracking-[0.45em] text-gold uppercase mb-3 block">
+              <span className="font-sans text-[10px] font-bold tracking-[0.45em] text-gold-soft uppercase mb-3 block">
                 CURATED TO PERFECTION
               </span>
-              <h2 className="font-serif text-3xl sm:text-4xl lg:text-[42px] font-normal leading-[1.1] text-body-light">
+              <h2 className="font-serif text-3xl sm:text-4xl lg:text-[42px] font-normal leading-[1.1] text-zinc-950">
                 Curtains &<br />
                 Wallpapers<br />
-                That <span className="italic text-gold">Define You.</span>
+                That <span className="italic text-gold-soft">Define You.</span>
               </h2>
               
               {/* Gold line with a dot */}
               <div className="flex items-center space-x-2 mt-6 mb-8">
-                <div className="h-[2px] w-14 bg-gold" />
-                <div className="h-1.5 w-1.5 rounded-full bg-gold" />
+                <div className="h-[2px] w-14 bg-gold-soft" />
+                <div className="h-1.5 w-1.5 rounded-full bg-gold-soft" />
               </div>
             </div>
             
-            <p className="font-sans text-xs sm:text-[13px] font-light leading-relaxed text-body-light/80 max-w-sm">
+            <p className="font-sans text-xs sm:text-[13px] font-light leading-relaxed text-zinc-700 max-w-sm">
               Every room has a unique voice. We provide the vocabulary through heavy drapery, whisper-soft sheers, and hand-gilded fine wallpapers tailored to your architectural style.
             </p>
           </div>
@@ -46,7 +46,7 @@ export default function CurtainsWallpapersSection({ onSelectCategory }: SectionP
               viewport={{ once: true, margin: '-50px' }}
               transition={{ duration: 0.8 }}
               onClick={() => onSelectCategory('curtains')}
-              className="group cursor-pointer overflow-hidden bg-luxury-sec border border-gold/15 flex flex-col justify-between min-h-[460px] transition-all duration-500 hover:border-gold hover:shadow-[0_15px_35px_rgba(0,0,0,0.35)]"
+              className="group cursor-pointer overflow-hidden bg-[#111111] border border-gold/15 flex flex-col justify-between min-h-[460px] transition-all duration-500 hover:border-gold hover:shadow-[0_15px_35px_rgba(0,0,0,0.35)]"
               id="curtains-overview-card"
             >
               {/* Image Side (Top half of vertical card) */}
@@ -57,7 +57,7 @@ export default function CurtainsWallpapersSection({ onSelectCategory }: SectionP
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 brightness-[0.8]"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-luxury-sec via-transparent to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#111111] via-transparent to-transparent pointer-events-none" />
                 <div className="absolute top-4 right-4 text-[9px] font-bold tracking-widest text-gold bg-black/60 px-2 py-1 border border-gold/15 uppercase">
                   01 COLLECTION
                 </div>
@@ -69,7 +69,9 @@ export default function CurtainsWallpapersSection({ onSelectCategory }: SectionP
                   {/* Gold Crest + Tag */}
                   <div className="flex items-center space-x-2.5">
                     <div className="flex h-6.5 w-6.5 items-center justify-center rounded-full border border-gold/40 text-gold bg-black/40">
-                      <span className="font-serif text-sm text-gold leading-none">❋</span>
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                        <path d="M12 2C12 2 9 7 9 12C9 17 12 22 12 22C12 22 15 17 15 12C15 7 12 2 12 2Z" />
+                      </svg>
                     </div>
                     <span className="font-sans text-[8.5px] font-bold tracking-[0.3em] text-gold uppercase">CURTAINS</span>
                   </div>
@@ -81,17 +83,17 @@ export default function CurtainsWallpapersSection({ onSelectCategory }: SectionP
                     
                     {/* Styled Bullets */}
                     <ul className="space-y-1.5 pt-1 text-left">
-                      <li className="flex items-center space-x-2.5 text-xs font-light text-body-dark/80">
+                      <li className="flex items-center space-x-2.5 text-xs font-light text-muted-text">
                         <span className="h-1 w-1 rounded-full bg-gold/60 shrink-0" />
-                        <span>Soft textures.</span>
+                        <span>Soft textures & Belgium Linen</span>
                       </li>
-                      <li className="flex items-center space-x-2.5 text-xs font-light text-body-dark/80">
+                      <li className="flex items-center space-x-2.5 text-xs font-light text-muted-text">
                         <span className="h-1 w-1 rounded-full bg-gold/60 shrink-0" />
-                        <span>Elegant drapes.</span>
+                        <span>Elegant drapes & acoustic velvet</span>
                       </li>
-                      <li className="flex items-center space-x-2.5 text-xs font-light text-body-dark/80">
+                      <li className="flex items-center space-x-2.5 text-xs font-light text-muted-text">
                         <span className="h-1 w-1 rounded-full bg-gold/60 shrink-0" />
-                        <span>Timeless beauty.</span>
+                        <span>Timeless beauty & whisper sheers</span>
                       </li>
                     </ul>
                   </div>
@@ -116,7 +118,7 @@ export default function CurtainsWallpapersSection({ onSelectCategory }: SectionP
               viewport={{ once: true, margin: '-50px' }}
               transition={{ duration: 0.8, delay: 0.15 }}
               onClick={() => onSelectCategory('wallpapers')}
-              className="group cursor-pointer overflow-hidden bg-luxury-sec border border-gold/15 flex flex-col justify-between min-h-[460px] transition-all duration-500 hover:border-gold hover:shadow-[0_15px_35px_rgba(0,0,0,0.35)]"
+              className="group cursor-pointer overflow-hidden bg-[#111111] border border-gold/15 flex flex-col justify-between min-h-[460px] transition-all duration-500 hover:border-gold hover:shadow-[0_15px_35px_rgba(0,0,0,0.35)]"
               id="wallpapers-overview-card"
             >
               {/* Image Side (Top half of vertical card) */}
@@ -127,7 +129,7 @@ export default function CurtainsWallpapersSection({ onSelectCategory }: SectionP
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 brightness-[0.8]"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-luxury-sec via-transparent to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#111111] via-transparent to-transparent pointer-events-none" />
                 <div className="absolute top-4 right-4 text-[9px] font-bold tracking-widest text-gold bg-black/60 px-2 py-1 border border-gold/15 uppercase">
                   02 COLLECTION
                 </div>
@@ -139,7 +141,9 @@ export default function CurtainsWallpapersSection({ onSelectCategory }: SectionP
                   {/* Gold Crest + Tag */}
                   <div className="flex items-center space-x-2.5">
                     <div className="flex h-6.5 w-6.5 items-center justify-center rounded-full border border-gold/40 text-gold bg-black/40">
-                      <span className="font-serif text-sm text-gold leading-none">❋</span>
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                        <path d="M12 2C12 2 9 7 9 12C9 17 12 22 12 22C12 22 15 17 15 12C15 7 12 2 12 2Z" />
+                      </svg>
                     </div>
                     <span className="font-sans text-[8.5px] font-bold tracking-[0.3em] text-gold uppercase">WALLPAPERS</span>
                   </div>
@@ -151,17 +155,17 @@ export default function CurtainsWallpapersSection({ onSelectCategory }: SectionP
                     
                     {/* Styled Bullets */}
                     <ul className="space-y-1.5 pt-1 text-left">
-                      <li className="flex items-center space-x-2.5 text-xs font-light text-body-dark/80">
+                      <li className="flex items-center space-x-2.5 text-xs font-light text-muted-text">
                         <span className="h-1 w-1 rounded-full bg-gold/60 shrink-0" />
-                        <span>Artful patterns.</span>
+                        <span>Artful patterns & hand-painted silk</span>
                       </li>
-                      <li className="flex items-center space-x-2.5 text-xs font-light text-body-dark/80">
+                      <li className="flex items-center space-x-2.5 text-xs font-light text-muted-text">
                         <span className="h-1 w-1 rounded-full bg-gold/60 shrink-0" />
-                        <span>Premium finishes.</span>
+                        <span>Premium finishes & gilded foil prints</span>
                       </li>
-                      <li className="flex items-center space-x-2.5 text-xs font-light text-body-dark/80">
+                      <li className="flex items-center space-x-2.5 text-xs font-light text-muted-text">
                         <span className="h-1 w-1 rounded-full bg-gold/60 shrink-0" />
-                        <span>Infinite possibilities.</span>
+                        <span>Infinite possibilities & slate textures</span>
                       </li>
                     </ul>
                   </div>

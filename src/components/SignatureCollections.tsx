@@ -24,7 +24,7 @@ export default function SignatureCollections({ openBookingModal }: SignatureProp
   };
 
   return (
-    <section className="bg-cream py-20 lg:py-28 border-b border-gold/15 text-body-light" id="signature-collections-section">
+    <section className="bg-[#0A0A0A] py-20 lg:py-28 border-b border-white/5 text-white" id="signature-collections-section">
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
         
         {/* Header Block */}
@@ -33,7 +33,7 @@ export default function SignatureCollections({ openBookingModal }: SignatureProp
             <span className="font-sans text-[10px] font-bold tracking-[0.45em] text-gold uppercase mb-3 block">
               HANDPICKED. CURATED. TIMELESS.
             </span>
-            <h2 className="font-serif text-3xl sm:text-4.5xl font-normal text-body-light">
+            <h2 className="font-serif text-3xl sm:text-4.5xl font-normal text-white">
               Signature Collections
             </h2>
             <div className="h-[2px] w-14 bg-gold mt-5" />
@@ -41,7 +41,7 @@ export default function SignatureCollections({ openBookingModal }: SignatureProp
           
           <button 
             onClick={openBookingModal}
-            className="text-[10.5px] font-bold tracking-[0.25em] text-gold uppercase hover:text-body-light transition-colors duration-300 flex items-center space-x-2.5 self-start md:self-auto cursor-pointer"
+            className="text-[10.5px] font-bold tracking-[0.25em] text-gold uppercase hover:text-white transition-colors duration-300 flex items-center space-x-2.5 self-start md:self-auto"
           >
             <span>VIEW ALL COLLECTIONS →</span>
           </button>

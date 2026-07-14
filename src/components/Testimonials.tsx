@@ -40,7 +40,7 @@ export default function Testimonials() {
 
   return (
     <section 
-      className="bg-cream py-20 lg:py-28 border-b border-gold/15 overflow-hidden text-body-light relative" 
+      className="bg-luxury-bg py-20 lg:py-28 border-b border-white/5 overflow-hidden text-white relative" 
       id="testimonials-carousel-section"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
@@ -53,12 +53,12 @@ export default function Testimonials() {
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
         
         {/* Header Block */}
-        <div className="mb-14 lg:mb-18 flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-gold/15">
+        <div className="mb-14 lg:mb-18 flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-white/5">
           <div className="text-left">
             <span className="font-sans text-[10.5px] font-bold tracking-[0.45em] text-gold uppercase mb-3 block">
               VOICES OF VELORA
             </span>
-            <h2 className="font-serif text-3xl sm:text-4.5xl font-normal text-body-light uppercase tracking-wide">
+            <h2 className="font-serif text-3xl sm:text-4.5xl font-normal text-white uppercase tracking-wide">
               What Our Clients Say
             </h2>
             <div className="h-[2px] w-14 bg-gold mt-5" />
@@ -121,12 +121,12 @@ export default function Testimonials() {
                 <span className="font-serif text-5xl text-gold/35 leading-none select-none">❋</span>
                 
                 {/* Review Text */}
-                <blockquote className="font-serif text-xl sm:text-2xl md:text-3xl font-light italic leading-relaxed text-body-light/95 tracking-wide">
+                <blockquote className="font-serif text-xl sm:text-2xl md:text-3xl font-light italic leading-relaxed text-white/90 tracking-wide">
                   "{current.review}"
                 </blockquote>
 
                 {/* Stars and Reviewer info */}
-                <div className="space-y-4 pt-4 border-t border-gold/15">
+                <div className="space-y-4 pt-4 border-t border-white/5">
                   <div className="flex items-center space-x-1.5">
                     {[...Array(5)].map((_, i) => (
                       <Star key={i} className="h-3.5 w-3.5 fill-gold text-gold" />
@@ -134,7 +134,7 @@ export default function Testimonials() {
                   </div>
 
                   <div className="flex flex-col sm:flex-row sm:items-baseline sm:space-x-4">
-                    <span className="font-serif text-lg sm:text-xl font-normal text-body-light">
+                    <span className="font-serif text-lg sm:text-xl font-normal text-white">
                       {current.name}
                     </span>
                     <span className="hidden sm:inline text-gold/50">|</span>
@@ -143,7 +143,7 @@ export default function Testimonials() {
                     </span>
                   </div>
 
-                  <p className="font-sans text-xs text-[#A69A88] uppercase tracking-widest font-medium">
+                  <p className="font-sans text-xs text-muted-text uppercase tracking-widest font-medium">
                     {current.role}
                   </p>
                 </div>

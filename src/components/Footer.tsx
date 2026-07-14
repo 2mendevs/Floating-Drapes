@@ -47,9 +47,15 @@ export default function Footer({ setActivePage, openBookingModal }: FooterProps)
           
           {/* Logo brand info */}
           <div className="lg:col-span-5 flex flex-col space-y-4">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full border border-gold/30 bg-black/40 p-1.5 mb-2">
+              <svg className="h-full w-full text-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                <path d="M12 2C12 2 9 7 9 12C9 17 12 22 12 22C12 22 15 17 15 12C15 7 12 2 12 2Z" />
+                <path d="M2 12C2 12 7 9 12 9C17 9 22 12 22 12C22 12 17 15 12 15C7 15 2 12 2 12Z" />
+                <circle cx="12" cy="12" r="2.5" fill="currentColor" className="text-gold" />
+              </svg>
+            </div>
             <div className="flex items-baseline space-x-2">
               <span className="font-serif text-2xl font-normal tracking-[0.2em] text-white">VELORA</span>
-              <span className="font-serif text-lg text-gold select-none">❋</span>
             </div>
             <span className="font-sans text-[7.5px] font-bold tracking-[0.45em] text-gold uppercase block">
               CURTAINS & WALLPAPERS
