@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SIGNATURE_COLLECTIONS, SignatureCollection } from '../types';
-import { ArrowRight, Sparkles, Check, Bookmark } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 
 interface SignatureProps {
   openBookingModal: () => void;
@@ -10,13 +10,13 @@ interface SignatureProps {
 export default function SignatureCollections({ openBookingModal }: SignatureProps) {
   const [selectedCol, setSelectedCol] = useState<SignatureCollection | null>(null);
 
-  // Map to apply visual overlays mentioned in prompt
+  // Map to apply the customized deep colored overlays specifying their color identity
   const overlayMap: Record<string, string> = {
-    's1': 'bg-gradient-to-t from-red-950/90 via-red-950/40 to-black/30', // Luxe Drapes Burgundy Overlay
-    's2': 'bg-gradient-to-t from-emerald-950/95 via-emerald-950/40 to-black/30', // Nature's Canvas Forest Green Overlay
-    's3': 'bg-gradient-to-t from-stone-900/90 via-stone-800/40 to-black/30', // Modern Muse Warm Grey Overlay
-    's4': 'bg-gradient-to-t from-blue-950/90 via-blue-900/40 to-black/30', // Royal Texture Dark Navy Overlay
-    's5': 'bg-gradient-to-t from-amber-950/80 via-amber-900/40 to-black/30', // Minimal Chic Cream/Warm Gold Overlay
+    's1': 'bg-gradient-to-t from-red-950/90 via-red-950/45 to-black/20', // Luxe Drapes Burgundy Overlay
+    's2': 'bg-gradient-to-t from-emerald-950/95 via-emerald-950/45 to-black/20', // Nature's Canvas Forest Green Overlay
+    's3': 'bg-gradient-to-t from-stone-900/90 via-stone-800/45 to-black/20', // Modern Muse Warm Grey Overlay
+    's4': 'bg-gradient-to-t from-blue-950/90 via-blue-900/45 to-black/20', // Royal Texture Dark Navy Overlay
+    's5': 'bg-gradient-to-t from-amber-950/90 via-amber-900/45 to-black/20', // Minimal Chic Cream/Warm Gold Overlay
   };
 
   const getOverlayClass = (id: string) => {
@@ -24,27 +24,29 @@ export default function SignatureCollections({ openBookingModal }: SignatureProp
   };
 
   return (
-    <section className="bg-luxury-bg py-20 lg:py-28 border-b border-white/5" id="signature-collections-section">
+    <section className="bg-[#EAE5D9] py-20 lg:py-28 border-b border-gold/15 text-zinc-900" id="signature-collections-section">
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
         
         {/* Header Block */}
         <div className="mb-14 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
-            <span className="font-sans text-[10px] font-bold tracking-[0.4em] text-gold uppercase mb-2 block">
+            <span className="font-sans text-[10px] font-bold tracking-[0.45em] text-gold-soft uppercase mb-3 block">
               HANDPICKED. CURATED. TIMELESS.
             </span>
-            <h2 className="font-serif text-3xl font-light text-white sm:text-4xl">
+            <h2 className="font-serif text-3xl sm:text-4.5xl font-normal text-zinc-950">
               Signature Collections
             </h2>
-            <div className="h-0.5 w-16 bg-gold mt-4" />
+            <div className="h-[2px] w-14 bg-gold-soft mt-5" />
           </div>
           
           <button 
             onClick={openBookingModal}
-            className="text-xs font-bold tracking-[0.2em] text-gold uppercase hover:text-white transition-colors duration-300 flex items-center space-x-2"
+            className="text-[10.5px] font-bold tracking-[0.25em] text-gold-soft uppercase hover:text-zinc-950 transition-colors duration-300 flex items-center space-x-2.5 self-start md:self-auto"
           >
             <span>VIEW ALL COLLECTIONS</span>
-            <ArrowRight className="h-3.5 w-3.5" />
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gold/10 hover:bg-gold-soft hover:text-white transition-colors">
+              <ArrowRight className="h-3 w-3" />
+            </div>
           </button>
         </div>
 
@@ -57,9 +59,9 @@ export default function SignatureCollections({ openBookingModal }: SignatureProp
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8, delay: idx * 0.1, ease: 'easeOut' }}
-              whileHover={{ y: -10 }}
+              whileHover={{ y: -8 }}
               onClick={() => setSelectedCol(col)}
-              className="group relative cursor-pointer overflow-hidden border border-gold/15 bg-luxury-sec aspect-[3/4] sm:aspect-[2/3] lg:aspect-[9/16] flex flex-col justify-end p-6 transition-all duration-500 hover:border-gold/50"
+              className="group relative cursor-pointer overflow-hidden bg-zinc-900 border border-gold/15 aspect-[3/4.2] sm:aspect-[2/3] lg:aspect-[9/16.5] flex flex-col justify-between p-6.5 transition-all duration-500 hover:border-gold/50 hover:shadow-[0_15px_30px_rgba(0,0,0,0.4)]"
               id={`signature-card-${col.id}`}
             >
               {/* Image with zoom on hover */}
@@ -67,7 +69,7 @@ export default function SignatureCollections({ openBookingModal }: SignatureProp
                 <img
                   src={col.image}
                   alt={col.name}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out brightness-75"
+                  className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-1000 ease-out brightness-[0.85]"
                   referrerPolicy="no-referrer"
                 />
                 
@@ -76,37 +78,29 @@ export default function SignatureCollections({ openBookingModal }: SignatureProp
               </div>
 
               {/* Decorative Number Tag (01, 02, etc.) */}
-              <div className="absolute top-6 left-6 z-10 font-serif text-xs font-semibold tracking-wider text-gold opacity-80 group-hover:text-white group-hover:scale-110 transition-all">
+              <div className="relative z-10 font-serif text-[38px] font-light tracking-normal text-gold/60 group-hover:text-gold group-hover:scale-105 transition-all duration-500 select-none leading-none">
                 {String(idx + 1).padStart(2, '0')}
               </div>
 
-              {/* Category tag */}
-              <div className="absolute top-6 right-6 z-10">
-                <span className="bg-black/40 backdrop-blur-md border border-gold/15 text-[8px] font-bold tracking-[0.25em] text-cream uppercase px-2 py-1">
-                  {col.category}
-                </span>
-              </div>
-
               {/* Bottom Content Area */}
-              <div className="relative z-10">
-                <h3 className="font-serif text-xl font-medium text-white group-hover:text-gold transition-colors duration-300">
-                  {col.name}
-                </h3>
-                
-                {/* Short teaser */}
-                <p className="font-sans text-[11px] font-light text-muted-text mt-2 line-clamp-2 leading-relaxed opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-500">
-                  {col.description}
-                </p>
+              <div className="relative z-10 flex items-end justify-between w-full">
+                <div className="flex flex-col text-left">
+                  <span className="font-sans text-[8.5px] font-bold tracking-widest text-gold uppercase mb-1">
+                    {col.category} COLLECTION
+                  </span>
+                  <h3 className="font-serif text-xl font-normal leading-tight text-white group-hover:text-gold transition-colors duration-300">
+                    {col.name}
+                  </h3>
+                </div>
 
-                {/* Explore button inside card */}
-                <div className="mt-4 flex items-center space-x-2 pt-2 border-t border-gold/10 overflow-hidden">
-                  <span className="text-[9px] font-bold tracking-[0.2em] text-gold uppercase">EXPLORE NOW</span>
-                  <ArrowRight className="h-3 w-3 text-gold transform translate-x-[-10px] group-hover:translate-x-0 transition-transform duration-300" />
+                {/* Arrow Circle */}
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold/30 bg-black/40 text-gold group-hover:bg-gold group-hover:text-luxury-bg group-hover:border-gold transition-all duration-500">
+                  <ArrowRight className="h-4 w-4" />
                 </div>
               </div>
 
-              {/* Inner gold border highlighting glow */}
-              <div className="absolute inset-2 border border-gold/0 group-hover:border-gold/25 pointer-events-none transition-all duration-500" />
+              {/* Inner subtle decorative luxury frame border */}
+              <div className="absolute inset-3 border border-gold/0 group-hover:border-gold/20 pointer-events-none transition-all duration-500" />
             </motion.div>
           ))}
         </div>
@@ -180,7 +174,7 @@ export default function SignatureCollections({ openBookingModal }: SignatureProp
                       setSelectedCol(null);
                       openBookingModal();
                     }}
-                    className="w-full bg-gold hover:bg-gold-soft text-luxury-bg py-3 text-xs font-bold tracking-widest uppercase transition-colors"
+                    className="w-full bg-gold hover:bg-gold-soft text-luxury-bg py-3.5 text-xs font-bold tracking-widest uppercase transition-colors"
                   >
                     BOOK TRIAL & CONSULTATION
                   </button>

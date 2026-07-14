@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PORTFOLIO_DATA, PortfolioItem } from '../types';
-import { Sliders, CheckCircle, Sparkles, MoveLeft } from 'lucide-react';
+import { Sliders, Sparkles, ArrowRight } from 'lucide-react';
 
 interface BeforeAfterSliderProps {
   item: PortfolioItem;
 }
 
-// Single Before-After slider element that supports drag-to-compare with coordinates or simple touch events
+// Custom interactive drag-to-compare slider component
 function BeforeAfterSlider({ item }: BeforeAfterSliderProps) {
   const [sliderPosition, setSliderPosition] = useState(50); // percentage (0 to 100)
   const [isDragging, setIsDragging] = useState(false);
@@ -19,7 +19,7 @@ function BeforeAfterSlider({ item }: BeforeAfterSliderProps) {
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isDragging && e.buttons !== 1) return; // Only move when clicked/dragged
+    if (!isDragging && e.buttons !== 1) return;
     const rect = e.currentTarget.getBoundingClientRect();
     handleMove(e.clientX, rect);
   };
@@ -33,7 +33,7 @@ function BeforeAfterSlider({ item }: BeforeAfterSliderProps) {
 
   return (
     <div 
-      className="relative aspect-video w-full overflow-hidden select-none cursor-ew-resize border border-gold/15 bg-zinc-950"
+      className="relative aspect-[4/3] sm:aspect-video w-full overflow-hidden select-none cursor-ew-resize border border-gold/15 bg-zinc-950"
       onMouseMove={handleMouseMove}
       onTouchMove={handleTouchMove}
       onMouseDown={() => setIsDragging(true)}
@@ -47,7 +47,7 @@ function BeforeAfterSlider({ item }: BeforeAfterSliderProps) {
         className="absolute inset-0 h-full w-full object-cover pointer-events-none"
         referrerPolicy="no-referrer"
       />
-      <div className="absolute right-4 bottom-4 z-10 bg-black/70 backdrop-blur-md px-2 py-1 text-[9px] font-bold tracking-[0.2em] text-gold uppercase border border-gold/20">
+      <div className="absolute right-4.5 bottom-4.5 z-10 bg-black/70 backdrop-blur-md px-2.5 py-1 text-[8.5px] font-bold tracking-[0.25em] text-gold uppercase border border-gold/20">
         AFTER
       </div>
 
@@ -63,24 +63,24 @@ function BeforeAfterSlider({ item }: BeforeAfterSliderProps) {
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           referrerPolicy="no-referrer"
         />
-        <div className="absolute left-4 bottom-4 z-10 bg-black/70 backdrop-blur-md px-2 py-1 text-[9px] font-bold tracking-[0.2em] text-cream uppercase border border-white/10">
+        <div className="absolute left-4.5 bottom-4.5 z-10 bg-black/70 backdrop-blur-md px-2.5 py-1 text-[8.5px] font-bold tracking-[0.25em] text-cream uppercase border border-white/10">
           BEFORE
         </div>
       </div>
 
-      {/* DRAGGABLE HANDLE / BAR */}
+      {/* SLIDER HANDLE */}
       <div 
-        className="absolute inset-y-0 w-1 bg-gold cursor-ew-resize flex items-center justify-center pointer-events-none"
+        className="absolute inset-y-0 w-[2px] bg-gold cursor-ew-resize flex items-center justify-center pointer-events-none"
         style={{ left: `${sliderPosition}%` }}
       >
-        <div className="h-8 w-8 rounded-full bg-gold text-luxury-bg shadow-[0_0_15px_rgba(200,165,106,0.5)] flex items-center justify-center border border-white/20 transform -translate-x-1/2">
-          <Sliders className="h-3 w-3 rotate-90" />
+        <div className="h-9 w-9 rounded-full bg-gold text-luxury-bg shadow-[0_0_15px_rgba(200,165,106,0.6)] flex items-center justify-center border border-white/20 transform -translate-x-1/2">
+          <Sliders className="h-3.5 w-3.5 rotate-90" />
         </div>
       </div>
 
-      {/* Subtle Drag Hint Overlay on top center */}
-      <div className="absolute top-3 left-1/2 transform -translate-x-1/2 pointer-events-none bg-black/50 backdrop-blur-md text-[8px] font-bold tracking-[0.25em] text-muted-text px-2.5 py-1 uppercase rounded-full">
-        ◄ DRAG TO COMPARE ►
+      {/* Prompt Overlay */}
+      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 pointer-events-none bg-black/55 backdrop-blur-md text-[7.5px] font-bold tracking-[0.3em] text-muted-text px-3 py-1 uppercase rounded-full border border-white/5">
+        ◄ SLIDE TO COMPARE ►
       </div>
     </div>
   );
@@ -102,76 +102,76 @@ export default function PortfolioSection() {
     : PORTFOLIO_DATA.filter(item => item.category === activeCategory);
 
   return (
-    <section className="bg-[#0f0f0f] py-20 lg:py-28 border-b border-white/5" id="portfolio-showcase-section">
+    <section className="bg-[#0A0A0A] py-20 lg:py-28 border-b border-white/5 text-white" id="portfolio-showcase-section">
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
         
-        {/* Header Block */}
-        <div className="mb-14 text-center">
-          <span className="font-sans text-[10px] font-bold tracking-[0.4em] text-gold uppercase mb-2 block">
-            REAL SPACES. REAL TRANSFORMATIONS.
-          </span>
-          <h2 className="font-serif text-3xl font-light text-white sm:text-4xl">
-            See The Difference
-          </h2>
-          <div className="mx-auto h-0.5 w-16 bg-gold mt-4" />
+        {/* Header Block with Flex layout */}
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8 mb-14 pb-8 border-b border-white/5">
+          <div className="text-left">
+            <span className="font-sans text-[10px] font-bold tracking-[0.45em] text-gold uppercase mb-3 block">
+              REAL SPACES. REAL TRANSFORMATIONS.
+            </span>
+            <h2 className="font-serif text-3xl sm:text-4.5xl font-normal text-white">
+              See the Difference
+            </h2>
+            <div className="h-[2px] w-14 bg-gold mt-5" />
+          </div>
+
+          {/* Categories Tab Pill Controls on the Right */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`px-5 py-2 text-[9.5px] font-bold tracking-[0.25em] uppercase transition-all duration-300 rounded-none border ${
+                  activeCategory === cat
+                    ? 'bg-gold border-gold text-luxury-bg shadow-[0_0_15px_rgba(200,165,106,0.2)]'
+                    : 'border-white/10 text-muted-text hover:border-gold/30 hover:text-white'
+                }`}
+                id={`portfolio-tab-${cat.replace(/\s+/g, '-').toLowerCase()}`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Categories Tab Bar */}
-        <div className="flex flex-wrap items-center justify-center gap-3 mb-12">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-6 py-2.5 text-[10px] font-bold tracking-[0.25em] uppercase transition-all duration-300 rounded-none ${
-                activeCategory === cat
-                  ? 'bg-gold text-luxury-bg shadow-[0_0_15px_rgba(200,165,106,0.2)]'
-                  : 'border border-white/10 text-muted-text hover:border-gold/30 hover:text-white'
-              }`}
-              id={`portfolio-tab-${cat.replace(/\s+/g, '-').toLowerCase()}`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        {/* Interactive Sliders Grid */}
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2" id="portfolio-sliders-grid">
+        {/* Interactive Slider Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10" id="portfolio-sliders-grid">
           <AnimatePresence mode="popLayout">
-            {filteredPortfolio.map((item, idx) => (
+            {filteredPortfolio.map((item) => (
               <motion.div
                 key={item.id}
                 layout
-                initial={{ opacity: 0, scale: 0.95 }}
+                initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.6, ease: 'easeOut' }}
-                className="group flex flex-col bg-luxury-bg border border-gold/10 overflow-hidden shadow-2xl"
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.6 }}
+                className="group flex flex-col bg-luxury-sec border border-gold/15 overflow-hidden shadow-2xl"
                 id={`portfolio-item-${item.id}`}
               >
-                {/* Drag Comparison Element */}
+                {/* Before-After Slider Container */}
                 <BeforeAfterSlider item={item} />
 
-                {/* Info and styling description */}
-                <div className="p-6 flex flex-col justify-between flex-grow">
-                  <div>
-                    <div className="flex items-center space-x-2 text-gold text-[9px] font-bold tracking-[0.3em] uppercase mb-1">
+                {/* Info Text below Slider */}
+                <div className="p-6.5 flex flex-col justify-between flex-grow text-left">
+                  <div className="space-y-2.5">
+                    <div className="flex items-center space-x-2 text-gold text-[8.5px] font-bold tracking-[0.3em] uppercase">
                       <Sparkles className="h-3.5 w-3.5" />
                       <span>{item.category} Styling</span>
                     </div>
-                    <h3 className="font-serif text-xl font-normal text-cream group-hover:text-gold transition-colors duration-300">
+                    <h3 className="font-serif text-xl font-normal text-white group-hover:text-gold transition-colors duration-300">
                       {item.title}
                     </h3>
-                    <p className="font-sans text-xs font-light text-muted-text mt-2 leading-relaxed">
+                    <p className="font-sans text-[12px] font-light leading-relaxed text-muted-text">
                       {item.description}
                     </p>
                   </div>
                   
-                  <div className="mt-4 pt-4 border-t border-gold/10 flex items-center justify-between text-[10px] tracking-widest text-muted-text uppercase">
-                    <span className="flex items-center space-x-1">
-                      <CheckCircle className="h-3.5 w-3.5 text-gold" />
-                      <span>Premium Fabrics</span>
-                    </span>
-                    <span>100% Calibrated Fit</span>
+                  {/* Small specs footer */}
+                  <div className="mt-5 pt-4.5 border-t border-gold/10 flex items-center justify-between text-[8.5px] tracking-widest text-gold uppercase font-bold">
+                    <span>PREMIUM FABRICS</span>
+                    <span>100% CALIBRATED FIT</span>
                   </div>
                 </div>
               </motion.div>
@@ -179,10 +179,26 @@ export default function PortfolioSection() {
           </AnimatePresence>
         </div>
 
-        {/* Global Portfolio Note */}
-        <div className="mt-14 text-center">
-          <p className="font-sans text-xs italic text-muted-text">
-            All transformations represent real Client homes measured with precision lasers and installed by Floating Drapes specialists.
+        {/* Explore More CTA Button at Bottom */}
+        <div className="mt-16 flex flex-col items-center justify-center space-y-6">
+          <button
+            onClick={() => {
+              const contactElement = document.getElementById('contact-form-section');
+              if (contactElement) {
+                contactElement.scrollIntoView({ behavior: 'smooth' });
+              }
+            }}
+            className="group relative flex items-center space-x-3.5 bg-transparent border border-gold/45 px-7.5 py-4 text-[10.5px] font-bold tracking-[0.25em] text-white uppercase transition-all duration-300 hover:border-gold hover:bg-gold hover:text-luxury-bg"
+            id="portfolio-explore-more-btn"
+          >
+            <span>EXPLORE MORE PROJECTS</span>
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gold/10 group-hover:bg-luxury-bg/10 text-gold group-hover:text-luxury-bg transition-colors">
+              <ArrowRight className="h-3.5 w-3.5" />
+            </div>
+          </button>
+          
+          <p className="font-sans text-[11px] italic text-muted-text">
+            All transformations represent real Client homes measured with precision lasers and installed by master technicians.
           </p>
         </div>
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Menu, X, Phone, Calendar, ArrowRight } from 'lucide-react';
+import { Menu, X, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface HeaderProps {
@@ -12,13 +12,11 @@ export default function Header({ activePage, setActivePage, openBookingModal }: 
   const [isOpen, setIsOpen] = useState(false);
 
   const navItems = [
-    { id: 'home', label: 'Home' },
-    { id: 'curtains', label: 'Curtains' },
-    { id: 'wallpapers', label: 'Wallpapers' },
-    { id: 'signature', label: 'Signature Collections' },
-    { id: 'portfolio', label: 'Portfolio' },
-    { id: 'about', label: 'About Us' },
-    { id: 'contact', label: 'Contact' }
+    { id: 'curtains', label: 'CURTAINS' },
+    { id: 'wallpapers', label: 'WALLPAPERS' },
+    { id: 'signature', label: 'COLLECTIONS' },
+    { id: 'portfolio', label: 'OUR WORK' },
+    { id: 'about', label: 'ABOUT US' }
   ];
 
   const handleNavClick = (id: string) => {
@@ -28,42 +26,48 @@ export default function Header({ activePage, setActivePage, openBookingModal }: 
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-[rgba(200,165,106,0.15)] bg-luxury-bg/90 backdrop-blur-xl transition-all duration-300">
-      {/* Scroll Progress Indicator */}
-      <div className="absolute bottom-0 left-0 h-[1px] bg-gradient-to-r from-transparent via-gold to-transparent w-full" />
-      
+    <header className="absolute top-0 left-0 w-full z-50 border-b border-gold/10 bg-black/15 backdrop-blur-[4px] transition-all duration-300">
       <div className="mx-auto flex h-24 max-w-7xl items-center justify-between px-6 sm:px-8 lg:px-12">
         {/* LOGO */}
         <div 
           onClick={() => handleNavClick('home')} 
-          className="group flex cursor-pointer flex-col items-start"
+          className="group flex cursor-pointer items-center space-x-3.5"
           id="brand-logo-container"
         >
-          <div className="flex items-baseline space-x-1">
-            <span className="font-serif text-2xl font-semibold tracking-widest text-white group-hover:text-gold transition-colors duration-300">
+          {/* Custom Luxury Gold Crest Icon */}
+          <div className="relative flex h-11 w-11 items-center justify-center rounded-full border border-gold/35 bg-black/40 p-1.5 transition-all duration-500 group-hover:border-gold group-hover:scale-105">
+            <svg className="h-full w-full text-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+              <path d="M12 2C12 2 9 7 9 12C9 17 12 22 12 22C12 22 15 17 15 12C15 7 12 2 12 2Z" />
+              <path d="M2 12C2 12 7 9 12 9C17 9 22 12 22 12C22 12 17 15 12 15C7 15 2 12 2 12Z" />
+              <circle cx="12" cy="12" r="2.5" fill="currentColor" className="text-gold" />
+            </svg>
+            <div className="absolute inset-0.5 rounded-full border border-dashed border-gold/20 group-hover:border-gold/40 transition-colors" />
+          </div>
+          
+          <div className="flex flex-col">
+            <span className="font-serif text-xl font-normal tracking-[0.2em] text-white leading-none transition-colors duration-300 group-hover:text-gold">
               VELORA
             </span>
-            <span className="h-1.5 w-1.5 rounded-full bg-gold animate-pulse" />
+            <span className="font-sans text-[7.5px] font-bold tracking-[0.45em] text-gold uppercase mt-1.5">
+              CURTAINS & WALLPAPERS
+            </span>
           </div>
-          <span className="font-sans text-[9px] font-bold tracking-[0.3em] text-gold uppercase opacity-90">
-            FLOATING DRAPES
-          </span>
         </div>
 
         {/* DESKTOP NAVIGATION */}
-        <nav className="hidden lg:flex items-center space-x-8">
+        <nav className="hidden lg:flex items-center space-x-9">
           {navItems.map((item) => (
             <button
               key={item.id}
               onClick={() => handleNavClick(item.id)}
-              className="relative py-2 text-xs font-medium tracking-[0.18em] uppercase text-muted-text hover:text-white transition-colors duration-300"
+              className="relative py-2 text-[10.5px] font-bold tracking-[0.22em] uppercase text-muted-text hover:text-white transition-colors duration-300"
               id={`nav-link-${item.id}`}
             >
               {item.label}
               {activePage === item.id && (
                 <motion.div
                   layoutId="activeNavLine"
-                  className="absolute bottom-0 left-0 h-[1px] w-full bg-gold"
+                  className="absolute bottom-0 left-0 h-[1.5px] w-full bg-gold"
                   transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 />
               )}
@@ -71,98 +75,124 @@ export default function Header({ activePage, setActivePage, openBookingModal }: 
           ))}
         </nav>
 
-        {/* CTA BUTTONS */}
-        <div className="hidden lg:flex items-center space-x-6">
-          <a 
-            href="tel:+18005558900" 
-            className="flex items-center space-x-2 text-xs font-semibold tracking-widest text-muted-text hover:text-gold transition-colors duration-300"
-            id="header-phone-link"
-          >
-            <Phone className="h-3.5 w-3.5 text-gold" />
-            <span>INQUIRE</span>
-          </a>
-          
+        {/* CTA BUTTONS & HAMBURGER */}
+        <div className="flex items-center space-x-4">
           <button
             onClick={openBookingModal}
-            className="group relative overflow-hidden rounded-none border border-gold/30 bg-transparent px-6 py-3 text-xs font-semibold tracking-[0.2em] text-white transition-all duration-300 hover:border-gold"
+            className="group relative overflow-hidden rounded-none border border-gold/40 bg-black/20 px-5.5 py-3 text-[10px] font-bold tracking-[0.25em] text-white transition-all duration-300 hover:border-gold hover:bg-gold hover:text-luxury-bg uppercase"
             id="header-cta-booking"
           >
-            {/* Hover Background slide */}
-            <span className="absolute inset-0 z-0 bg-gradient-to-r from-gold/10 to-gold/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out" />
-            
-            <span className="relative z-10 flex items-center space-x-2">
+            <span className="relative z-10 flex items-center space-x-2.5">
               <span>BOOK CONSULTATION</span>
-              <ArrowRight className="h-3 w-3 text-gold group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="h-3 w-3 text-gold group-hover:text-luxury-bg transition-colors" />
             </span>
           </button>
-        </div>
 
-        {/* MOBILE TRIGGER */}
-        <div className="flex lg:hidden items-center space-x-4">
-          <button
-            onClick={openBookingModal}
-            className="rounded-full bg-gold/10 p-2 text-gold border border-gold/20"
-            title="Book Consultation"
-            id="mobile-quick-book"
-          >
-            <Calendar className="h-4 w-4" />
-          </button>
+          {/* Elegant Circular Drawer Trigger */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="p-2 text-white hover:text-gold transition-colors"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 hover:border-gold bg-black/40 text-white hover:text-gold transition-all duration-300"
             aria-label="Toggle Menu"
-            id="mobile-menu-trigger"
+            id="menu-drawer-trigger"
           >
-            {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            {isOpen ? <X className="h-4.5 w-4.5" /> : <Menu className="h-4.5 w-4.5" />}
           </button>
         </div>
       </div>
 
-      {/* MOBILE DRAWER */}
+      {/* LUXURY SLIDE-IN OVERLAY / MENU DRAWER */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="border-b border-gold/10 bg-luxury-sec lg:hidden"
-            id="mobile-nav-drawer"
-          >
-            <div className="flex flex-col space-y-4 px-6 py-8">
-              {navItems.map((item, idx) => (
-                <motion.button
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                  key={item.id}
-                  onClick={() => handleNavClick(item.id)}
-                  className={`text-left text-xs font-semibold tracking-[0.2em] uppercase py-2 border-b border-white/5 ${
-                    activePage === item.id ? 'text-gold pl-2 border-l border-gold' : 'text-muted-text'
-                  } transition-all duration-300`}
-                >
-                  {item.label}
-                </motion.button>
-              ))}
-              <div className="pt-4 flex flex-col space-y-3">
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.7 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsOpen(false)}
+              className="fixed inset-0 z-40 bg-black backdrop-blur-sm"
+            />
+
+            {/* Sidebar drawer panel */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-luxury-sec border-l border-gold/15 p-8 sm:p-12 flex flex-col justify-between shadow-[0_0_50px_rgba(0,0,0,0.8)]"
+              id="luxury-nav-drawer"
+            >
+              <div>
+                <div className="flex items-center justify-between pb-8 border-b border-white/5">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-gold/40 p-1">
+                      <svg className="h-full w-full text-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                        <path d="M12 2C12 2 9 7 9 12C9 17 12 22 12 22C12 22 15 17 15 12C15 7 12 2 12 2Z" />
+                      </svg>
+                    </div>
+                    <span className="font-serif text-lg tracking-widest text-white">VELORA</span>
+                  </div>
+                  
+                  <button
+                    onClick={() => setIsOpen(false)}
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 hover:border-gold text-muted-text hover:text-white transition-all"
+                  >
+                    <X className="h-4.5 w-4.5" />
+                  </button>
+                </div>
+
+                {/* Vertical Navigation items */}
+                <div className="flex flex-col space-y-6 mt-12">
+                  {/* Home nav element */}
+                  <button
+                    onClick={() => handleNavClick('home')}
+                    className={`text-left font-serif text-2xl tracking-wide ${activePage === 'home' ? 'text-gold font-medium' : 'text-white hover:text-gold'} transition-colors`}
+                  >
+                    Home Overview
+                  </button>
+                  {navItems.map((item, idx) => (
+                    <motion.button
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                      key={item.id}
+                      onClick={() => handleNavClick(item.id)}
+                      className={`text-left font-serif text-2xl tracking-wide ${
+                        activePage === item.id ? 'text-gold font-medium' : 'text-white hover:text-gold'
+                      } transition-colors`}
+                    >
+                      {item.label.charAt(0) + item.label.slice(1).toLowerCase()}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bottom contact info in drawer */}
+              <div className="pt-8 border-t border-white/5 space-y-6">
+                <div>
+                  <span className="text-[9px] font-bold tracking-widest text-gold uppercase block mb-1">Inquire Directly</span>
+                  <a href="tel:+919876543210" className="font-serif text-lg text-white hover:text-gold transition-colors">
+                    +91 98765 43210
+                  </a>
+                </div>
+                <div>
+                  <span className="text-[9px] font-bold tracking-widest text-gold uppercase block mb-1">Our Studio Address</span>
+                  <p className="font-sans text-xs text-muted-text leading-relaxed font-light">
+                    123 Design Street, Indiranagar,<br />Bangalore, KA 560038
+                  </p>
+                </div>
                 <button
                   onClick={() => {
                     setIsOpen(false);
                     openBookingModal();
                   }}
-                  className="w-full text-center bg-gold py-4 text-xs font-bold tracking-[0.25em] text-luxury-bg uppercase hover:bg-gold-soft transition-colors"
+                  className="w-full bg-gold hover:bg-gold-soft text-luxury-bg py-4 text-xs font-bold tracking-[0.25em] uppercase transition-colors"
                 >
-                  BOOK FREE CONSULTATION
+                  SECURE PRIVATE TRIAL
                 </button>
-                <a
-                  href="tel:+18005558900"
-                  className="w-full text-center border border-white/15 py-4 text-xs font-bold tracking-[0.25em] text-white uppercase hover:border-gold transition-colors"
-                >
-                  CALL DIRECT: 1-800-VELORA
-                </a>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </header>
