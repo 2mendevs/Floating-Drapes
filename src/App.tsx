@@ -556,40 +556,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Collaborative Mills section */}
-                <div className="mb-20">
-                  <div className="text-center mb-12">
-                    <span className="font-sans text-[10px] font-bold tracking-[0.3em] text-gold uppercase block mb-2">SUPPLY CHAIN CONFIDENTIALITY</span>
-                    <h3 className="font-serif text-2xl text-white">Legendary Partner Mills</h3>
-                    <div className="mx-auto h-[1px] w-12 bg-gold mt-4" />
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div className="p-6 bg-white/[0.01] border border-white/5 text-center">
-                      <span className="font-serif text-lg text-cream block mb-1">Como Sateen Mills</span>
-                      <span className="text-[9px] font-bold tracking-widest text-gold uppercase block mb-3">Lombardy, Italy</span>
-                      <p className="text-[11px] text-muted-text font-light leading-relaxed">Weavers of heavy mulberry silks and double-sided sateen light blockout membranes.</p>
-                    </div>
-
-                    <div className="p-6 bg-white/[0.01] border border-white/5 text-center">
-                      <span className="font-serif text-lg text-cream block mb-1">Ghent Linen Looms</span>
-                      <span className="text-[9px] font-bold tracking-widest text-gold uppercase block mb-3">Flanders, Belgium</span>
-                      <p className="text-[11px] text-muted-text font-light leading-relaxed">Organic, loose-weft linen that filters harsh direct midday light into a cathedral glow.</p>
-                    </div>
-
-                    <div className="p-6 bg-white/[0.01] border border-white/5 text-center">
-                      <span className="font-serif text-lg text-cream block mb-1">Lyon Damask Guild</span>
-                      <span className="text-[9px] font-bold tracking-widest text-gold uppercase block mb-3">Rhone, France</span>
-                      <p className="text-[11px] text-muted-text font-light leading-relaxed">Historic jacquard embroiderers producing heavy-duty embossed metallic threads.</p>
-                    </div>
-
-                    <div className="p-6 bg-white/[0.01] border border-white/5 text-center">
-                      <span className="font-serif text-lg text-cream block mb-1">Kyoto Shibori Studio</span>
-                      <span className="text-[9px] font-bold tracking-widest text-gold uppercase block mb-3">Kyoto, Japan</span>
-                      <p className="text-[11px] text-muted-text font-light leading-relaxed">Master painters of bespoke, non-woven botanical fibers for our botanical wallpaper line.</p>
-                    </div>
-                  </div>
-                </div>
 
                 {/* Frequently Asked Questions FAQ block */}
                 <div className="bg-luxury-sec border border-gold/15 p-8 sm:p-12">
