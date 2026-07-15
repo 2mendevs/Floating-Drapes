@@ -26,13 +26,13 @@ export default function ContactForm() {
 
     // Simulate luxury API submit
     setTimeout(() => {
-      const submissions = JSON.parse(localStorage.getItem('velora_contacts') || '[]');
+      const submissions = JSON.parse(localStorage.getItem('floatingdrapes_contacts') || '[]');
       submissions.push({
         id: 'c-' + Date.now(),
         ...formData,
         timestamp: new Date().toISOString()
       });
-      localStorage.setItem('velora_contacts', JSON.stringify(submissions));
+      localStorage.setItem('floatingdrapes_contacts', JSON.stringify(submissions));
 
       setIsSubmitting(false);
       setIsSuccess(true);
@@ -104,7 +104,7 @@ export default function ContactForm() {
                 </div>
                 <div>
                   <span className="block text-[9px] font-bold tracking-widest text-gold uppercase">DIGITAL ADVISORY</span>
-                  <a href="mailto:hello@velora.design" className="font-serif text-sm text-white hover:text-gold transition-colors">hello@velora.design</a>
+                  <a href="mailto:hello@floatingdrapes.design" className="font-serif text-sm text-white hover:text-gold transition-colors">hello@floatingdrapes.design</a>
                   <p className="text-[10px] text-muted-text mt-0.5">Response within 2 hours</p>
                 </div>
               </div>

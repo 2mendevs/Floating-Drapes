@@ -31,7 +31,7 @@ export default function BookingModal({ isOpen, onClose }: BookingModalProps) {
 
     // Simulate luxury API call
     setTimeout(() => {
-      const submissions: BookingSubmission[] = JSON.parse(localStorage.getItem('velora_bookings') || '[]');
+      const submissions: BookingSubmission[] = JSON.parse(localStorage.getItem('floatingdrapes_bookings') || '[]');
       const newSubmission: BookingSubmission = {
         id: 'b-' + Date.now(),
         ...formData,
@@ -39,7 +39,7 @@ export default function BookingModal({ isOpen, onClose }: BookingModalProps) {
       };
       
       submissions.push(newSubmission);
-      localStorage.setItem('velora_bookings', JSON.stringify(submissions));
+      localStorage.setItem('floatingdrapes_bookings', JSON.stringify(submissions));
 
       setIsSubmitting(false);
       setIsSuccess(true);

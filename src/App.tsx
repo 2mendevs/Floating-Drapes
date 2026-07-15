@@ -66,7 +66,7 @@ export default function App() {
     : WALLPAPERS_DATA.filter(item => item.style === selectedWallpaperFilter);
 
   return (
-    <div className="min-h-screen bg-luxury-bg text-white selection:bg-gold/30 flex flex-col justify-between" id="velora-main-container">
+    <div className="min-h-screen bg-luxury-bg text-white selection:bg-gold/30 flex flex-col justify-between" id="floatingdrapes-main-container">
       
       {/* GLOBAL HEADER */}
       <Header 
@@ -521,7 +521,7 @@ export default function App() {
                     </h1>
                     <div className="h-0.5 w-16 bg-gold my-6" />
                     <p className="font-sans text-xs font-light text-muted-text leading-relaxed mb-6">
-                      Established in 2016, VELORA (under corporate title Floating Drapes) was born from a singular architectural vision: to replace generic, off-the-shelf curtain designs with custom-engineered, textile sculptures.
+                      Established in 2016, Floating Drapes was born from a singular architectural vision: to replace generic, off-the-shelf curtain designs with custom-engineered, textile sculptures.
                     </p>
                     <p className="font-sans text-xs font-light text-muted-text leading-relaxed">
                       We believe window drapes and wall structures are not mere decorations. They are acoustic buffers, sunlight controllers, and tactile elements that dictate the emotional temperature of a home. We work with legendary European weavers and precision laser technicians to establish new paradigms of luxury.
@@ -531,7 +531,7 @@ export default function App() {
                   <div className="lg:col-span-6 aspect-square max-h-[500px] overflow-hidden relative border border-gold/15 luxury-border-glow">
                     <img
                       src="https://images.unsplash.com/photo-1616046229478-9901c5536a45?auto=format&fit=crop&w=1000&q=80"
-                      alt="Velora Design Studio Artisan Workshop"
+                      alt="Floating Drapes Studio Artisan Workshop"
                       className="w-full h-full object-cover brightness-90 animate-subtle-zoom"
                       referrerPolicy="no-referrer"
                     />

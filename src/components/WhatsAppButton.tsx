@@ -6,7 +6,7 @@ export default function WhatsAppButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [messages, setMessages] = useState<Array<{ text: string, isUser: boolean }>>([
-    { text: "Hello! Thank you for choosing VELORA. I am your personal interior styling assistant. How can we help you transform your residence today?", isUser: false }
+    { text: "Hello! Thank you for choosing Floating Drapes. I am your personal interior styling assistant. How can we help you transform your residence today?", isUser: false }
   ]);
 
   const handleSend = (e: React.FormEvent) => {
@@ -79,7 +79,7 @@ export default function WhatsAppButton() {
                   <Sparkles className="h-4.5 w-4.5" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="font-serif text-sm font-medium">VELORA Concierge</span>
+                  <span className="font-serif text-sm font-medium">Floating Drapes Concierge</span>
                   <span className="text-[9px] tracking-widest text-gold uppercase font-bold">Online / active</span>
                 </div>
               </div>

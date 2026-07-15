@@ -21,7 +21,7 @@ export default function Testimonials() {
         {/* Header Block */}
         <div className="mb-14 lg:mb-18 pb-6 border-b border-white/5 text-left">
           <span className="font-sans text-[10.5px] font-bold tracking-[0.45em] text-gold uppercase mb-3 block">
-            VOICES OF VELORA
+            VOICES OF FLOATING DRAPES
           </span>
           <h2 className="font-serif text-3xl sm:text-4.5xl font-normal text-white uppercase tracking-wide">
             Client Impressions

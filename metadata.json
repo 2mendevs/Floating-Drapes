@@ -1,6 +1,6 @@
 {
-  "name": "Velora",
-  "description": "VELORA – Luxury Curtains, Wallpapers, & Premium Interior Styling. Experience handcrafted editorial design with a fully interactive boutique showcase.",
+  "name": "Floating Drapes",
+  "description": "Floating Drapes – Luxury Curtains, Wallpapers, & Premium Interior Styling. Experience handcrafted editorial design with a fully interactive boutique showcase.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -218,7 +218,7 @@ export const TESTIMONIALS_DATA: Testimonial[] = [
     name: 'Alessandra Moretti',
     location: 'Beverly Hills Villa',
     role: 'Principal Architect',
-    review: 'Floating Drapes transformed our estate project completely. The velvet selection has a weight and fluid grace that ordinary drapes simply cannot match. Velora is our primary recommendation.',
+    review: 'Floating Drapes transformed our estate project completely. The velvet selection has a weight and fluid grace that ordinary drapes simply cannot match. They are our primary recommendation.',
     rating: 5,
     image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80'
   },

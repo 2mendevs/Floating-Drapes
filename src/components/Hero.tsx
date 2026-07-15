@@ -215,7 +215,7 @@ export default function Hero({ onExplore, openBookingModal }: HeroProps) {
         >
           <img
             src="https://images.unsplash.com/photo-1615876234886-fd9a39faa97f?auto=format&fit=crop&w=1200&q=80"
-            alt="Velora Luxury Curtain and Wallpaper Room Styling"
+            alt="Floating Drapes Luxury Curtain and Wallpaper Room Styling"
             className="w-full h-full object-cover animate-subtle-zoom brightness-[0.85] contrast-[1.05]"
             referrerPolicy="no-referrer"
           />
@@ -257,7 +257,7 @@ export default function Hero({ onExplore, openBookingModal }: HeroProps) {
             <div className="aspect-video w-full overflow-hidden bg-zinc-950 relative">
               <img
                 src="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1600&q=80"
-                alt="Velora Luxury Collection Showreel Preview"
+                alt="Floating Drapes Luxury Collection Showreel Preview"
                 className="w-full h-full object-cover brightness-75"
                 referrerPolicy="no-referrer"
               />

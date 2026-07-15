@@ -30,7 +30,7 @@ export default function Footer({ setActivePage, openBookingModal }: FooterProps)
   };
 
   return (
-    <footer className="relative bg-luxury-bg border-t border-luxury-border text-white pt-20 pb-8" id="velora-luxury-footer">
+    <footer className="relative bg-luxury-bg border-t border-luxury-border text-white pt-20 pb-8" id="floatingdrapes-luxury-footer">
       
       {/* Texture noise background */}
       <div 
@@ -55,7 +55,7 @@ export default function Footer({ setActivePage, openBookingModal }: FooterProps)
               </svg>
             </div>
             <div className="flex items-baseline space-x-2">
-              <span className="font-serif text-2xl font-normal tracking-[0.2em] text-white">VELORA</span>
+              <span className="font-serif text-2xl font-normal tracking-[0.2em] text-white">FLOATING DRAPES</span>
             </div>
             <span className="font-sans text-[7.5px] font-bold tracking-[0.45em] text-gold uppercase block">
               CURTAINS & WALLPAPERS
@@ -67,7 +67,7 @@ export default function Footer({ setActivePage, openBookingModal }: FooterProps)
 
           {/* Newsletter registration */}
           <div className="lg:col-span-7 flex flex-col justify-center">
-            <span className="font-sans text-[9px] font-bold tracking-[0.25em] text-gold uppercase mb-2">THE VELORA COUPE</span>
+            <span className="font-sans text-[9px] font-bold tracking-[0.25em] text-gold uppercase mb-2">FLOATING DRAPES CLUB</span>
             <h4 className="font-serif text-lg font-normal mb-4">Subscribe for private collection previews & bespoke lookbooks.</h4>
             
             {subscribed ? (
@@ -147,7 +147,7 @@ export default function Footer({ setActivePage, openBookingModal }: FooterProps)
               </li>
               <li className="flex flex-col">
                 <span className="text-[10px] text-gold uppercase tracking-wider">Email</span>
-                <a href="mailto:hello@velora.design" className="text-white hover:text-gold transition-colors">hello@velora.design</a>
+                <a href="mailto:hello@floatingdrapes.design" className="text-white hover:text-gold transition-colors">hello@floatingdrapes.design</a>
               </li>
               <li className="flex flex-col">
                 <span className="text-[10px] text-gold uppercase tracking-wider">Flagship Address</span>
@@ -177,7 +177,7 @@ export default function Footer({ setActivePage, openBookingModal }: FooterProps)
 
           {/* Copyright description */}
           <span className="font-sans text-[10px] text-muted-text">
-            © 2026 Velora Curtains & Wallpapers. All Rights Reserved. Crafted with pristine editorial aesthetics.
+            © 2026 Floating Drapes Curtains & Wallpapers. All Rights Reserved. Crafted with pristine editorial aesthetics.
           </span>
 
           {/* Back to top widget */}

@@ -45,10 +45,10 @@ export default function Header({ activePage, setActivePage, openBookingModal }: 
           </div>
           
           <div className="flex flex-col">
-            <span className="font-serif text-xl font-normal tracking-[0.2em] text-white leading-none transition-colors duration-300 group-hover:text-gold">
-              VELORA
+            <span className="font-serif text-lg sm:text-xl font-normal tracking-[0.15em] sm:tracking-[0.2em] text-white leading-none transition-colors duration-300 group-hover:text-gold uppercase">
+              Floating Drapes
             </span>
-            <span className="font-sans text-[7.5px] font-bold tracking-[0.45em] text-gold uppercase mt-1.5">
+            <span className="font-sans text-[6.5px] sm:text-[7.5px] font-bold tracking-[0.3em] sm:tracking-[0.45em] text-gold uppercase mt-1">
               CURTAINS & WALLPAPERS
             </span>
           </div>
@@ -79,7 +79,7 @@ export default function Header({ activePage, setActivePage, openBookingModal }: 
         <div className="flex items-center space-x-4">
           <button
             onClick={openBookingModal}
-            className="group relative overflow-hidden rounded-none border border-gold/40 bg-black/20 px-5.5 py-3 text-[10px] font-bold tracking-[0.25em] text-white transition-all duration-300 hover:border-gold hover:bg-gold hover:text-luxury-bg uppercase"
+            className="group relative hidden sm:flex overflow-hidden rounded-none border border-gold/40 bg-black/20 px-5.5 py-3 text-[10px] font-bold tracking-[0.25em] text-white transition-all duration-300 hover:border-gold hover:bg-gold hover:text-luxury-bg uppercase"
             id="header-cta-booking"
           >
             <span className="relative z-10 flex items-center space-x-2.5">
@@ -130,7 +130,7 @@ export default function Header({ activePage, setActivePage, openBookingModal }: 
                         <path d="M12 2C12 2 9 7 9 12C9 17 12 22 12 22C12 22 15 17 15 12C15 7 12 2 12 2Z" />
                       </svg>
                     </div>
-                    <span className="font-serif text-lg tracking-widest text-white">VELORA</span>
+                    <span className="font-serif text-lg tracking-widest text-white">FLOATING DRAPES</span>
                   </div>
                   
                   <button
