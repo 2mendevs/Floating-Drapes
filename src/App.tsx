@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import Header from './components/Header';
 import Hero from './components/Hero';
-import TrustBar from './components/TrustBar';
 import CurtainsWallpapersSection from './components/CurtainsWallpapersSection';
 import SignatureCollections from './components/SignatureCollections';
 import PortfolioSection from './components/PortfolioSection';
@@ -92,7 +91,6 @@ export default function App() {
                 onExplore={() => setActivePage('signature')} 
                 openBookingModal={() => setBookingModalOpen(true)} 
               />
-              <TrustBar />
               <CurtainsWallpapersSection 
                 onSelectCategory={(cat) => {
                   if (cat === 'curtains') setActivePage('curtains');
