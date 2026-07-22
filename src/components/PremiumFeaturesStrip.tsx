@@ -1,71 +1,122 @@
 import { motion } from 'motion/react';
-import { Gem, ShieldAlert, Sparkle, Wind } from 'lucide-react';
+import { Check, Award, Compass, Heart, Ruler, FileText, Wrench, Shield, Users, Edit } from 'lucide-react';
 
 export default function PremiumFeaturesStrip() {
-  const items = [
+  const reasons = [
     {
-      icon: Gem,
-      title: 'Premium Materials',
-      desc: 'European linen, sateen linings, and mulberry silk thread.'
+      icon: Award,
+      title: '12+ Years of Expertise',
+      desc: 'Over a decade of industry-leading experience in premium interior solutions.'
     },
     {
-      icon: Sparkle,
-      title: 'Bespoke Designs',
-      desc: 'Made-to-order patterns sculpted for high-end home architectures.'
+      icon: Compass,
+      title: 'Personalized Design Consultation',
+      desc: 'Expert recommendations tailored to match your specific style and theme.'
     },
     {
-      icon: Wind,
-      title: 'Expert Installation',
-      desc: 'Seamless wall paste application and motorized track calibration.'
+      icon: Heart,
+      title: 'Touch & Feel Product Experience',
+      desc: 'Explore high-end fabrics, patterns, and wallpapers at our experience center.'
     },
     {
-      icon: ShieldAlert,
-      title: 'Timeless Beauty',
-      desc: 'Materials treated for UV defense to guarantee long-lasting vibrance.'
+      icon: Ruler,
+      title: 'On-Site Measurement',
+      desc: 'We visit your space to take exact measurements for an absolute precision fit.'
+    },
+    {
+      icon: FileText,
+      title: 'Transparent Quotations',
+      desc: 'Clear, honest pricing with absolutely zero hidden costs.'
+    },
+    {
+      icon: Wrench,
+      title: 'Professional Installation',
+      desc: 'Highly trained in-house artisans handle perfect alignment and steaming.'
+    },
+    {
+      icon: Shield,
+      title: 'Premium Quality Materials',
+      desc: 'Sourced from legendary weavers and certified high-durability manufacturers.'
+    },
+    {
+      icon: Users,
+      title: 'Dedicated Customer Support',
+      desc: 'Attentive post-installation follow-ups and complete satisfaction checks.'
+    },
+    {
+      icon: Edit,
+      title: 'Customized Interior Solutions',
+      desc: 'Bespoke tailoring, custom patterns, and modular motorization integrations.'
     }
   ];
 
   return (
-    <section className="bg-luxury-bg py-16 border-b border-white/5 relative" id="premium-features-strip">
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gold/5 to-transparent pointer-events-none" />
+    <section className="bg-luxury-sec py-20 lg:py-28 border-b border-white/5 relative" id="why-choose-us-section">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(200,165,106,0.04),transparent_50%)]" />
       
-      <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {items.map((el, i) => {
+      <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12 relative z-10">
+        
+        {/* Section Header */}
+        <div className="mb-16 text-center">
+          <span className="font-sans text-[10px] font-bold tracking-[0.4em] text-gold uppercase mb-2 block">
+            UNCOMPROMISING STANDARDS
+          </span>
+          <h2 className="font-serif text-3xl sm:text-4xl font-normal text-white uppercase tracking-wide">
+            Why Choose Floating Drapes?
+          </h2>
+          <div className="mx-auto h-[2px] w-14 bg-gold mt-4" />
+        </div>
+
+        {/* 3x3 Bento Grid of Reasons */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+          {reasons.map((el, i) => {
             const Icon = el.icon;
             return (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: i * 0.1 }}
-                whileHover={{ scale: 1.02 }}
-                className="group relative p-6 bg-white/[0.02] border border-gold/10 hover:border-gold/30 hover:shadow-[0_0_25px_rgba(200,165,106,0.08)] transition-all duration-300 rounded-none flex flex-col justify-between"
-                id={`feature-strip-card-${i}`}
+                initial={{ opacity: 0, y: 15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-50px' }}
+                transition={{ duration: 0.5, delay: i * 0.05 }}
+                whileHover={{ y: -4 }}
+                className="group relative p-8 bg-luxury-bg border border-white/5 hover:border-gold/30 hover:shadow-[0_12px_24px_rgba(200,165,106,0.04)] transition-all duration-300 flex flex-col justify-between"
+                id={`why-choose-card-${i}`}
               >
-                {/* Glow effect */}
-                <div className="absolute inset-0 bg-gradient-to-b from-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                {/* Subtle Glow */}
+                <div className="absolute inset-0 bg-gradient-to-b from-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
-                <div className="relative z-10">
-                  <div className="mb-4 text-gold group-hover:scale-110 transition-transform duration-300">
-                    <Icon className="h-6 w-6" />
+                {/* Corner Accents */}
+                <div className="absolute top-2 right-2 h-1 w-1 border-t border-r border-gold/20 group-hover:border-gold/40 transition-colors" />
+                <div className="absolute bottom-2 left-2 h-1 w-1 border-b border-l border-gold/20 group-hover:border-gold/40 transition-colors" />
+
+                <div>
+                  {/* Top line header */}
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-gold/20 bg-gold/5 text-gold group-hover:bg-gold group-hover:text-luxury-bg group-hover:border-gold transition-all duration-300 shrink-0">
+                      <Icon className="h-4.5 w-4.5" />
+                    </div>
+                    <h3 className="font-serif text-base font-normal tracking-wide text-white group-hover:text-gold transition-colors duration-300">
+                      {el.title}
+                    </h3>
                   </div>
-                  <h4 className="font-serif text-base font-normal tracking-wide text-white mb-2">
-                    {el.title}
-                  </h4>
+                  
+                  {/* description */}
                   <p className="font-sans text-xs font-light text-muted-text leading-relaxed">
                     {el.desc}
                   </p>
                 </div>
 
-                {/* Micro corner details */}
-                <div className="absolute top-2 right-2 h-1.5 w-1.5 border-t border-r border-gold/25 group-hover:border-gold transition-colors" />
-                <div className="absolute bottom-2 left-2 h-1.5 w-1.5 border-b border-l border-gold/25 group-hover:border-gold transition-colors" />
+                {/* Little tick sign in the corner */}
+                <div className="mt-4 flex justify-end">
+                  <span className="text-[10px] font-sans font-bold tracking-widest text-gold opacity-50 group-hover:opacity-100 transition-opacity">
+                    ✓ PREMIUM
+                  </span>
+                </div>
               </motion.div>
             );
           })}
         </div>
+
       </div>
     </section>
   );

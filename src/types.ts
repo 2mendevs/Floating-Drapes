@@ -241,3 +241,37 @@ export const TESTIMONIALS_DATA: Testimonial[] = [
     image: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&q=80'
   }
 ];
+
+export interface SiteConfig {
+  heroLabel: string;
+  heroHeadline1: string;
+  heroHeadlineItalic: string;
+  heroHeadline2: string;
+  heroSub1: string;
+  heroSub2: string;
+  heroDesc: string;
+  aboutTitle: string;
+  aboutText1: string;
+  aboutText2: string;
+  aboutExperience: string;
+  themePreset: 'sapphire' | 'amber' | 'emerald' | 'crimson' | 'obsidian';
+  fontPreset: 'jakarta_playfair' | 'inter_cinzel' | 'outfit_bodoni';
+  brandLogoUrl: string;
+}
+
+export const DEFAULT_SITE_CONFIG: SiteConfig = {
+  heroLabel: 'PREMIUM CURTAINS, WALLPAPERS & BLINDS',
+  heroHeadline1: 'Transforming Your',
+  heroHeadlineItalic: 'Vision',
+  heroHeadline2: 'Into Beautiful Living Spaces',
+  heroSub1: 'Your Vision. Our Craftsmanship.',
+  heroSub2: 'Perfectly Delivered.',
+  heroDesc: 'We help homeowners and businesses elevate their interiors with premium curtains, wallpapers, and blinds that perfectly blend style, comfort, and functionality. Come with a vision. Leave with complete satisfaction.',
+  aboutTitle: 'YOUR COMPANION IN ARTFUL FITTINGS',
+  aboutText1: 'At Floating Drapes, we believe every space tells a story. With over 12 years of expertise in interior furnishing solutions, we help our clients create elegant and personalized spaces through carefully selected curtains, wallpapers, and blinds.',
+  aboutText2: 'Our team of experienced design consultants and skilled installation artisans work in perfect harmony to deliver a seamless, stress-free transformation. From residential estates to commercial showrooms, we bring absolute precision and premium design.',
+  aboutExperience: '12+',
+  themePreset: 'sapphire',
+  fontPreset: 'jakarta_playfair',
+  brandLogoUrl: '/logo.svg'
+};

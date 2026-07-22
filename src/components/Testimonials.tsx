@@ -1,212 +1,213 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { TESTIMONIALS_DATA } from '../types';
-import { Star, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Star, ChevronLeft, ChevronRight, Quote } from 'lucide-react';
+import { motion } from 'motion/react';
 
 export default function Testimonials() {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const testimonials = [
+    {
+      id: 't1',
+      name: 'Priya S.',
+      location: 'Coimbatore',
+      review: 'Floating Drapes completely transformed our home. The quality, service and attention to detail were exceptional.',
+      rating: 5,
+      image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=150&q=80'
+    },
+    {
+      id: 't2',
+      name: 'Karthik R.',
+      location: 'Coimbatore',
+      review: 'Excellent collection and very professional team. They helped us choose the perfect designs.',
+      rating: 5,
+      image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80'
+    },
+    {
+      id: 't3',
+      name: 'Anita M.',
+      location: 'Coimbatore',
+      review: 'From measurement to installation, everything was smooth and hassle-free. Highly recommended!',
+      rating: 5,
+      image: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=150&q=80'
+    }
+  ];
 
-  const handlePrev = () => {
-    setActiveIndex((prev) => (prev === 0 ? TESTIMONIALS_DATA.length - 1 : prev - 1));
+  // For responsive carousel behaviors, let's keep track of sliding although all 3 are fully visible on desktop
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const prevSlide = () => {
+    setCurrentIndex((prev) => (prev === 0 ? testimonials.length - 1 : prev - 1));
   };
 
-  const handleNext = () => {
-    setActiveIndex((prev) => (prev === TESTIMONIALS_DATA.length - 1 ? 0 : prev + 1));
+  const nextSlide = () => {
+    setCurrentIndex((prev) => (prev === testimonials.length - 1 ? 0 : prev + 1));
   };
 
   return (
-    <section 
-      className="bg-luxury-bg py-20 lg:py-28 border-b border-white/5 overflow-hidden text-white relative" 
-      id="testimonials-grid-section"
-    >
-      {/* Editorial Decorative Background Details */}
-      <div className="absolute top-0 right-0 p-8 font-serif text-[120px] text-gold/5 leading-none select-none pointer-events-none">
-        ❋
-      </div>
-      <div className="absolute bottom-0 left-0 p-8 font-serif text-[120px] text-gold/5 leading-none select-none pointer-events-none">
-        ❋
-      </div>
-
+    <section className="bg-zinc-50 py-10 lg:py-14 border-b border-[#EAEAEA]" id="testimonials-section">
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
         
         {/* Header Block */}
-        <div className="mb-14 lg:mb-18 pb-6 border-b border-white/5 text-left">
-          <span className="font-sans text-[10.5px] font-bold tracking-[0.45em] text-gold uppercase mb-3 block">
-            VOICES OF FLOATING DRAPES
+        <div className="text-center max-w-2xl mx-auto mb-16 relative">
+          <span className="font-sans text-[13px] font-semibold tracking-[0.25em] text-[#029BFA] uppercase mb-3 block">
+            TESTIMONIALS
           </span>
-          <h2 className="font-serif text-3xl sm:text-4.5xl font-normal text-white uppercase tracking-wide">
-            Client Impressions
+          <h2 className="font-serif text-[36px] sm:text-[42px] font-bold text-[#021E3B] leading-[1.2] uppercase">
+            What Our Clients Say
           </h2>
-          <div className="h-[2px] w-14 bg-gold mt-5" />
+          <div className="h-[3px] w-12 bg-[#029BFA] mx-auto mt-4" />
         </div>
 
-        {/* Desktop View: 3-Column Grid (visible on md and up) */}
-        <div className="hidden md:grid grid-cols-3 gap-8 lg:gap-10">
-          {TESTIMONIALS_DATA.map((item, idx) => {
-            // Extract first letter of name
-            const initial = item.name.charAt(0);
+        {/* Carousel Container */}
+        <div className="relative mt-12 max-w-6xl mx-auto" id="testimonials-wrapper">
+          
+          {/* NAVIGATION ARROWS */}
+          <div className="absolute top-1/2 -translate-y-1/2 -left-4 sm:-left-12 z-10 hidden sm:block">
+            <button
+              onClick={prevSlide}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#021E3B] border border-[#EAEAEA] hover:border-[#029BFA] hover:text-[#029BFA] transition-all shadow-[0_4px_12px_rgba(0,0,0,0.05)] cursor-pointer"
+              aria-label="Previous slide"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          </div>
 
-            return (
+          <div className="absolute top-1/2 -translate-y-1/2 -right-4 sm:-right-12 z-10 hidden sm:block">
+            <button
+              onClick={nextSlide}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#021E3B] border border-[#EAEAEA] hover:border-[#029BFA] hover:text-[#029BFA] transition-all shadow-[0_4px_12px_rgba(0,0,0,0.05)] cursor-pointer"
+              aria-label="Next slide"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Desktop View: 3 columns */}
+          <div className="hidden lg:grid grid-cols-3 gap-8">
+            {testimonials.map((item) => (
               <motion.div
                 key={item.id}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-50px' }}
-                transition={{ duration: 0.6, delay: idx * 0.15 }}
                 whileHover={{ y: -6 }}
-                className="group relative p-8 bg-white/[0.02] border border-gold/15 hover:border-gold/30 hover:shadow-[0_15px_30px_rgba(196,147,63,0.06)] transition-all duration-300 rounded-none flex flex-col justify-between text-left"
-                id={`testimonial-card-${item.id}`}
+                className="relative bg-white rounded-[20px] p-8 border border-[#EAEAEA] flex flex-col justify-between text-left"
+                style={{ boxShadow: '0px 10px 30px rgba(2,30,59,0.04)' }}
               >
-                {/* Glow Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-b from-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                {/* Decorative Quote Icon */}
+                <div className="absolute top-6 right-6 text-zinc-100 pointer-events-none">
+                  <Quote className="h-10 w-10 fill-current text-[#029BFA]/10" />
+                </div>
 
-                {/* Micro corner details */}
-                <div className="absolute top-2 right-2 h-1.5 w-1.5 border-t border-r border-gold/25 group-hover:border-gold transition-colors duration-300" />
-                <div className="absolute bottom-2 left-2 h-1.5 w-1.5 border-b border-l border-gold/25 group-hover:border-gold transition-colors duration-300" />
+                <div className="space-y-6">
+                  {/* Rating stars */}
+                  <div className="flex items-center space-x-1">
+                    {[...Array(item.rating)].map((_, i) => (
+                      <Star key={i} className="h-4.5 w-4.5 fill-[#029BFA] text-[#029BFA]" />
+                    ))}
+                  </div>
 
-                <div className="space-y-6 relative z-10 flex-grow flex flex-col justify-between">
+                  {/* Review Text */}
+                  <p className="font-sans text-[15px] font-light text-zinc-600 leading-[160%] italic">
+                    "{item.review}"
+                  </p>
+                </div>
+
+                {/* Profile Details Block */}
+                <div className="mt-8 pt-6 border-t border-[#F5F5F5] flex items-center space-x-4">
+                  <div className="h-12 w-12 rounded-full overflow-hidden shrink-0 border border-[#EAEAEA]">
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
                   <div>
-                    {/* Stars & Icon */}
-                    <div className="flex items-center justify-between mb-5">
-                      <div className="flex items-center space-x-1">
-                        {[...Array(item.rating)].map((_, i) => (
-                          <Star key={i} className="h-3.5 w-3.5 fill-gold text-gold" />
-                        ))}
-                      </div>
-                      <span className="font-serif text-3xl text-gold/25 group-hover:text-gold/45 transition-colors duration-300 select-none">❋</span>
-                    </div>
-
-                    {/* Review text */}
-                    <p className="font-serif text-[15px] sm:text-base font-light italic leading-relaxed text-[#DCD4C9] group-hover:text-white transition-colors duration-300">
-                      "{item.review}"
+                    <h4 className="font-serif text-[16px] font-bold text-[#021E3B]">
+                      {item.name}
+                    </h4>
+                    <p className="font-sans text-[11px] font-medium text-[#029BFA] uppercase tracking-wide mt-0.5">
+                      {item.location}
                     </p>
                   </div>
-
-                  {/* Divider */}
-                  <div className="pt-6 border-t border-white/5 mt-6">
-                    {/* User Profile Block with Letter Initial */}
-                    <div className="flex items-center space-x-4">
-                      {/* Avatar container */}
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-gold/30 bg-gold/5 text-gold font-serif text-lg font-medium tracking-tight select-none group-hover:bg-gold group-hover:text-luxury-bg group-hover:border-gold transition-all duration-300">
-                        {initial}
-                      </div>
-                      {/* Name / Info */}
-                      <div>
-                        <h4 className="font-serif text-sm font-medium text-white tracking-wide">
-                          {item.name}
-                        </h4>
-                        <p className="font-sans text-[9px] tracking-widest text-gold uppercase mt-0.5">
-                          {item.location}
-                        </p>
-                        <p className="font-sans text-[10px] text-muted-text mt-0.5 font-light">
-                          {item.role}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
                 </div>
+
               </motion.div>
-            );
-          })}
-        </div>
-
-        {/* Mobile View: Horizontal Carousel Slider (visible only on mobile) */}
-        <div className="md:hidden flex flex-col items-center space-y-6" id="testimonials-mobile-carousel">
-          <div className="relative w-full overflow-hidden min-h-[290px] flex items-stretch">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeIndex}
-                initial={{ opacity: 0, x: 40 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -40 }}
-                transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className="relative w-full p-7 bg-white/[0.02] border border-gold/20 flex flex-col justify-between text-left"
-                id={`testimonial-card-mobile-${TESTIMONIALS_DATA[activeIndex].id}`}
-              >
-                {/* Glow Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-b from-gold/5 to-transparent pointer-events-none" />
-
-                {/* Micro corner details */}
-                <div className="absolute top-2 right-2 h-1.5 w-1.5 border-t border-r border-gold/30" />
-                <div className="absolute bottom-2 left-2 h-1.5 w-1.5 border-b border-l border-gold/30" />
-
-                <div className="space-y-5 relative z-10 flex-grow flex flex-col justify-between">
-                  <div>
-                    {/* Stars & Icon */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-1">
-                        {[...Array(TESTIMONIALS_DATA[activeIndex].rating)].map((_, i) => (
-                          <Star key={i} className="h-3.5 w-3.5 fill-gold text-gold" />
-                        ))}
-                      </div>
-                      <span className="font-serif text-2.5xl text-gold/35 select-none">❋</span>
-                    </div>
-
-                    {/* Review text */}
-                    <p className="font-serif text-[14.5px] font-light italic leading-relaxed text-[#DCD4C9]">
-                      "{TESTIMONIALS_DATA[activeIndex].review}"
-                    </p>
-                  </div>
-
-                  {/* Divider */}
-                  <div className="pt-5 border-t border-white/5 mt-4">
-                    {/* User Profile Block */}
-                    <div className="flex items-center space-x-4">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gold/30 bg-gold/5 text-gold font-serif text-base font-medium select-none">
-                        {TESTIMONIALS_DATA[activeIndex].name.charAt(0)}
-                      </div>
-                      <div>
-                        <h4 className="font-serif text-xs font-medium text-white tracking-wide">
-                          {TESTIMONIALS_DATA[activeIndex].name}
-                        </h4>
-                        <p className="font-sans text-[8px] tracking-widest text-gold uppercase mt-0.5">
-                          {TESTIMONIALS_DATA[activeIndex].location}
-                        </p>
-                        <p className="font-sans text-[9px] text-muted-text mt-0.5 font-light">
-                          {TESTIMONIALS_DATA[activeIndex].role}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            </AnimatePresence>
+            ))}
           </div>
 
-          {/* Elegant Carousel Controls */}
-          <div className="flex items-center justify-between w-full px-2" id="testimonials-mobile-controls">
-            {/* Left Button */}
-            <button
-              onClick={handlePrev}
-              className="flex items-center justify-center h-10 w-10 border border-gold/20 hover:border-gold bg-black/40 text-gold active:scale-95 transition-all"
-              aria-label="Previous testimonial"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
+          {/* Tablet & Mobile View: Carousel */}
+          <div className="lg:hidden" id="testimonials-carousel-mobile">
+            <div className="bg-white rounded-[20px] p-8 border border-[#EAEAEA] flex flex-col justify-between text-left shadow-[0_10px_30px_rgba(2,30,59,0.04)] relative min-h-[300px]">
+              
+              <div className="absolute top-6 right-6 text-zinc-100 pointer-events-none">
+                <Quote className="h-10 w-10 fill-current text-[#029BFA]/10" />
+              </div>
 
-            {/* Pagination Dots */}
-            <div className="flex items-center space-x-2">
-              {TESTIMONIALS_DATA.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setActiveIndex(idx)}
-                  className={`h-1.5 transition-all duration-300 ${
-                    idx === activeIndex ? 'w-5 bg-gold' : 'w-1.5 bg-gold/20'
-                  }`}
-                  aria-label={`Go to testimonial ${idx + 1}`}
-                />
-              ))}
+              <div className="space-y-5">
+                <div className="flex items-center space-x-1">
+                  {[...Array(testimonials[currentIndex].rating)].map((_, i) => (
+                    <Star key={i} className="h-4.5 w-4.5 fill-[#029BFA] text-[#029BFA]" />
+                  ))}
+                </div>
+
+                <p className="font-sans text-[15px] font-light text-zinc-600 leading-[160%] italic">
+                  "{testimonials[currentIndex].review}"
+                </p>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-[#F5F5F5] flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="h-12 w-12 rounded-full overflow-hidden shrink-0 border border-[#EAEAEA]">
+                    <img
+                      src={testimonials[currentIndex].image}
+                      alt={testimonials[currentIndex].name}
+                      className="h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  <div>
+                    <h4 className="font-serif text-[16px] font-bold text-[#021E3B]">
+                      {testimonials[currentIndex].name}
+                    </h4>
+                    <p className="font-sans text-[11px] font-medium text-[#029BFA] uppercase tracking-wide mt-0.5">
+                      {testimonials[currentIndex].location}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Mobile controls inside card */}
+                <div className="flex items-center space-x-2 sm:hidden">
+                  <button
+                    onClick={prevSlide}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-[#FFFFFF] border border-[#EAEAEA] text-[#021E3B]"
+                    aria-label="Previous"
+                  >
+                    <ChevronLeft className="h-4.5 w-4.5" />
+                  </button>
+                  <button
+                    onClick={nextSlide}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-[#FFFFFF] border border-[#EAEAEA] text-[#021E3B]"
+                    aria-label="Next"
+                  >
+                    <ChevronRight className="h-4.5 w-4.5" />
+                  </button>
+                </div>
+              </div>
+
             </div>
-
-            {/* Right Button */}
-            <button
-              onClick={handleNext}
-              className="flex items-center justify-center h-10 w-10 border border-gold/20 hover:border-gold bg-black/40 text-gold active:scale-95 transition-all"
-              aria-label="Next testimonial"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
           </div>
+
+          {/* Dots Indicator */}
+          <div className="flex justify-center items-center space-x-2 mt-8 lg:hidden">
+            {testimonials.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setCurrentIndex(idx)}
+                className={`h-2.5 rounded-full transition-all duration-300 ${
+                  currentIndex === idx ? 'w-6 bg-[#029BFA]' : 'w-2.5 bg-zinc-200'
+                }`}
+                aria-label={`Go to slide ${idx + 1}`}
+              />
+            ))}
+          </div>
+
         </div>
 
       </div>

@@ -24,7 +24,7 @@ export default function SignatureCollections({ openBookingModal }: SignatureProp
   };
 
   return (
-    <section className="bg-[#0A0A0A] py-20 lg:py-28 border-b border-white/5 text-white" id="signature-collections-section">
+    <section className="bg-luxury-sec py-20 lg:py-28 border-b border-white/5 text-white" id="signature-collections-section">
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
         
         {/* Header Block */}

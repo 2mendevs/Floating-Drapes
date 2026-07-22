@@ -1,194 +1,206 @@
-import { useState } from 'react';
-import { Menu, X, ArrowRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Menu, X, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface HeaderProps {
   activePage: string;
   setActivePage: (page: string) => void;
   openBookingModal: () => void;
+  brandLogoUrl?: string;
 }
 
-export default function Header({ activePage, setActivePage, openBookingModal }: HeaderProps) {
+export default function Header({ activePage, setActivePage, openBookingModal, brandLogoUrl = '/logo.svg' }: HeaderProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  // Track scrolling to apply sticky effects if desired, though the background is always solid white as requested
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 20) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const navItems = [
-    { id: 'curtains', label: 'CURTAINS' },
-    { id: 'wallpapers', label: 'WALLPAPERS' },
-    { id: 'signature', label: 'COLLECTIONS' },
-    { id: 'portfolio', label: 'OUR WORK' },
-    { id: 'about', label: 'ABOUT US' }
+    { label: 'Home', id: 'home', targetId: 'home-hero' },
+    { label: 'About Us', id: 'about', targetId: 'about-us-section' },
+    { label: 'Products', id: 'products', targetId: 'categories-overview-section' },
+    { label: 'Transformations', id: 'gallery', targetId: 'before-after-section' },
+    { label: 'Services', id: 'services', targetId: 'process-section' },
+    { label: 'Testimonials', id: 'testimonials', targetId: 'testimonials-section' },
+    { label: 'Contact Us', id: 'contact', targetId: 'cta-banner-section' },
   ];
 
-  const handleNavClick = (id: string) => {
-    setActivePage(id);
+  const handleNavClick = (id: string, targetId: string) => {
     setIsOpen(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (activePage !== 'home') {
+      setActivePage('home');
+      setTimeout(() => {
+        const el = document.getElementById(targetId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }, 100);
+    } else {
+      const el = document.getElementById(targetId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
   };
 
   return (
-    <header className="absolute top-0 left-0 w-full z-50 border-b border-gold/10 bg-black/15 backdrop-blur-[4px] transition-all duration-300">
-      <div className="mx-auto flex h-24 max-w-7xl items-center justify-between px-6 sm:px-8 lg:px-12">
-        {/* LOGO */}
+    <header 
+      className="sticky top-0 left-0 w-full z-50 bg-[#FFFFFF] transition-all duration-300"
+      style={{ 
+        height: '90px',
+        boxShadow: '0px 8px 30px rgba(0,0,0,0.05)',
+        borderBottom: '1px solid #EAEAEA'
+      }}
+      id="main-sticky-header"
+    >
+      <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-6 sm:px-8 lg:px-12">
+        
+        {/* LOGO LEFT */}
         <div 
-          onClick={() => handleNavClick('home')} 
-          className="group flex cursor-pointer items-center space-x-3.5"
+          onClick={() => {
+            setActivePage('home');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }} 
+          className="group flex cursor-pointer items-center"
           id="brand-logo-container"
         >
-          {/* Custom Luxury Gold Crest Icon */}
-          <div className="relative flex h-11 w-11 items-center justify-center rounded-full border border-gold/35 bg-black/40 p-1.5 transition-all duration-500 group-hover:border-gold group-hover:scale-105">
-            <svg className="h-full w-full text-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-              <path d="M12 2C12 2 9 7 9 12C9 17 12 22 12 22C12 22 15 17 15 12C15 7 12 2 12 2Z" />
-              <path d="M2 12C2 12 7 9 12 9C17 9 22 12 22 12C22 12 17 15 12 15C7 15 2 12 2 12Z" />
-              <circle cx="12" cy="12" r="2.5" fill="currentColor" className="text-gold" />
-            </svg>
-            <div className="absolute inset-0.5 rounded-full border border-dashed border-gold/20 group-hover:border-gold/40 transition-colors" />
-          </div>
-          
-          <div className="flex flex-col">
-            <span className="font-serif text-lg sm:text-xl font-normal tracking-[0.15em] sm:tracking-[0.2em] text-white leading-none transition-colors duration-300 group-hover:text-gold uppercase">
-              Floating Drapes
-            </span>
-            <span className="font-sans text-[6.5px] sm:text-[7.5px] font-bold tracking-[0.3em] sm:tracking-[0.45em] text-gold uppercase mt-1">
-              CURTAINS & WALLPAPERS
-            </span>
-          </div>
+          <img 
+            src={brandLogoUrl} 
+            alt="Floating Drapes" 
+            className="h-[26px] sm:h-[30px] w-auto object-contain transition-transform duration-300 group-hover:scale-102"
+            id="brand-logo-img"
+          />
         </div>
 
-        {/* DESKTOP NAVIGATION */}
-        <nav className="hidden lg:flex items-center space-x-9">
+        {/* MENU CENTER */}
+        <nav className="hidden lg:flex items-center space-x-7">
           {navItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => handleNavClick(item.id)}
-              className="relative py-2 text-[10.5px] font-bold tracking-[0.22em] uppercase text-muted-text hover:text-white transition-colors duration-300"
+              onClick={() => handleNavClick(item.id, item.targetId)}
+              className="relative py-2 text-[14px] font-medium tracking-normal text-[#111111] hover:text-[#029BFA] transition-colors duration-300 font-sans cursor-pointer"
               id={`nav-link-${item.id}`}
             >
               {item.label}
-              {activePage === item.id && (
-                <motion.div
-                  layoutId="activeNavLine"
-                  className="absolute bottom-0 left-0 h-[1.5px] w-full bg-gold"
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                />
+              {activePage === 'home' && (
+                <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-[#029BFA] transition-all duration-300 hover:w-full" />
               )}
             </button>
           ))}
         </nav>
 
-        {/* CTA BUTTONS & HAMBURGER */}
+        {/* PHONE CTA RIGHT */}
         <div className="flex items-center space-x-4">
+          <a
+            href="tel:+918884009398"
+            className="hidden md:flex items-center space-x-3 group"
+            id="header-phone-cta"
+            title="Call Us Now"
+          >
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#029BFA] text-white shadow-[0_4px_12px_rgba(2,155,250,0.25)] group-hover:scale-105 transition-transform">
+              <Phone className="h-5 w-5 fill-current text-white" />
+            </div>
+            <div className="flex flex-col text-left">
+              <span className="font-serif text-[14px] font-bold text-[#021E3B] leading-none tracking-normal">
+                Call Us Now
+              </span>
+              <span className="font-sans text-[9px] font-semibold text-[#029BFA] uppercase mt-1 leading-none">
+                Direct Support
+              </span>
+            </div>
+          </a>
+
+          {/* Booking Button for easy access */}
           <button
             onClick={openBookingModal}
-            className="group relative hidden sm:flex overflow-hidden rounded-none border border-gold/40 bg-black/20 px-5.5 py-3 text-[10px] font-bold tracking-[0.25em] text-white transition-all duration-300 hover:border-gold hover:bg-gold hover:text-luxury-bg uppercase"
-            id="header-cta-booking"
+            className="bg-[#029BFA] hover:bg-[#0082db] text-white text-[12px] font-bold px-4 py-2.5 rounded-full transition-all tracking-wide shadow-[0_4px_12px_rgba(2,155,250,0.2)] hover:shadow-[0_6px_16px_rgba(2,155,250,0.3)] cursor-pointer"
           >
-            <span className="relative z-10 flex items-center space-x-2.5">
-              <span>BOOK CONSULTATION</span>
-              <ArrowRight className="h-3 w-3 text-gold group-hover:text-luxury-bg transition-colors" />
-            </span>
+            Estimate
           </button>
 
-          {/* Elegant Circular Drawer Trigger */}
+          {/* Drawer Trigger on Mobile/Tablet */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 hover:border-gold bg-black/40 text-white hover:text-gold transition-all duration-300"
+            className="flex lg:hidden h-10 w-10 items-center justify-center rounded-full border border-[#EAEAEA] hover:border-[#029BFA] text-[#021E3B] hover:text-[#029BFA] transition-all duration-300 cursor-pointer"
             aria-label="Toggle Menu"
             id="menu-drawer-trigger"
           >
-            {isOpen ? <X className="h-4.5 w-4.5" /> : <Menu className="h-4.5 w-4.5" />}
+            {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </div>
 
-      {/* LUXURY SLIDE-IN OVERLAY / MENU DRAWER */}
+      {/* MOBILE NAV OVERLAY */}
       <AnimatePresence>
         {isOpen && (
           <>
-            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.7 }}
+              animate={{ opacity: 0.5 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
-              className="fixed inset-0 z-40 bg-black backdrop-blur-sm"
+              className="fixed inset-0 top-[90px] z-40 bg-black/50 backdrop-blur-sm lg:hidden"
             />
 
-            {/* Sidebar drawer panel */}
             <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-luxury-sec border-l border-gold/15 p-8 sm:p-12 flex flex-col justify-between shadow-[0_0_50px_rgba(0,0,0,0.8)]"
-              id="luxury-nav-drawer"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.25 }}
+              className="fixed top-[90px] left-0 right-0 z-50 bg-[#FFFFFF] border-b border-[#EAEAEA] px-6 py-6 shadow-[0_10px_25px_rgba(0,0,0,0.1)] lg:hidden flex flex-col space-y-4"
+              id="mobile-nav-panel"
             >
-              <div>
-                <div className="flex items-center justify-between pb-8 border-b border-white/5">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-gold/40 p-1">
-                      <svg className="h-full w-full text-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-                        <path d="M12 2C12 2 9 7 9 12C9 17 12 22 12 22C12 22 15 17 15 12C15 7 12 2 12 2Z" />
-                      </svg>
-                    </div>
-                    <span className="font-serif text-lg tracking-widest text-white">FLOATING DRAPES</span>
+              {navItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavClick(item.id, item.targetId)}
+                  className="w-full text-left py-2 text-[15px] font-medium text-[#111111] hover:text-[#029BFA] transition-colors font-sans border-b border-[#F5F5F5] last:border-0 cursor-pointer"
+                >
+                  {item.label}
+                </button>
+              ))}
+
+              <div className="pt-4 flex items-center justify-between">
+                <a
+                  href="tel:+918884009398"
+                  className="flex items-center space-x-3 group"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#029BFA] text-white">
+                    <Phone className="h-4.5 w-4.5 fill-current" />
                   </div>
-                  
-                  <button
-                    onClick={() => setIsOpen(false)}
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 hover:border-gold text-muted-text hover:text-white transition-all"
-                  >
-                    <X className="h-4.5 w-4.5" />
-                  </button>
-                </div>
-
-                {/* Vertical Navigation items */}
-                <div className="flex flex-col space-y-6 mt-12">
-                  {/* Home nav element */}
-                  <button
-                    onClick={() => handleNavClick('home')}
-                    className={`text-left font-serif text-2xl tracking-wide ${activePage === 'home' ? 'text-gold font-medium' : 'text-white hover:text-gold'} transition-colors`}
-                  >
-                    Home Overview
-                  </button>
-                  {navItems.map((item, idx) => (
-                    <motion.button
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                      key={item.id}
-                      onClick={() => handleNavClick(item.id)}
-                      className={`text-left font-serif text-2xl tracking-wide ${
-                        activePage === item.id ? 'text-gold font-medium' : 'text-white hover:text-gold'
-                      } transition-colors`}
-                    >
-                      {item.label.charAt(0) + item.label.slice(1).toLowerCase()}
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Bottom contact info in drawer */}
-              <div className="pt-8 border-t border-white/5 space-y-6">
-                <div>
-                  <span className="text-[9px] font-bold tracking-widest text-gold uppercase block mb-1">Inquire Directly</span>
-                  <a href="tel:+919876543210" className="font-serif text-lg text-white hover:text-gold transition-colors">
-                    +91 98765 43210
-                  </a>
-                </div>
-                <div>
-                  <span className="text-[9px] font-bold tracking-widest text-gold uppercase block mb-1">Our Studio Address</span>
-                  <p className="font-sans text-xs text-muted-text leading-relaxed font-light">
-                    123 Design Street, Indiranagar,<br />Bangalore, KA 560038
-                  </p>
-                </div>
+                  <div className="flex flex-col text-left">
+                    <span className="font-serif text-[14px] font-bold text-[#021E3B] leading-none">
+                      Call Us Now
+                    </span>
+                    <span className="font-sans text-[10px] font-semibold text-[#029BFA] uppercase mt-1 leading-none">
+                      Direct Support
+                    </span>
+                  </div>
+                </a>
+                
                 <button
                   onClick={() => {
                     setIsOpen(false);
                     openBookingModal();
                   }}
-                  className="w-full bg-gold hover:bg-gold-soft text-luxury-bg py-4 text-xs font-bold tracking-[0.25em] uppercase transition-colors"
+                  className="bg-[#029BFA] text-white font-sans text-xs font-bold px-4 py-2.5 rounded-full"
                 >
-                  SECURE PRIVATE TRIAL
+                  Free Estimate
                 </button>
               </div>
             </motion.div>

@@ -15,7 +15,7 @@ export default function ContactForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.phone || !formData.email) {
       alert('Please fill out the required Fields (Name, Phone, Email)');
@@ -24,8 +24,25 @@ export default function ContactForm() {
 
     setIsSubmitting(true);
 
-    // Simulate luxury API submit
-    setTimeout(() => {
+    try {
+      // Dispatch server-side SMTP email notification to floatingdrips@gmail.com
+      const res = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formType: 'Enquiry Contact Form',
+          formData: formData,
+          result: `Project Classification: ${formData.projectType}, Location: ${formData.location || 'Not specified'}, Message: ${formData.message || 'None'}`
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server returned HTTP ${res.status}`);
+      }
+
+      const responseData = await res.json();
+      console.log('Server dispatched enquiry details:', responseData);
+
       const submissions = JSON.parse(localStorage.getItem('floatingdrapes_contacts') || '[]');
       submissions.push({
         id: 'c-' + Date.now(),
@@ -34,7 +51,6 @@ export default function ContactForm() {
       });
       localStorage.setItem('floatingdrapes_contacts', JSON.stringify(submissions));
 
-      setIsSubmitting(false);
       setIsSuccess(true);
       
       // Clear fields
@@ -46,7 +62,20 @@ export default function ContactForm() {
         location: '',
         message: '',
       });
-    }, 1500);
+    } catch (err) {
+      console.error('Failed to dispatch contact notification:', err);
+      // Fallback gracefully to keep client-side functioning if server is down or unconfigured
+      const submissions = JSON.parse(localStorage.getItem('floatingdrapes_contacts') || '[]');
+      submissions.push({
+        id: 'c-' + Date.now(),
+        ...formData,
+        timestamp: new Date().toISOString()
+      });
+      localStorage.setItem('floatingdrapes_contacts', JSON.stringify(submissions));
+      setIsSuccess(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const projectTypes = [
@@ -92,8 +121,8 @@ export default function ContactForm() {
                 </div>
                 <div>
                   <span className="block text-[9px] font-bold tracking-widest text-gold uppercase">DIRECT CONCIERGE</span>
-                  <a href="tel:+18005558900" className="font-serif text-sm text-white hover:text-gold transition-colors">+1 (800) 555-8900</a>
-                  <p className="text-[10px] text-muted-text mt-0.5">Mon - Sun: 8am - 9pm EST</p>
+                  <a href="tel:+918884009398" className="font-serif text-sm text-white hover:text-gold transition-colors">+91 88840 09398</a>
+                  <p className="text-[10px] text-muted-text mt-0.5">Mon - Sun: 10am - 8pm IST</p>
                 </div>
               </div>
 
@@ -104,7 +133,7 @@ export default function ContactForm() {
                 </div>
                 <div>
                   <span className="block text-[9px] font-bold tracking-widest text-gold uppercase">DIGITAL ADVISORY</span>
-                  <a href="mailto:hello@floatingdrapes.design" className="font-serif text-sm text-white hover:text-gold transition-colors">hello@floatingdrapes.design</a>
+                  <a href="mailto:floatingdrapes@gmail.com" className="font-serif text-sm text-white hover:text-gold transition-colors">floatingdrapes@gmail.com</a>
                   <p className="text-[10px] text-muted-text mt-0.5">Response within 2 hours</p>
                 </div>
               </div>

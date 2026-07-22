@@ -21,13 +21,13 @@ export default function WhatsAppButton() {
     setTimeout(() => {
       setMessages((prev) => [
         ...prev, 
-        { text: "Thank you for inquiring about our luxury catalog. A senior stylist has been notified of your message. You can also contact us directly at +91 98765 43210 for an immediate response.", isUser: false }
+        { text: "Thank you for inquiring about our luxury catalog. A senior stylist has been notified of your message. You can also contact us directly at +91 88840 09398 for an immediate response.", isUser: false }
       ]);
     }, 1200);
 
     // Open real whatsapp link in window
     const encodedText = encodeURIComponent(userText);
-    const whatsappUrl = `https://wa.me/919876543210?text=${encodedText}`;
+    const whatsappUrl = `https://wa.me/918884009398?text=${encodedText}`;
     window.open(whatsappUrl, '_blank');
   };
 
@@ -42,7 +42,7 @@ export default function WhatsAppButton() {
     }, 1000);
 
     const encodedText = encodeURIComponent(text);
-    const whatsappUrl = `https://wa.me/919876543210?text=${encodedText}`;
+    const whatsappUrl = `https://wa.me/918884009398?text=${encodedText}`;
     window.open(whatsappUrl, '_blank');
   };
 
@@ -73,7 +73,7 @@ export default function WhatsAppButton() {
             id="whatsapp-chat-box"
           >
             {/* Header of Chat */}
-            <div className="bg-[#0f0f0f] p-4 border-b border-gold/15 flex items-center justify-between">
+            <div className="bg-luxury-bg p-4 border-b border-gold/15 flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <div className="h-9 w-9 rounded-full bg-gold/10 border border-gold flex items-center justify-center text-gold">
                   <Sparkles className="h-4.5 w-4.5" />

@@ -3,23 +3,35 @@ import Header from './components/Header';
 import Hero from './components/Hero';
 import CurtainsWallpapersSection from './components/CurtainsWallpapersSection';
 import SignatureCollections from './components/SignatureCollections';
-import PortfolioSection from './components/PortfolioSection';
+import WhyChooseUs from './components/WhyChooseUs';
 import ProcessSection from './components/ProcessSection';
-import PremiumFeaturesStrip from './components/PremiumFeaturesStrip';
+import CustomizationSection from './components/CustomizationSection';
+import BeforeAfterSection from './components/BeforeAfterSection';
 import Testimonials from './components/Testimonials';
 import CTASection from './components/CTASection';
 import Footer from './components/Footer';
 import BookingModal from './components/BookingModal';
 import ContactForm from './components/ContactForm';
 import WhatsAppButton from './components/WhatsAppButton';
+import BackToHomeButton from './components/BackToHomeButton';
 
 import { 
-  CURTAINS_DATA, 
-  WALLPAPERS_DATA, 
   SIGNATURE_COLLECTIONS, 
   CurtainItem, 
-  WallpaperItem 
+  WallpaperItem,
+  SiteConfig,
+  DEFAULT_SITE_CONFIG
 } from './types';
+
+import AdminPanel from './components/AdminPanel';
+import ThemeInjector from './components/ThemeInjector';
+
+import {
+  EXTENDED_CURTAINS_DATA,
+  EXTENDED_WALLPAPERS_DATA,
+  EXTENDED_BLINDS_DATA,
+  BlindItem
+} from './data/productsData';
 
 import { 
   Sparkles, 
@@ -42,7 +54,77 @@ export default function App() {
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [selectedCurtainFilter, setSelectedCurtainFilter] = useState<string>('All');
   const [selectedWallpaperFilter, setSelectedWallpaperFilter] = useState<string>('All');
+  const [selectedBlindFilter, setSelectedBlindFilter] = useState<string>('All');
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
+
+  // Dynamic Site Customizer Config & Database States
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => {
+    const saved = localStorage.getItem('floatingdrapes_config');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return DEFAULT_SITE_CONFIG;
+  });
+
+  const [curtains, setCurtains] = useState<CurtainItem[]>(() => {
+    const saved = localStorage.getItem('floatingdrapes_curtains');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return EXTENDED_CURTAINS_DATA;
+  });
+
+  const [wallpapers, setWallpapers] = useState<WallpaperItem[]>(() => {
+    const saved = localStorage.getItem('floatingdrapes_wallpapers');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return EXTENDED_WALLPAPERS_DATA;
+  });
+
+  const [blinds, setBlinds] = useState<BlindItem[]>(() => {
+    const saved = localStorage.getItem('floatingdrapes_blinds');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return EXTENDED_BLINDS_DATA;
+  });
+
+  const [adminPanelOpen, setAdminPanelOpen] = useState(false);
+
+  // Keyboard shortcut listener for Ctrl + M / Cmd + M
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check if Ctrl + M is pressed
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'm') {
+        e.preventDefault();
+        setAdminPanelOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleUpdateConfig = (newConfig: SiteConfig) => {
+    setSiteConfig(newConfig);
+    localStorage.setItem('floatingdrapes_config', JSON.stringify(newConfig));
+  };
 
   // Scroll to top when changing pages
   useEffect(() => {
@@ -51,18 +133,28 @@ export default function App() {
 
   const openWhatsAppDirect = () => {
     const encodedText = encodeURIComponent("Hi, I'm interested in your luxury curtain and wallpaper services.");
-    window.open(`https://wa.me/919876543210?text=${encodedText}`, '_blank');
+    window.open(`https://wa.me/918884009398?text=${encodedText}`, '_blank');
+  };
+
+  const handleInquireWhatsApp = (productName: string, category: string) => {
+    const text = encodeURIComponent(`Hi, I am interested in inquiring about "${productName}" from your ${category} collection.`);
+    window.open(`https://wa.me/918884009398?text=${text}`, '_blank');
   };
 
   // Curtains Page filtered datasets
   const filteredCurtains = selectedCurtainFilter === 'All'
-    ? CURTAINS_DATA
-    : CURTAINS_DATA.filter(item => item.priceClass === selectedCurtainFilter);
+    ? curtains
+    : curtains.filter(item => item.priceClass === selectedCurtainFilter);
 
   // Wallpapers Page filtered datasets
   const filteredWallpapers = selectedWallpaperFilter === 'All'
-    ? WALLPAPERS_DATA
-    : WALLPAPERS_DATA.filter(item => item.style === selectedWallpaperFilter);
+    ? wallpapers
+    : wallpapers.filter(item => item.style === selectedWallpaperFilter);
+
+  // Blinds Page filtered datasets
+  const filteredBlinds = selectedBlindFilter === 'All'
+    ? blinds
+    : blinds.filter(item => item.style === selectedBlindFilter);
 
   return (
     <div className="min-h-screen bg-luxury-bg text-white selection:bg-gold/30 flex flex-col justify-between" id="floatingdrapes-main-container">
@@ -72,6 +164,7 @@ export default function App() {
         activePage={activePage} 
         setActivePage={setActivePage} 
         openBookingModal={() => setBookingModalOpen(true)} 
+        brandLogoUrl={siteConfig.brandLogoUrl}
       />
 
       {/* RENDER PAGES BASED ON STATE */}
@@ -90,17 +183,19 @@ export default function App() {
               <Hero 
                 onExplore={() => setActivePage('signature')} 
                 openBookingModal={() => setBookingModalOpen(true)} 
+                siteConfig={siteConfig}
               />
               <CurtainsWallpapersSection 
                 onSelectCategory={(cat) => {
                   if (cat === 'curtains') setActivePage('curtains');
                   if (cat === 'wallpapers') setActivePage('wallpapers');
+                  if (cat === 'blinds') setActivePage('blinds');
                 }} 
               />
-              <SignatureCollections openBookingModal={() => setBookingModalOpen(true)} />
-              <PortfolioSection />
+              <WhyChooseUs />
               <ProcessSection />
-              <PremiumFeaturesStrip />
+              <CustomizationSection openBookingModal={() => setBookingModalOpen(true)} />
+              <BeforeAfterSection />
               <Testimonials />
               <CTASection 
                 openBookingModal={() => setBookingModalOpen(true)} 
@@ -120,6 +215,7 @@ export default function App() {
               id="curtains-page"
             >
               <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
+                <BackToHomeButton onClick={() => setActivePage('home')} />
                 
                 {/* Intro Heading */}
                 <div className="text-center mb-16">
@@ -175,8 +271,8 @@ export default function App() {
                       <div className="p-6 sm:p-8 md:w-1/2 flex flex-col justify-between">
                         <div>
                           <span className="text-[10px] font-bold tracking-[0.2em] text-gold uppercase mb-1 block">✦ BESPOKE WEAVE</span>
-                          <h3 className="font-serif text-xl font-normal text-white">{item.name}</h3>
-                          <p className="font-sans text-xs font-light text-muted-text mt-3 leading-relaxed">
+                          <h3 className="font-serif text-xl font-bold text-white">{item.name}</h3>
+                          <p className="font-sans text-xs font-light text-muted-text mt-3 leading-relaxed line-clamp-2 h-10">
                             {item.description}
                           </p>
                         </div>
@@ -194,15 +290,15 @@ export default function App() {
                         </div>
 
                         {/* Action request */}
-                        <div className="mt-8 pt-4 flex items-center justify-between">
+                        <div className="mt-8 pt-4 flex items-center justify-between border-t border-gold/10">
                           <button
-                            onClick={() => setBookingModalOpen(true)}
-                            className="text-[10px] font-bold tracking-[0.2em] text-gold group-hover:text-white transition-colors uppercase flex items-center space-x-1"
+                            onClick={() => handleInquireWhatsApp(item.name, 'Curtains')}
+                            className="bg-gold hover:bg-gold-soft text-luxury-bg px-4 py-2 text-[10px] font-bold tracking-wider uppercase transition-colors flex items-center space-x-1"
                           >
-                            <span>REQUEST TRIAL</span>
+                            <span>INQUIRE NOW</span>
                             <ArrowRight className="h-3 w-3" />
                           </button>
-                          <span className="text-[9px] text-muted-text italic">Calibrated Installation Incl.</span>
+                          <span className="text-[9px] text-muted-text italic">Free Installation</span>
                         </div>
                       </div>
                     </div>
@@ -240,6 +336,7 @@ export default function App() {
               id="wallpapers-page"
             >
               <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
+                <BackToHomeButton onClick={() => setActivePage('home')} />
                 
                 {/* Intro Heading */}
                 <div className="text-center mb-16">
@@ -295,8 +392,8 @@ export default function App() {
                       <div className="p-6 sm:p-8 md:w-1/2 flex flex-col justify-between">
                         <div>
                           <span className="text-[10px] font-bold tracking-[0.2em] text-gold uppercase mb-1 block">✦ FINE FINISH</span>
-                          <h3 className="font-serif text-xl font-normal text-white">{item.name}</h3>
-                          <p className="font-sans text-xs font-light text-muted-text mt-3 leading-relaxed">
+                          <h3 className="font-serif text-xl font-bold text-white">{item.name}</h3>
+                          <p className="font-sans text-xs font-light text-muted-text mt-3 leading-relaxed line-clamp-2 h-10">
                             {item.description}
                           </p>
                         </div>
@@ -314,15 +411,15 @@ export default function App() {
                         </div>
 
                         {/* Action request */}
-                        <div className="mt-8 pt-4 flex items-center justify-between">
+                        <div className="mt-8 pt-4 flex items-center justify-between border-t border-gold/10">
                           <button
-                            onClick={() => setBookingModalOpen(true)}
-                            className="text-[10px] font-bold tracking-[0.2em] text-gold group-hover:text-white transition-colors uppercase flex items-center space-x-1"
+                            onClick={() => handleInquireWhatsApp(item.name, 'Wallpapers')}
+                            className="bg-gold hover:bg-gold-soft text-luxury-bg px-4 py-2 text-[10px] font-bold tracking-wider uppercase transition-colors flex items-center space-x-1"
                           >
-                            <span>ORDER SWATCH</span>
+                            <span>INQUIRE NOW</span>
                             <ArrowRight className="h-3 w-3" />
                           </button>
-                          <span className="text-[9px] text-muted-text italic">Seamless Aligned Fit</span>
+                          <span className="text-[9px] text-muted-text italic">Seamless Fit</span>
                         </div>
                       </div>
                     </div>
@@ -332,7 +429,7 @@ export default function App() {
                 {/* Installation Promise block */}
                 <div className="mt-20 bg-luxury-sec border border-gold/15 p-8 sm:p-12 relative">
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
-                    <div className="lg:col-span-2">
+                    <div className="lg:col-span-2 text-left">
                       <span className="font-sans text-[10px] font-bold tracking-[0.3em] text-gold uppercase block mb-2">SURGICAL APPLICATION</span>
                       <h3 className="font-serif text-2xl text-white mb-4">Flawless Pattern Alignment</h3>
                       <p className="font-sans text-xs text-muted-text leading-relaxed">
@@ -354,6 +451,132 @@ export default function App() {
             </motion.div>
           )}
 
+          {/* 3.5. BLINDS COLLECTION PAGE */}
+          {activePage === 'blinds' && (
+            <motion.div
+              key="blinds"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              className="py-12 lg:py-20 bg-luxury-bg"
+              id="blinds-page"
+            >
+              <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
+                <BackToHomeButton onClick={() => setActivePage('home')} />
+                
+                {/* Intro Heading */}
+                <div className="text-center mb-16">
+                  <span className="font-sans text-[10px] font-bold tracking-[0.4em] text-gold uppercase mb-2 block">✦ ELITE WINDOW SHADING ✦</span>
+                  <h1 className="font-serif text-4xl sm:text-5xl font-light text-white">
+                    Premium <span className="italic text-gold">Blinds</span>
+                  </h1>
+                  <p className="font-sans text-xs font-light text-muted-text max-w-xl mx-auto mt-4 leading-relaxed">
+                    Exquisite hand-woven bamboo, sleek cedar woods, and intelligent motorized roller panels tailored to balance solar glare and architectural geometry.
+                  </p>
+                  <div className="mx-auto h-0.5 w-16 bg-gold mt-6" />
+                </div>
+
+                {/* Filter Controls */}
+                <div className="flex flex-wrap justify-center items-center gap-3 mb-12">
+                  {['All', 'Roman', 'Roller', 'Venetian', 'Motorized', 'Zebra'].map((style) => (
+                    <button
+                      key={style}
+                      onClick={() => setSelectedBlindFilter(style)}
+                      className={`px-6 py-2.5 text-[10px] font-bold tracking-[0.25em] uppercase transition-all duration-300 rounded-none ${
+                        selectedBlindFilter === style
+                          ? 'bg-gold text-luxury-bg shadow-[0_0_15px_rgba(200,165,106,0.2)]'
+                          : 'border border-white/10 text-muted-text hover:border-gold/30 hover:text-white'
+                      }`}
+                    >
+                      {style}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Grid Displays */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12" id="blinds-grid">
+                  {filteredBlinds.map((item: BlindItem) => (
+                    <div 
+                      key={item.id} 
+                      className="group border border-gold/15 bg-luxury-sec flex flex-col md:flex-row overflow-hidden transition-all duration-500 hover:border-gold/40 hover:shadow-[0_0_30px_rgba(200,165,106,0.1)]"
+                      id={`blind-item-${item.id}`}
+                    >
+                      {/* Product Image */}
+                      <div className="md:w-1/2 aspect-[4/3] md:aspect-auto overflow-hidden relative">
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                          referrerPolicy="no-referrer"
+                        />
+                        <span className="absolute top-4 left-4 bg-black/70 backdrop-blur-md border border-gold/20 text-[9px] font-bold tracking-[0.2em] text-gold px-3 py-1 uppercase">
+                          {item.style}
+                        </span>
+                      </div>
+
+                      {/* Details Content */}
+                      <div className="p-6 sm:p-8 md:w-1/2 flex flex-col justify-between">
+                        <div>
+                          <span className="text-[10px] font-bold tracking-[0.2em] text-gold uppercase mb-1 block">✦ MODERN CONTROLS</span>
+                          <h3 className="font-serif text-xl font-bold text-white">{item.name}</h3>
+                          <p className="font-sans text-xs font-light text-muted-text mt-3 leading-relaxed line-clamp-2 h-10">
+                            {item.description}
+                          </p>
+                        </div>
+
+                        {/* List of Materials */}
+                        <div className="mt-6 pt-4 border-t border-gold/10">
+                          <span className="text-[9px] font-bold tracking-widest text-gold uppercase block mb-2">Composed Of:</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {item.materials.map((mat, i) => (
+                              <span key={i} className="bg-white/5 border border-white/10 text-[9px] px-2 py-1 text-cream uppercase">
+                                {mat}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Action request */}
+                        <div className="mt-8 pt-4 flex items-center justify-between border-t border-gold/10">
+                          <button
+                            onClick={() => handleInquireWhatsApp(item.name, 'Blinds')}
+                            className="bg-gold hover:bg-gold-soft text-luxury-bg px-4 py-2 text-[10px] font-bold tracking-wider uppercase transition-colors flex items-center space-x-1"
+                          >
+                            <span>INQUIRE NOW</span>
+                            <ArrowRight className="h-3 w-3" />
+                          </button>
+                          <span className="text-[9px] text-muted-text italic">Calibrated Fit</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Blind Smart Tech Integration Block */}
+                <div className="mt-20 bg-luxury-sec border border-gold/15 p-8 sm:p-12 relative">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+                    <div className="lg:col-span-2 text-left">
+                      <span className="font-sans text-[10px] font-bold tracking-[0.3em] text-gold uppercase block mb-2">INTELLIGENT LIVING</span>
+                      <h3 className="font-serif text-2xl text-white mb-4">Precision Motorized Smart Systems</h3>
+                      <p className="font-sans text-xs text-muted-text leading-relaxed">
+                        Control glare and heat levels dynamically. Our blinds integrate natively with Somfy, Lutron, and premium automated home hubs. Schedule scenes, set voice commands, and adjust venetian slats precisely using elite interior accessories.
+                      </p>
+                    </div>
+                    <div className="flex justify-start lg:justify-end">
+                      <button
+                        onClick={() => setBookingModalOpen(true)}
+                        className="bg-gold hover:bg-gold-soft text-luxury-bg px-8 py-4 text-xs font-bold tracking-widest uppercase transition-colors w-full sm:w-auto"
+                      >
+                        BOOK CONSULTATION
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </motion.div>
+          )}
+
           {/* 4. SIGNATURE COLLECTIONS VIEW */}
           {activePage === 'signature' && (
             <motion.div
@@ -362,7 +585,12 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <div className="pt-8">
+              <div className="bg-luxury-sec pt-12 -mb-16 relative z-10">
+                <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
+                  <BackToHomeButton onClick={() => setActivePage('home')} className="mb-0" />
+                </div>
+              </div>
+              <div className="pt-0">
                 <SignatureCollections openBookingModal={() => setBookingModalOpen(true)} />
                 
                 {/* Extra premium Lookbook catalog */}
@@ -448,55 +676,6 @@ export default function App() {
             </motion.div>
           )}
 
-          {/* 5. PORTFOLIO PAGE */}
-          {activePage === 'portfolio' && (
-            <motion.div
-              key="portfolio"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <div className="pt-8">
-                <PortfolioSection />
-                
-                {/* Interactive metrics */}
-                <div className="bg-luxury-bg py-20 border-b border-white/5">
-                  <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12 text-center">
-                    <span className="font-sans text-[10px] tracking-[0.3em] text-gold uppercase mb-3 block">AUDITED STANDARDS</span>
-                    <h2 className="font-serif text-3xl font-light text-white mb-12">The Metric of Luxury</h2>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                      <div className="p-8 border border-gold/15 bg-luxury-sec">
-                        <span className="block font-serif text-4xl text-gold mb-2">0.5mm</span>
-                        <span className="block text-xs font-semibold uppercase tracking-widest text-cream mb-1">Drape Clearance</span>
-                        <p className="text-[11px] text-muted-text leading-relaxed font-light">Floor-skimming precision to prevent dust gathering while maintaining aesthetic weight.</p>
-                      </div>
-
-                      <div className="p-8 border border-gold/15 bg-luxury-sec">
-                        <span className="block font-serif text-4xl text-gold mb-2">100%</span>
-                        <span className="block text-xs font-semibold uppercase tracking-widest text-cream mb-1">Substrate Prep</span>
-                        <p className="text-[11px] text-muted-text leading-relaxed font-light">Every wall backing is stripped, sand-smoothed, and moisture-sealed before pasting.</p>
-                      </div>
-
-                      <div className="p-8 border border-gold/15 bg-luxury-sec">
-                        <span className="block font-serif text-4xl text-gold mb-2">26dB</span>
-                        <span className="block text-xs font-semibold uppercase tracking-widest text-cream mb-1">Acoustic Shield</span>
-                        <p className="text-[11px] text-muted-text leading-relaxed font-light">Our multi-layered Reserve velvet blocks decibels, providing acoustic calm.</p>
-                      </div>
-
-                      <div className="p-8 border border-gold/15 bg-luxury-sec">
-                        <span className="block font-serif text-4xl text-gold mb-2">10 Yr</span>
-                        <span className="block text-xs font-semibold uppercase tracking-widest text-cream mb-1">Color Defense</span>
-                        <p className="text-[11px] text-muted-text leading-relaxed font-light">Swatches undergo testing to prevent discoloration under sunlight angles.</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </motion.div>
-          )}
-
           {/* 6. ABOUT PAGE */}
           {activePage === 'about' && (
             <motion.div
@@ -508,21 +687,21 @@ export default function App() {
               id="about-page"
             >
               <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
+                <BackToHomeButton onClick={() => setActivePage('home')} />
                 
                 {/* Main Hero Header */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center mb-20">
                   <div className="lg:col-span-6">
-                    <span className="font-sans text-[10px] font-bold tracking-[0.4em] text-gold uppercase block mb-3">OUR HERITAGE</span>
+                    <span className="font-sans text-[10px] font-bold tracking-[0.4em] text-gold uppercase block mb-3">ABOUT FLOATING DRAPES</span>
                     <h1 className="font-serif text-4xl sm:text-5xl font-light text-white leading-tight">
-                      The Art Of Dressing <br />
-                      <span className="italic text-gold">Architectural Walls</span>
+                      {siteConfig.aboutTitle}
                     </h1>
                     <div className="h-0.5 w-16 bg-gold my-6" />
                     <p className="font-sans text-xs font-light text-muted-text leading-relaxed mb-6">
-                      Established in 2016, Floating Drapes was born from a singular architectural vision: to replace generic, off-the-shelf curtain designs with custom-engineered, textile sculptures.
+                      {siteConfig.aboutText1}
                     </p>
                     <p className="font-sans text-xs font-light text-muted-text leading-relaxed">
-                      We believe window drapes and wall structures are not mere decorations. They are acoustic buffers, sunlight controllers, and tactile elements that dictate the emotional temperature of a home. We work with legendary European weavers and precision laser technicians to establish new paradigms of luxury.
+                      {siteConfig.aboutText2}
                     </p>
                   </div>
                   
@@ -627,6 +806,11 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
+              <div className="bg-luxury-bg pt-12">
+                <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
+                  <BackToHomeButton onClick={() => setActivePage('home')} className="mb-0" />
+                </div>
+              </div>
               {/* Reuse of contact form component */}
               <ContactForm />
 
@@ -685,6 +869,11 @@ export default function App() {
       {/* WHATSAPP BUTTON (Floating) */}
       <WhatsAppButton />
 
+      {/* FLOATING BACK TO HOME BUTTON */}
+      {activePage !== 'home' && (
+        <BackToHomeButton onClick={() => setActivePage('home')} variant="floating" />
+      )}
+
       {/* BOOKING CONSULTATION MODAL */}
       <BookingModal 
         isOpen={bookingModalOpen} 
@@ -695,6 +884,24 @@ export default function App() {
       <Footer 
         setActivePage={setActivePage} 
         openBookingModal={() => setBookingModalOpen(true)} 
+        brandLogoUrl={siteConfig.brandLogoUrl}
+      />
+
+      {/* THEME STYLE DYNAMIC INJECTOR */}
+      <ThemeInjector config={siteConfig} />
+
+      {/* MASTER SYSTEM ADMIN CONTROL PANEL */}
+      <AdminPanel 
+        isOpen={adminPanelOpen}
+        onClose={() => setAdminPanelOpen(false)}
+        siteConfig={siteConfig}
+        onUpdateConfig={handleUpdateConfig}
+        curtains={curtains}
+        setCurtains={setCurtains}
+        wallpapers={wallpapers}
+        setWallpapers={setWallpapers}
+        blinds={blinds}
+        setBlinds={setBlinds}
       />
 
     </div>
