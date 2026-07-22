@@ -123,6 +123,11 @@ export default function AdminPanel({
         body: JSON.stringify({ email: email.trim(), password })
       });
 
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(`API endpoint unavailable (Status: ${res.status}). Ensure backend Vercel serverless function or Express server is deployed.`);
+      }
+
       const data = await res.json();
 
       if (res.ok && data.success && data.token) {
@@ -133,8 +138,8 @@ export default function AdminPanel({
       } else {
         setAuthError(data.error || 'Invalid credentials. Authorization denied by security engine.');
       }
-    } catch (err) {
-      setAuthError('Server communication failure during verification.');
+    } catch (err: any) {
+      setAuthError(err?.message || 'Server communication failure during verification.');
     } finally {
       setIsSubmittingLogin(false);
     }

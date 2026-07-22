@@ -7,9 +7,8 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-async function startServer() {
+export function createExpressApp() {
   const app = express();
-  const PORT = 3000;
 
   // Disable technology footprint identifier
   app.disable("x-powered-by");
@@ -62,12 +61,12 @@ async function startServer() {
   app.use(express.json());
 
   // Backend Admin Authentication API (Keeping all vulnerable logic/secrets on server)
-  const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "boopathiakasanjay@gmail.com";
-  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
-  const SECRET_SALT = process.env.ADMIN_SECRET_KEY || "fd_master_secret_hash_salt_2026";
-
   app.post("/api/admin/login", (req, res) => {
     try {
+      const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "boopathiakasanjay@gmail.com";
+      const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+      const SECRET_SALT = process.env.ADMIN_SECRET_KEY || "fd_master_secret_hash_salt_2026";
+
       const { email, password } = req.body || {};
       if (!email || !password) {
         return res.status(400).json({ success: false, error: "Email and password credentials are required" });
@@ -101,6 +100,9 @@ async function startServer() {
 
   app.post("/api/admin/verify", (req, res) => {
     try {
+      const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "boopathiakasanjay@gmail.com";
+      const SECRET_SALT = process.env.ADMIN_SECRET_KEY || "fd_master_secret_hash_salt_2026";
+
       const { token } = req.body || {};
       if (!token || typeof token !== "string" || !token.includes(".")) {
         return res.status(401).json({ valid: false });
@@ -294,6 +296,14 @@ async function startServer() {
     }
   });
 
+  return app;
+}
+
+export const app = createExpressApp();
+
+async function startServer() {
+  const PORT = 3000;
+
   // Vite middleware for development vs static asset serving for production
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -314,4 +324,8 @@ async function startServer() {
   });
 }
 
-startServer();
+// Start standalone server unless executing under Vercel Serverless environment
+if (!process.env.VERCEL) {
+  startServer();
+}
+
