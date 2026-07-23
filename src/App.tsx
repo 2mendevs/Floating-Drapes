@@ -14,6 +14,7 @@ import BookingModal from './components/BookingModal';
 import ContactForm from './components/ContactForm';
 import WhatsAppButton from './components/WhatsAppButton';
 import BackToHomeButton from './components/BackToHomeButton';
+import OptimizedImage from './components/OptimizedImage';
 
 import { 
   SIGNATURE_COLLECTIONS, 
@@ -256,13 +257,13 @@ export default function App() {
                     >
                       {/* Product Image */}
                       <div className="md:w-1/2 aspect-[4/3] md:aspect-auto overflow-hidden relative">
-                        <img
+                        <OptimizedImage
                           src={item.image}
                           alt={item.name}
+                          width={600}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                          referrerPolicy="no-referrer"
                         />
-                        <span className="absolute top-4 left-4 bg-black/70 backdrop-blur-md border border-gold/20 text-[9px] font-bold tracking-[0.2em] text-gold px-3 py-1 uppercase">
+                        <span className="absolute top-4 left-4 bg-black/70 backdrop-blur-md border border-gold/20 text-[9px] font-bold tracking-[0.2em] text-gold px-3 py-1 uppercase z-20">
                           {item.priceClass}
                         </span>
                       </div>
@@ -377,13 +378,13 @@ export default function App() {
                     >
                       {/* Product Image */}
                       <div className="md:w-1/2 aspect-[4/3] md:aspect-auto overflow-hidden relative">
-                        <img
+                        <OptimizedImage
                           src={item.image}
                           alt={item.name}
+                          width={600}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                          referrerPolicy="no-referrer"
                         />
-                        <span className="absolute top-4 left-4 bg-black/70 backdrop-blur-md border border-gold/20 text-[9px] font-bold tracking-[0.2em] text-gold px-3 py-1 uppercase">
+                        <span className="absolute top-4 left-4 bg-black/70 backdrop-blur-md border border-gold/20 text-[9px] font-bold tracking-[0.2em] text-gold px-3 py-1 uppercase z-20">
                           {item.style}
                         </span>
                       </div>
@@ -503,13 +504,13 @@ export default function App() {
                     >
                       {/* Product Image */}
                       <div className="md:w-1/2 aspect-[4/3] md:aspect-auto overflow-hidden relative">
-                        <img
+                        <OptimizedImage
                           src={item.image}
                           alt={item.name}
+                          width={600}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                          referrerPolicy="no-referrer"
                         />
-                        <span className="absolute top-4 left-4 bg-black/70 backdrop-blur-md border border-gold/20 text-[9px] font-bold tracking-[0.2em] text-gold px-3 py-1 uppercase">
+                        <span className="absolute top-4 left-4 bg-black/70 backdrop-blur-md border border-gold/20 text-[9px] font-bold tracking-[0.2em] text-gold px-3 py-1 uppercase z-20">
                           {item.style}
                         </span>
                       </div>

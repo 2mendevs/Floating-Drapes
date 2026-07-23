@@ -1,5 +1,6 @@
 import { ArrowRight } from 'lucide-react';
 import { SiteConfig } from '../types';
+import OptimizedImage from './OptimizedImage';
 
 interface HeroProps {
   onExplore: () => void;
@@ -102,11 +103,12 @@ export default function Hero({ onExplore, openBookingModal, siteConfig }: HeroPr
 
             {/* Main Luxury Living room with beautiful blue curtains */}
             <div className="relative w-full aspect-[4/3] sm:aspect-video lg:aspect-[4/3] overflow-hidden rounded-[24px] shadow-[0_20px_50px_rgba(2,30,59,0.15)] border border-zinc-100">
-              <img
+              <OptimizedImage
                 src="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=80"
                 alt="Luxury living room styling with elite custom drapes"
+                priority={true}
+                width={1200}
                 className="w-full h-full object-cover transform hover:scale-102 transition-transform duration-700"
-                referrerPolicy="no-referrer"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#021E3B]/30 to-transparent pointer-events-none" />
             </div>

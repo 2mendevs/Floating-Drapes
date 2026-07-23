@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SIGNATURE_COLLECTIONS, SignatureCollection } from '../types';
 import { ArrowRight, Sparkles } from 'lucide-react';
+import OptimizedImage from './OptimizedImage';
 
 interface SignatureProps {
   openBookingModal: () => void;
@@ -63,11 +64,11 @@ export default function SignatureCollections({ openBookingModal }: SignatureProp
             >
               {/* Image with zoom on hover */}
               <div className="absolute inset-0 z-0 overflow-hidden">
-                <img
+                <OptimizedImage
                   src={col.image}
                   alt={col.name}
+                  width={600}
                   className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-1000 ease-out brightness-[0.85]"
-                  referrerPolicy="no-referrer"
                 />
                 
                 {/* Specific overlay for color identity specified in the requirements */}
@@ -133,11 +134,11 @@ export default function SignatureCollections({ openBookingModal }: SignatureProp
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
                 {/* Left image */}
                 <div className="relative aspect-[3/4] w-full overflow-hidden border border-gold/15">
-                  <img
+                  <OptimizedImage
                     src={selectedCol.image}
                     alt={selectedCol.name}
+                    width={800}
                     className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
                   />
                   <div className={`absolute inset-0 ${getOverlayClass(selectedCol.id)} opacity-60`} />
                 </div>

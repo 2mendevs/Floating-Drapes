@@ -1,4 +1,5 @@
 import { ArrowRight } from 'lucide-react';
+import OptimizedImage from './OptimizedImage';
 
 interface SectionProps {
   onSelectCategory: (category: 'curtains' | 'wallpapers' | 'blinds') => void;
@@ -59,11 +60,11 @@ export default function CurtainsWallpapersSection({ onSelectCategory }: SectionP
             >
               {/* Image with counter badge in top corner */}
               <div className="relative h-[280px] w-full overflow-hidden shrink-0">
-                <img
+                <OptimizedImage
                   src={p.image}
                   alt={p.title}
+                  width={600}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                  referrerPolicy="no-referrer"
                 />
                 
                 {/* Blue circular badge in top right corner */}

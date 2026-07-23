@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Sliders } from 'lucide-react';
+import { getOptimizedImageUrl } from '../utils/imageUtils';
 
 interface CompareCardProps {
   key?: React.Key;
@@ -67,9 +68,11 @@ function CompareCard({ beforeImage, afterImage, title, description }: CompareCar
       >
         {/* AFTER IMAGE (Full width backdrop) */}
         <img
-          src={afterImage}
+          src={getOptimizedImageUrl(afterImage, 800, 75)}
           alt="After Transformation"
           className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+          loading="lazy"
+          decoding="async"
           referrerPolicy="no-referrer"
         />
         <div className="absolute right-4 bottom-4 z-10 bg-[#029BFA] text-white text-[10px] font-bold tracking-wider px-2.5 py-1 rounded-full shadow border border-white/20">
@@ -82,10 +85,12 @@ function CompareCard({ beforeImage, afterImage, title, description }: CompareCar
           style={{ width: `${sliderPos}%` }}
         >
           <img
-            src={beforeImage}
+            src={getOptimizedImageUrl(beforeImage, 800, 75)}
             alt="Before Transformation"
             className="absolute inset-y-0 left-0 h-full object-cover max-w-none pointer-events-none"
             style={{ width: containerWidth, height: '100%' }}
+            loading="lazy"
+            decoding="async"
             referrerPolicy="no-referrer"
           />
           <div className="absolute left-4 bottom-4 z-10 bg-[#021E3B] text-white text-[10px] font-bold tracking-wider px-2.5 py-1 rounded-full shadow border border-white/15">
