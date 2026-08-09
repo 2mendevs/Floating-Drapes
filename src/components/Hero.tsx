@@ -49,26 +49,16 @@ export default function Hero({ onExplore, openBookingModal, siteConfig }: HeroPr
               </p>
             </div>
 
-            {/* Two CTA buttons */}
+            {/* CTA button */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full pt-2">
               
-              {/* Button 1: Book Free Consultation */}
+              {/* Button: Book Free Consultation */}
               <button
                 onClick={openBookingModal}
                 className="group relative bg-[#029BFA] hover:bg-[#0082db] text-white text-[14px] font-bold tracking-wider px-8 py-4.5 rounded-none transition-all duration-300 shadow-[0_4px_18px_rgba(2,155,250,0.3)] hover:shadow-[0_6px_24px_rgba(2,155,250,0.4)] flex items-center justify-center space-x-3 cursor-pointer"
                 id="hero-book-btn"
               >
                 <span>Book Free Consultation</span>
-                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-              </button>
-
-              {/* Button 2: View Designs */}
-              <button
-                onClick={onExplore}
-                className="group relative border-2 border-[#021E3B] text-[#021E3B] hover:bg-[#021E3B] hover:text-white text-[14px] font-bold tracking-wider px-8 py-4.5 rounded-none transition-all duration-300 flex items-center justify-center space-x-3 cursor-pointer"
-                id="hero-view-designs-btn"
-              >
-                <span>View Designs</span>
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>

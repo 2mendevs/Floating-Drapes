@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sliders } from 'lucide-react';
+import { Sliders, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getOptimizedImageUrl } from '../utils/imageUtils';
 
 interface CompareCardProps {
@@ -12,16 +12,14 @@ interface CompareCardProps {
 
 function CompareCard({ beforeImage, afterImage, title, description }: CompareCardProps) {
   const [sliderPos, setSliderPos] = useState(50); // percentage 0-100
-  const [containerWidth, setContainerWidth] = useState<number>(600); // default fallback
+  const [containerWidth, setContainerWidth] = useState<number>(600);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
     
-    // Set initial width
     setContainerWidth(containerRef.current.getBoundingClientRect().width);
 
-    // Watch for resizes to avoid stretched images on rotate or resize
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         setContainerWidth(entry.contentRect.width);
@@ -57,7 +55,7 @@ function CompareCard({ beforeImage, afterImage, title, description }: CompareCar
   };
 
   return (
-    <div className="flex flex-col bg-white rounded-[20px] overflow-hidden border border-[#EAEAEA] shadow-[0_10px_30px_rgba(2,30,59,0.04)] hover:shadow-[0_15px_40px_rgba(2,30,59,0.08)] transition-all duration-300">
+    <div className="flex flex-col bg-white rounded-[20px] overflow-hidden border border-[#EAEAEA] shadow-[0_10px_30px_rgba(2,30,59,0.04)] hover:shadow-[0_15px_40px_rgba(2,30,59,0.08)] transition-all duration-300 h-full">
       
       {/* Interactive slider container */}
       <div 
@@ -108,7 +106,7 @@ function CompareCard({ beforeImage, afterImage, title, description }: CompareCar
           </div>
         </div>
 
-        {/* Range input transparent overlay to allow easy dragging across desktop/mobile */}
+        {/* Range input transparent overlay */}
         <input 
           type="range" 
           min="0" 
@@ -121,13 +119,15 @@ function CompareCard({ beforeImage, afterImage, title, description }: CompareCar
       </div>
 
       {/* Description copy beneath */}
-      <div className="p-6 text-left space-y-2 flex-grow">
-        <h3 className="font-serif text-[20px] font-bold text-[#021E3B] leading-tight">
-          {title}
-        </h3>
-        <p className="font-sans text-[14px] font-light text-zinc-500 leading-[150%]">
-          {description}
-        </p>
+      <div className="p-6 text-left space-y-2 flex-grow flex flex-col justify-between">
+        <div>
+          <h3 className="font-serif text-[20px] font-bold text-[#021E3B] leading-tight">
+            {title}
+          </h3>
+          <p className="font-sans text-[14px] font-light text-zinc-500 leading-[150%] mt-2">
+            {description}
+          </p>
+        </div>
       </div>
 
     </div>
@@ -156,8 +156,50 @@ export default function BeforeAfterSection() {
       description: 'Integrated premium biophilic drapes paired with bespoke blinds to harness natural light control beautifully.',
       beforeImage: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=600&q=80',
       afterImage: 'https://images.unsplash.com/photo-1617806118233-18e1db207faf?auto=format&fit=crop&w=600&q=80',
+    },
+    {
+      id: 4,
+      title: 'Sunlit Villa Lounge',
+      description: 'Transformed harsh direct sunlight into a soft ambient glow using custom sheer linen drapes with motorized tracking.',
+      beforeImage: 'https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?auto=format&fit=crop&w=600&q=80',
+      afterImage: 'https://images.unsplash.com/photo-1616046229478-9901c5536a45?auto=format&fit=crop&w=600&q=80',
+    },
+    {
+      id: 5,
+      title: 'Bespoke Royal Penthouse',
+      description: 'Elevated a high-ceiling living space with floor-to-ceiling pleated velvet curtains and gold accent wall coverings.',
+      beforeImage: 'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=600&q=80',
+      afterImage: 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=600&q=80',
+    },
+    {
+      id: 6,
+      title: 'Executive Office Suite',
+      description: 'Replaced basic industrial blinds with rich acoustic textured drapes for refined corporate elegance and sound damping.',
+      beforeImage: 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=600&q=80',
+      afterImage: 'https://images.unsplash.com/photo-1618219908412-a29a1bb7b86e?auto=format&fit=crop&w=600&q=80',
     }
   ];
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const prevSlide = () => {
+    setCurrentIndex((prev) => (prev === 0 ? comparisons.length - 1 : prev - 1));
+  };
+
+  const nextSlide = () => {
+    setCurrentIndex((prev) => (prev === comparisons.length - 1 ? 0 : prev + 1));
+  };
+
+  // Compute visible items for cycling seamlessly
+  const getVisibleItems = () => {
+    const items = [];
+    for (let i = 0; i < comparisons.length; i++) {
+      items.push(comparisons[(currentIndex + i) % comparisons.length]);
+    }
+    return items;
+  };
+
+  const visibleItems = getVisibleItems();
 
   return (
     <section className="bg-white py-10 lg:py-14 border-b border-[#EAEAEA]" id="before-after-section">
@@ -174,17 +216,114 @@ export default function BeforeAfterSection() {
           <div className="h-[3px] w-12 bg-[#029BFA] mx-auto mt-4" />
         </div>
 
-        {/* Draggable sliders grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch mt-12" id="before-after-grid">
-          {comparisons.map((c) => (
+        {/* Carousel Wrapper */}
+        <div className="relative mt-12 max-w-6xl mx-auto" id="before-after-wrapper">
+          
+          {/* NAVIGATION ARROWS (SAME STYLE AS TESTIMONIALS SECTION) */}
+          <div className="absolute top-1/2 -translate-y-1/2 -left-4 sm:-left-12 z-30 hidden sm:block">
+            <button
+              onClick={prevSlide}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#021E3B] border border-[#EAEAEA] hover:border-[#029BFA] hover:text-[#029BFA] transition-all shadow-[0_4px_12px_rgba(0,0,0,0.05)] cursor-pointer"
+              aria-label="Previous transformation"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="absolute top-1/2 -translate-y-1/2 -right-4 sm:-right-12 z-30 hidden sm:block">
+            <button
+              onClick={nextSlide}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#021E3B] border border-[#EAEAEA] hover:border-[#029BFA] hover:text-[#029BFA] transition-all shadow-[0_4px_12px_rgba(0,0,0,0.05)] cursor-pointer"
+              aria-label="Next transformation"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Desktop View: 3 items */}
+          <div className="hidden lg:grid grid-cols-3 gap-8 items-stretch">
+            {visibleItems.slice(0, 3).map((c) => (
+              <CompareCard
+                key={c.id}
+                beforeImage={c.beforeImage}
+                afterImage={c.afterImage}
+                title={c.title}
+                description={c.description}
+              />
+            ))}
+          </div>
+
+          {/* Tablet View: 2 items */}
+          <div className="hidden md:grid lg:hidden grid-cols-2 gap-8 items-stretch">
+            {visibleItems.slice(0, 2).map((c) => (
+              <CompareCard
+                key={c.id}
+                beforeImage={c.beforeImage}
+                afterImage={c.afterImage}
+                title={c.title}
+                description={c.description}
+              />
+            ))}
+          </div>
+
+          {/* Mobile View: 1 item */}
+          <div className="md:hidden">
             <CompareCard
-              key={c.id}
-              beforeImage={c.beforeImage}
-              afterImage={c.afterImage}
-              title={c.title}
-              description={c.description}
+              key={visibleItems[0].id}
+              beforeImage={visibleItems[0].beforeImage}
+              afterImage={visibleItems[0].afterImage}
+              title={visibleItems[0].title}
+              description={visibleItems[0].description}
             />
-          ))}
+          </div>
+
+          {/* Navigation Controls on Mobile */}
+          <div className="flex justify-between items-center sm:hidden mt-6">
+            <button
+              onClick={prevSlide}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#021E3B] border border-[#EAEAEA] shadow-sm cursor-pointer"
+              aria-label="Previous transformation"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+
+            {/* Dots Indicator */}
+            <div className="flex items-center space-x-2">
+              {comparisons.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentIndex(idx)}
+                  className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${
+                    currentIndex === idx ? 'w-6 bg-[#029BFA]' : 'w-2.5 bg-zinc-200'
+                  }`}
+                  aria-label={`Go to transformation ${idx + 1}`}
+                />
+              ))}
+            </div>
+
+            <button
+              onClick={nextSlide}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#021E3B] border border-[#EAEAEA] shadow-sm cursor-pointer"
+              aria-label="Next transformation"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Dots Indicator for Desktop / Tablet */}
+          <div className="hidden sm:flex justify-center items-center space-x-2 mt-10">
+            {comparisons.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setCurrentIndex(idx)}
+                className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${
+                  currentIndex === idx ? 'w-6 bg-[#029BFA]' : 'w-2.5 bg-zinc-200 hover:bg-zinc-300'
+                }`}
+                aria-label={`Go to transformation ${idx + 1}`}
+              />
+            ))}
+          </div>
+
         </div>
 
       </div>
