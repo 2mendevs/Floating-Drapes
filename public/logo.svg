@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 180" width="100%" height="100%">
   <!-- Left Half: Navy Blue Box -->
-  <rect x="0" y="0" width="515" height="180" fill="#021E3B" />
+  <rect x="0" y="0" width="515" height="180" fill="#062648" />
   <!-- Right Half: Sky Blue Box -->
   <rect x="515" y="0" width="425" height="180" fill="#029bFA" />
   

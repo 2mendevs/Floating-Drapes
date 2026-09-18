@@ -34,6 +34,12 @@ import {
   BlindItem
 } from './data/productsData';
 
+import {
+  isSupabaseConfigured,
+  fetchUniversalSiteData,
+  subscribeToUniversalChanges
+} from './services/supabaseClient';
+
 import { 
   Sparkles, 
   Layers, 
@@ -108,6 +114,116 @@ export default function App() {
   });
 
   const [adminPanelOpen, setAdminPanelOpen] = useState(false);
+
+  // Universal Supabase Initialization & Realtime Synchronizer
+  useEffect(() => {
+    // 1. Initial Universal Fetch from Supabase (if configured)
+    if (isSupabaseConfigured()) {
+      fetchUniversalSiteData()
+        .then((data) => {
+          if (data.siteConfig) {
+            setSiteConfig(data.siteConfig);
+            localStorage.setItem('floatingdrapes_config', JSON.stringify(data.siteConfig));
+          }
+          if (data.curtains && data.curtains.length > 0) {
+            setCurtains(data.curtains);
+            localStorage.setItem('floatingdrapes_curtains', JSON.stringify(data.curtains));
+          }
+          if (data.wallpapers && data.wallpapers.length > 0) {
+            setWallpapers(data.wallpapers);
+            localStorage.setItem('floatingdrapes_wallpapers', JSON.stringify(data.wallpapers));
+          }
+          if (data.blinds && data.blinds.length > 0) {
+            setBlinds(data.blinds);
+            localStorage.setItem('floatingdrapes_blinds', JSON.stringify(data.blinds));
+          }
+        })
+        .catch((err) => {
+          console.warn('Initial Supabase fetch fallback to local storage:', err);
+        });
+
+      // 2. Subscribe to universal realtime changes across all tables
+      const unsubscribe = subscribeToUniversalChanges((table: string, payload: any) => {
+        console.log(`[Supabase Realtime Event] Table: ${table}, Event: ${payload?.eventType}`, payload);
+        const eventType = payload?.eventType;
+        const newRecord = payload?.new;
+        const oldRecord = payload?.old;
+
+        if (table === 'site_config' && newRecord && (newRecord.config || newRecord.config_data)) {
+          const configObj = newRecord.config || newRecord.config_data;
+          setSiteConfig(configObj);
+          localStorage.setItem('floatingdrapes_config', JSON.stringify(configObj));
+        } else if (table === 'curtains') {
+          if (eventType === 'DELETE' && oldRecord) {
+            setCurtains((prev) => prev.filter((item) => item.id !== oldRecord.id));
+          } else if (newRecord) {
+            const formattedItem: CurtainItem = {
+              id: newRecord.id,
+              name: newRecord.name,
+              description: newRecord.description,
+              image: newRecord.image,
+              priceClass: newRecord.price_class || newRecord.priceClass || 'Premium',
+              materials: Array.isArray(newRecord.materials) ? newRecord.materials : []
+            };
+            setCurtains((prev) => {
+              const exists = prev.some((p) => p.id === formattedItem.id);
+              if (exists) {
+                return prev.map((p) => (p.id === formattedItem.id ? formattedItem : p));
+              } else {
+                return [formattedItem, ...prev];
+              }
+            });
+          }
+        } else if (table === 'wallpapers') {
+          if (eventType === 'DELETE' && oldRecord) {
+            setWallpapers((prev) => prev.filter((item) => item.id !== oldRecord.id));
+          } else if (newRecord) {
+            const formattedItem: WallpaperItem = {
+              id: newRecord.id,
+              name: newRecord.name,
+              description: newRecord.description,
+              image: newRecord.image,
+              style: newRecord.style || 'Classic',
+              materials: Array.isArray(newRecord.materials) ? newRecord.materials : []
+            };
+            setWallpapers((prev) => {
+              const exists = prev.some((p) => p.id === formattedItem.id);
+              if (exists) {
+                return prev.map((p) => (p.id === formattedItem.id ? formattedItem : p));
+              } else {
+                return [formattedItem, ...prev];
+              }
+            });
+          }
+        } else if (table === 'blinds') {
+          if (eventType === 'DELETE' && oldRecord) {
+            setBlinds((prev) => prev.filter((item) => item.id !== oldRecord.id));
+          } else if (newRecord) {
+            const formattedItem: BlindItem = {
+              id: newRecord.id,
+              name: newRecord.name,
+              description: newRecord.description,
+              image: newRecord.image,
+              style: newRecord.style || 'Roman',
+              materials: Array.isArray(newRecord.materials) ? newRecord.materials : []
+            };
+            setBlinds((prev) => {
+              const exists = prev.some((p) => p.id === formattedItem.id);
+              if (exists) {
+                return prev.map((p) => (p.id === formattedItem.id ? formattedItem : p));
+              } else {
+                return [formattedItem, ...prev];
+              }
+            });
+          }
+        }
+      });
+
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
+    }
+  }, []);
 
   // Keyboard shortcut listener for Ctrl + M / Cmd + M
   useEffect(() => {

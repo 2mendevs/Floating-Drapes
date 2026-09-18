@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Mail, Phone, MapPin, Sparkles, Send, CheckCircle } from 'lucide-react';
+import { insertInquiryToSupabase } from '../services/supabaseClient';
 
 export default function ContactForm() {
   const [formData, setFormData] = useState({
@@ -43,12 +44,17 @@ export default function ContactForm() {
       const responseData = await res.json();
       console.log('Server dispatched enquiry details:', responseData);
 
-      const submissions = JSON.parse(localStorage.getItem('floatingdrapes_contacts') || '[]');
-      submissions.push({
+      const newInquiry = {
         id: 'c-' + Date.now(),
         ...formData,
         timestamp: new Date().toISOString()
-      });
+      };
+
+      // Save to Supabase universally (if configured)
+      await insertInquiryToSupabase(newInquiry);
+
+      const submissions = JSON.parse(localStorage.getItem('floatingdrapes_contacts') || '[]');
+      submissions.push(newInquiry);
       localStorage.setItem('floatingdrapes_contacts', JSON.stringify(submissions));
 
       setIsSuccess(true);
@@ -65,12 +71,15 @@ export default function ContactForm() {
     } catch (err) {
       console.error('Failed to dispatch contact notification:', err);
       // Fallback gracefully to keep client-side functioning if server is down or unconfigured
-      const submissions = JSON.parse(localStorage.getItem('floatingdrapes_contacts') || '[]');
-      submissions.push({
+      const fallbackInquiry = {
         id: 'c-' + Date.now(),
         ...formData,
         timestamp: new Date().toISOString()
-      });
+      };
+      insertInquiryToSupabase(fallbackInquiry).catch(console.error);
+
+      const submissions = JSON.parse(localStorage.getItem('floatingdrapes_contacts') || '[]');
+      submissions.push(fallbackInquiry);
       localStorage.setItem('floatingdrapes_contacts', JSON.stringify(submissions));
       setIsSuccess(true);
     } finally {

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Sparkles, CheckCircle, Calendar, DollarSign, PenTool } from 'lucide-react';
 import { BookingSubmission } from '../types';
+import { insertBookingToSupabase } from '../services/supabaseClient';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -48,13 +49,16 @@ export default function BookingModal({ isOpen, onClose }: BookingModalProps) {
       const responseData = await res.json();
       console.log('Server dispatched lead details:', responseData);
 
-      const submissions: BookingSubmission[] = JSON.parse(localStorage.getItem('floatingdrapes_bookings') || '[]');
       const newSubmission: BookingSubmission = {
         id: 'b-' + Date.now(),
         ...formData,
         timestamp: new Date().toISOString()
       };
       
+      // Save to Supabase universally (if configured)
+      await insertBookingToSupabase(newSubmission);
+
+      const submissions: BookingSubmission[] = JSON.parse(localStorage.getItem('floatingdrapes_bookings') || '[]');
       submissions.push(newSubmission);
       localStorage.setItem('floatingdrapes_bookings', JSON.stringify(submissions));
 
@@ -71,12 +75,15 @@ export default function BookingModal({ isOpen, onClose }: BookingModalProps) {
     } catch (err) {
       console.error('Failed to dispatch notification:', err);
       // Fail gracefully so that network interruptions or unconfigured systems still allow local UI completion
-      const submissions: BookingSubmission[] = JSON.parse(localStorage.getItem('floatingdrapes_bookings') || '[]');
-      submissions.push({
+      const fallbackSubmission: BookingSubmission = {
         id: 'b-' + Date.now(),
         ...formData,
         timestamp: new Date().toISOString()
-      });
+      };
+      insertBookingToSupabase(fallbackSubmission).catch(console.error);
+
+      const submissions: BookingSubmission[] = JSON.parse(localStorage.getItem('floatingdrapes_bookings') || '[]');
+      submissions.push(fallbackSubmission);
       localStorage.setItem('floatingdrapes_bookings', JSON.stringify(submissions));
       setIsSuccess(true);
     } finally {
