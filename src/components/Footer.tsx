@@ -1,5 +1,5 @@
 import { Instagram } from 'lucide-react';
-import { WhatsAppIcon } from './WhatsAppButton';
+import { WhatsAppIcon, openWhatsAppPopup } from './WhatsAppButton';
 
 interface FooterProps {
   setActivePage: (page: string) => void;
@@ -36,7 +36,7 @@ export default function Footer({ setActivePage, openBookingModal, brandLogoUrl =
               <img 
                 src={brandLogoUrl} 
                 alt="Floating Drapes" 
-                className="h-[26px] sm:h-[30px] w-auto object-contain transition-transform duration-300 group-hover:scale-102"
+                className="h-[36px] sm:h-[42px] w-auto object-contain transition-transform duration-300 group-hover:scale-102"
                 id="footer-logo-img"
               />
             </div>
@@ -47,18 +47,17 @@ export default function Footer({ setActivePage, openBookingModal, brandLogoUrl =
 
             {/* Social Icons: WhatsApp & Instagram only, matching identical design style */}
             <div className="flex items-center space-x-3.5 pt-2">
-              <a 
-                href="https://wa.me/918884009398?text=Hi!%20I'm%20visiting%20Floating%20Drapes%20and%20would%20like%20to%20inquire%20about%20your%20luxury%20curtains,%20wallpapers,%20and%20blinds." 
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.location.href = "https://wa.me/918884009398?text=Hi!%20I'm%20visiting%20Floating%20Drapes%20and%20would%20like%20to%20inquire%20about%20your%20luxury%20curtains,%20wallpapers,%20and%20blinds.";
+              <button 
+                type="button"
+                onClick={() => {
+                  openWhatsAppPopup("Hi! I'm visiting Floating Drapes and would like to inquire about your luxury curtains, wallpapers, and blinds.");
                 }}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-[#EAEAEA] text-zinc-600 hover:text-[#029BFA] hover:border-[#029BFA] transition-all bg-white shadow-sm"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-[#EAEAEA] text-zinc-600 hover:text-[#25D366] hover:border-[#25D366] transition-all bg-white shadow-sm cursor-pointer"
                 aria-label="WhatsApp"
                 title="WhatsApp (+91 88840 09398)"
               >
                 <WhatsAppIcon className="h-4.5 w-4.5 fill-current" />
-              </a>
+              </button>
               <a 
                 href="https://instagram.com" 
                 onClick={(e) => {

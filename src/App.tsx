@@ -12,7 +12,7 @@ import CTASection from './components/CTASection';
 import Footer from './components/Footer';
 import BookingModal from './components/BookingModal';
 import ContactForm from './components/ContactForm';
-import WhatsAppButton from './components/WhatsAppButton';
+import WhatsAppButton, { openWhatsAppPopup } from './components/WhatsAppButton';
 import BackToHomeButton from './components/BackToHomeButton';
 import OptimizedImage from './components/OptimizedImage';
 
@@ -249,13 +249,11 @@ export default function App() {
   }, [activePage]);
 
   const openWhatsAppDirect = () => {
-    const text = encodeURIComponent("Hi! I'm interested in your luxury curtain, wallpaper, and blinds services.");
-    window.location.href = `https://wa.me/918884009398?text=${text}`;
+    openWhatsAppPopup("Hi! I'm interested in your luxury curtain, wallpaper, and blinds services.");
   };
 
   const handleInquireWhatsApp = (productName: string, category: string) => {
-    const text = encodeURIComponent(`Hi! I am interested in inquiring about "${productName}" from your ${category} collection.`);
-    window.location.href = `https://wa.me/918884009398?text=${text}`;
+    openWhatsAppPopup(`Hi! I am interested in inquiring about "${productName}" from your ${category} collection.`);
   };
 
   // Curtains Page filtered datasets

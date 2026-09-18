@@ -92,7 +92,7 @@ export default function Header({ activePage, setActivePage, openBookingModal, br
           <img 
             src={brandLogoUrl} 
             alt="Floating Drapes" 
-            className="h-[26px] sm:h-[30px] w-auto object-contain transition-transform duration-300 group-hover:scale-102"
+            className="h-[36px] sm:h-[42px] w-auto object-contain transition-transform duration-300 group-hover:scale-102"
             id="brand-logo-img"
           />
         </div>
