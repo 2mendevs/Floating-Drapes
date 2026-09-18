@@ -11,6 +11,18 @@ export async function handleAdminVerify(req: any, res: any) {
       return res.status(401).json({ valid: false });
     }
 
+    // Handle Supabase Auth token format: "sb.<timestamp>.<hash>"
+    if (token.startsWith("sb.")) {
+      const parts = token.split(".");
+      if (parts.length === 3) {
+        const timestamp = parseInt(parts[1], 10);
+        if (isNaN(timestamp) || Date.now() - timestamp > 7 * 24 * 60 * 60 * 1000) {
+          return res.status(401).json({ valid: false, error: "Session expired" });
+        }
+        return res.status(200).json({ valid: true, type: "supabase" });
+      }
+    }
+
     const [timestampStr, hash] = token.split(".");
     const timestamp = parseInt(timestampStr, 10);
 
@@ -26,7 +38,7 @@ export async function handleAdminVerify(req: any, res: any) {
     const expected3 = crypto.createHash("sha256").update(rawToken3).digest("hex");
 
     if (hash === expected1 || hash === expected2 || hash === expected3) {
-      return res.status(200).json({ valid: true });
+      return res.status(200).json({ valid: true, type: "env" });
     }
 
     return res.status(401).json({ valid: false });

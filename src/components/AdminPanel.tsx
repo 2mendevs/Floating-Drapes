@@ -11,6 +11,7 @@ import { BlindItem } from '../data/productsData';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   getSupabaseCredentials,
+  getSupabaseClient,
   saveSupabaseCredentials,
   clearStoredSupabaseCredentials,
   isSupabaseConfigured,
@@ -98,11 +99,32 @@ export default function AdminPanel({
   const [isPullingData, setIsPullingData] = useState(false);
   const [sqlCopied, setSqlCopied] = useState(false);
 
-  // Verify server session token on mount/open
+  // Verify server session token or active Supabase session on mount/open
   useEffect(() => {
     const token = sessionStorage.getItem('fd_admin_token');
+    
+    // Check if Supabase client already has an active session
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      supabase.auth.getSession().then(({ data }) => {
+        if (data?.session?.user) {
+          setIsAuthenticated(true);
+          sessionStorage.setItem('fd_admin_user_email', data.session.user.email || '');
+          setIsVerifyingSession(false);
+          return;
+        }
+      }).catch((e) => console.warn('Supabase getSession error:', e));
+    }
+
     if (!token) {
       setIsAuthenticated(false);
+      setIsVerifyingSession(false);
+      return;
+    }
+
+    // If token is a Supabase session token
+    if (token.startsWith('sb.')) {
+      setIsAuthenticated(true);
       setIsVerifyingSession(false);
       return;
     }
@@ -188,45 +210,91 @@ export default function AdminPanel({
     }
   }, [siteConfig, isOpen]);
 
-  // Handle Login via Secure Backend API
+  // Handle Login via Supabase Auth or Backend API
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
     setIsSubmittingLogin(true);
 
+    const cleanEmail = email.trim();
+
     try {
+      // 1. Direct Supabase Auth Verification First (if client is active)
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          const { data: sbData, error: sbError } = await supabase.auth.signInWithPassword({
+            email: cleanEmail,
+            password: password,
+          });
+
+          if (!sbError && sbData?.user) {
+            // Logged in successfully with Supabase user credentials
+            const timestamp = Date.now();
+            sessionStorage.setItem('fd_admin_token', `sb.${timestamp}.${sbData.user.id}`);
+            sessionStorage.setItem('fd_admin_user_email', sbData.user.email || cleanEmail);
+            setIsAuthenticated(true);
+            setAuthError('');
+            setPassword('');
+            setIsSubmittingLogin(false);
+            return;
+          }
+        } catch (supabaseLoginErr: any) {
+          console.warn('Supabase client login attempt:', supabaseLoginErr?.message);
+        }
+      }
+
+      // 2. Fallback to Server Login Endpoint (passes custom Supabase credentials if stored)
+      const creds = getSupabaseCredentials();
       const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password })
+        body: JSON.stringify({ 
+          email: cleanEmail, 
+          password,
+          customSupabaseUrl: creds.url,
+          customSupabaseKey: creds.key
+        })
       });
 
       const contentType = res.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
-        throw new Error(`API endpoint unavailable (Status: ${res.status}). Ensure backend Express server is running.`);
+        throw new Error(`API endpoint unavailable (Status: ${res.status}).`);
       }
 
       const data = await res.json();
 
       if (res.ok && data.success && data.token) {
         sessionStorage.setItem('fd_admin_token', data.token);
+        if (data.user?.email) {
+          sessionStorage.setItem('fd_admin_user_email', data.user.email);
+        }
         setIsAuthenticated(true);
         setAuthError('');
         setPassword('');
       } else {
-        setAuthError(data.error || 'Invalid credentials. Authorization denied by security engine.');
+        setAuthError(data.error || 'Invalid credentials. User not found in Supabase Auth or server.');
       }
     } catch (err: any) {
-      setAuthError(err?.message || 'Server communication failure during verification.');
+      setAuthError(err?.message || 'Authentication error. Please check your credentials.');
     } finally {
       setIsSubmittingLogin(false);
     }
   };
 
   // Handle Logout
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
+    } catch (e) {
+      console.warn('Sign out:', e);
+    }
     setIsAuthenticated(false);
     sessionStorage.removeItem('fd_admin_token');
+    sessionStorage.removeItem('fd_admin_user_email');
   };
 
   // Save Site Captions & sync to Supabase universally
@@ -638,7 +706,7 @@ export default function AdminPanel({
             
             <h2 className="font-serif text-2xl text-center mb-1">Enter Master Credentials</h2>
             <p className="font-sans text-xs text-muted-text text-center mb-8 leading-relaxed">
-              Floating Drapes control panel. Enter your authorization keys below to adjust styling, banners, Supabase database, and inventories.
+              Floating Drapes control panel. Enter your Supabase Admin user credentials (or server credentials) to access the dashboard.
             </p>
 
             <form onSubmit={handleLogin} className="w-full space-y-4">
@@ -651,7 +719,7 @@ export default function AdminPanel({
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="e.g. boopathiakasanjay@gmail.com"
+                    placeholder="Enter your Supabase admin user email"
                     className="w-full bg-white/5 border border-white/10 focus:border-gold px-11 py-2.5 text-xs focus:outline-none transition-colors"
                   />
                 </div>
@@ -684,14 +752,14 @@ export default function AdminPanel({
                 className="w-full bg-gold hover:bg-gold-soft text-luxury-bg py-3 text-xs font-bold tracking-widest uppercase transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer"
               >
                 <LogIn className="h-3.5 w-3.5" />
-                <span>{isSubmittingLogin ? 'VERIFYING...' : 'AUTHORIZE AND LOCK-IN'}</span>
+                <span>{isSubmittingLogin ? 'VERIFYING WITH SUPABASE...' : 'AUTHORIZE AND SIGN IN'}</span>
               </button>
             </form>
 
             {/* SECURE BACKEND VERIFICATION NOTICE */}
             <div className="w-full mt-8 bg-white/5 border border-white/5 p-4 text-[11px] leading-relaxed text-muted-text text-center">
-              <span className="font-bold text-gold uppercase tracking-wider block mb-1">🛡️ Restricted Access Area</span>
-              Authorized administrator credentials are required. All login requests are authenticated securely on the backend server.
+              <span className="font-bold text-gold uppercase tracking-wider block mb-1">🛡️ Supabase Authentication Active</span>
+              Sign in with your newly created Supabase user email and password.
             </div>
           </div>
         ) : (
@@ -741,6 +809,12 @@ export default function AdminPanel({
 
               {/* LOGOUT */}
               <div className="p-4 border-t border-white/10 bg-black/20">
+                {sessionStorage.getItem('fd_admin_user_email') && (
+                  <div className="mb-2.5 px-2 py-1.5 bg-white/5 border border-white/5 text-[10px] text-zinc-400 truncate">
+                    <span className="block text-[8px] uppercase tracking-wider text-gold font-bold">Logged In User</span>
+                    <span className="truncate text-white font-medium">{sessionStorage.getItem('fd_admin_user_email')}</span>
+                  </div>
+                )}
                 <button 
                   onClick={handleLogout}
                   className="w-full bg-red-950/40 hover:bg-red-900/30 border border-red-900/40 text-red-300 py-2.5 text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer"
