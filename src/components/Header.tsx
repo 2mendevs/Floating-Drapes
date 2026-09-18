@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Menu, X, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -58,6 +58,16 @@ export default function Header({ activePage, setActivePage, openBookingModal, br
     }
   };
 
+  const handleCallSupport = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // On mobile devices, initiate call directly in current context
+    if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+      window.location.href = 'tel:+918884009398';
+    }
+    // Navigate smoothly to the contact and direct support section on single page
+    handleNavClick('contact', 'cta-banner-section');
+  };
+
   return (
     <header 
       className="sticky top-0 left-0 w-full z-50 bg-[#FFFFFF] transition-all duration-300"
@@ -106,11 +116,12 @@ export default function Header({ activePage, setActivePage, openBookingModal, br
 
         {/* PHONE CTA RIGHT */}
         <div className="flex items-center space-x-4">
-          <a
-            href="tel:+918884009398"
-            className="hidden md:flex items-center space-x-3 group"
+          <button
+            type="button"
+            onClick={handleCallSupport}
+            className="hidden md:flex items-center space-x-3 group cursor-pointer text-left bg-transparent border-0 p-0"
             id="header-phone-cta"
-            title="Call Us Now"
+            title="Call Us Now / Direct Support"
           >
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#029BFA] text-white shadow-[0_4px_12px_rgba(2,155,250,0.25)] group-hover:scale-105 transition-transform">
               <Phone className="h-5 w-5 fill-current text-white" />
@@ -123,7 +134,7 @@ export default function Header({ activePage, setActivePage, openBookingModal, br
                 Direct Support
               </span>
             </div>
-          </a>
+          </button>
 
           {/* Booking Button for easy access */}
           <button
@@ -176,9 +187,13 @@ export default function Header({ activePage, setActivePage, openBookingModal, br
               ))}
 
               <div className="pt-4 flex items-center justify-between">
-                <a
-                  href="tel:+918884009398"
-                  className="flex items-center space-x-3 group"
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    setIsOpen(false);
+                    handleCallSupport(e);
+                  }}
+                  className="flex items-center space-x-3 group cursor-pointer text-left bg-transparent border-0 p-0"
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#029BFA] text-white">
                     <Phone className="h-4.5 w-4.5 fill-current" />
@@ -191,7 +206,7 @@ export default function Header({ activePage, setActivePage, openBookingModal, br
                       Direct Support
                     </span>
                   </div>
-                </a>
+                </button>
                 
                 <button
                   onClick={() => {

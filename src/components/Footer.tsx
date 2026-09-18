@@ -1,4 +1,5 @@
-import { Instagram, Facebook, Youtube, Twitter } from 'lucide-react';
+import { Instagram } from 'lucide-react';
+import { WhatsAppIcon } from './WhatsAppButton';
 
 interface FooterProps {
   setActivePage: (page: string) => void;
@@ -44,43 +45,31 @@ export default function Footer({ setActivePage, openBookingModal, brandLogoUrl =
               Transforming spaces with premium curtains, wallpapers, and blinds that perfectly blend style, comfort, and functionality.
             </p>
 
-            {/* Social Icons */}
+            {/* Social Icons: WhatsApp & Instagram only, matching identical design style */}
             <div className="flex items-center space-x-3.5 pt-2">
               <a 
-                href="https://facebook.com" 
-                target="_blank" 
-                rel="noreferrer" 
+                href="https://wa.me/918884009398?text=Hi!%20I'm%20visiting%20Floating%20Drapes%20and%20would%20like%20to%20inquire%20about%20your%20luxury%20curtains,%20wallpapers,%20and%20blinds." 
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.location.href = "https://wa.me/918884009398?text=Hi!%20I'm%20visiting%20Floating%20Drapes%20and%20would%20like%20to%20inquire%20about%20your%20luxury%20curtains,%20wallpapers,%20and%20blinds.";
+                }}
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-[#EAEAEA] text-zinc-600 hover:text-[#029BFA] hover:border-[#029BFA] transition-all bg-white shadow-sm"
-                aria-label="Facebook"
+                aria-label="WhatsApp"
+                title="WhatsApp (+91 88840 09398)"
               >
-                <Facebook className="h-4.5 w-4.5 fill-current" />
+                <WhatsAppIcon className="h-4.5 w-4.5 fill-current" />
               </a>
               <a 
                 href="https://instagram.com" 
-                target="_blank" 
-                rel="noreferrer" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.location.href = "https://instagram.com";
+                }}
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-[#EAEAEA] text-zinc-600 hover:text-[#029BFA] hover:border-[#029BFA] transition-all bg-white shadow-sm"
                 aria-label="Instagram"
+                title="Instagram"
               >
                 <Instagram className="h-4.5 w-4.5" />
-              </a>
-              <a 
-                href="https://youtube.com" 
-                target="_blank" 
-                rel="noreferrer" 
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-[#EAEAEA] text-zinc-600 hover:text-[#029BFA] hover:border-[#029BFA] transition-all bg-white shadow-sm"
-                aria-label="YouTube"
-              >
-                <Youtube className="h-4.5 w-4.5 fill-current" />
-              </a>
-              <a 
-                href="https://twitter.com" 
-                target="_blank" 
-                rel="noreferrer" 
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-[#EAEAEA] text-zinc-600 hover:text-[#029BFA] hover:border-[#029BFA] transition-all bg-white shadow-sm"
-                aria-label="Twitter"
-              >
-                <Twitter className="h-4.5 w-4.5 fill-current" />
               </a>
             </div>
           </div>
@@ -92,37 +81,37 @@ export default function Footer({ setActivePage, openBookingModal, brandLogoUrl =
             </h5>
             <ul className="space-y-3 font-sans text-[14px] font-light text-zinc-500">
               <li>
-                <button onClick={() => handlePageClick('home', 'home-hero')} className="hover:text-[#029BFA] transition-colors cursor-pointer">
+                <button onClick={() => handlePageClick('home', 'home-hero')} className="text-left w-full hover:text-[#029BFA] transition-colors cursor-pointer block">
                   Home
                 </button>
               </li>
               <li>
-                <button onClick={() => handlePageClick('home', 'about-us-section')} className="hover:text-[#029BFA] transition-colors cursor-pointer">
+                <button onClick={() => handlePageClick('home', 'about-us-section')} className="text-left w-full hover:text-[#029BFA] transition-colors cursor-pointer block">
                   About Us
                 </button>
               </li>
               <li>
-                <button onClick={() => handlePageClick('home', 'categories-overview-section')} className="hover:text-[#029BFA] transition-colors cursor-pointer">
+                <button onClick={() => handlePageClick('home', 'categories-overview-section')} className="text-left w-full hover:text-[#029BFA] transition-colors cursor-pointer block">
                   Products
                 </button>
               </li>
               <li>
-                <button onClick={() => handlePageClick('home', 'before-after-section')} className="hover:text-[#029BFA] transition-colors cursor-pointer">
+                <button onClick={() => handlePageClick('home', 'before-after-section')} className="text-left w-full hover:text-[#029BFA] transition-colors cursor-pointer block">
                   Transformations
                 </button>
               </li>
               <li>
-                <button onClick={() => handlePageClick('home', 'process-section')} className="hover:text-[#029BFA] transition-colors cursor-pointer">
+                <button onClick={() => handlePageClick('home', 'process-section')} className="text-left w-full hover:text-[#029BFA] transition-colors cursor-pointer block">
                   Services
                 </button>
               </li>
               <li>
-                <button onClick={() => handlePageClick('home', 'testimonials-section')} className="hover:text-[#029BFA] transition-colors cursor-pointer">
+                <button onClick={() => handlePageClick('home', 'testimonials-section')} className="text-left w-full hover:text-[#029BFA] transition-colors cursor-pointer block">
                   Testimonials
                 </button>
               </li>
               <li>
-                <button onClick={() => handlePageClick('home', 'cta-banner-section')} className="hover:text-[#029BFA] transition-colors cursor-pointer">
+                <button onClick={() => handlePageClick('home', 'cta-banner-section')} className="text-left w-full hover:text-[#029BFA] transition-colors cursor-pointer block">
                   Contact Us
                 </button>
               </li>
@@ -136,27 +125,27 @@ export default function Footer({ setActivePage, openBookingModal, brandLogoUrl =
             </h5>
             <ul className="space-y-3 font-sans text-[14px] font-light text-zinc-500">
               <li>
-                <button onClick={() => { setActivePage('curtains'); window.scrollTo({ top: 0, behavior: 'instant' }); }} className="hover:text-[#029BFA] transition-colors cursor-pointer">
+                <button onClick={() => { setActivePage('curtains'); window.scrollTo({ top: 0, behavior: 'instant' }); }} className="text-left w-full hover:text-[#029BFA] transition-colors cursor-pointer block">
                   Curtains
                 </button>
               </li>
               <li>
-                <button onClick={() => { setActivePage('wallpapers'); window.scrollTo({ top: 0, behavior: 'instant' }); }} className="hover:text-[#029BFA] transition-colors cursor-pointer">
+                <button onClick={() => { setActivePage('wallpapers'); window.scrollTo({ top: 0, behavior: 'instant' }); }} className="text-left w-full hover:text-[#029BFA] transition-colors cursor-pointer block">
                   Wallpapers
                 </button>
               </li>
               <li>
-                <button onClick={() => { setActivePage('blinds'); window.scrollTo({ top: 0, behavior: 'instant' }); }} className="hover:text-[#029BFA] transition-colors cursor-pointer">
+                <button onClick={() => { setActivePage('blinds'); window.scrollTo({ top: 0, behavior: 'instant' }); }} className="text-left w-full hover:text-[#029BFA] transition-colors cursor-pointer block">
                   Blinds
                 </button>
               </li>
               <li>
-                <button onClick={() => handlePageClick('home', 'customization-section')} className="hover:text-[#029BFA] transition-colors cursor-pointer">
+                <button onClick={() => handlePageClick('home', 'customization-section')} className="text-left w-full hover:text-[#029BFA] transition-colors cursor-pointer block leading-snug">
                   Design Your Own Curtains
                 </button>
               </li>
               <li>
-                <button onClick={() => handlePageClick('home', 'customization-section')} className="hover:text-[#029BFA] transition-colors cursor-pointer">
+                <button onClick={() => handlePageClick('home', 'customization-section')} className="text-left w-full hover:text-[#029BFA] transition-colors cursor-pointer block leading-snug">
                   Design Your Own Wallpaper
                 </button>
               </li>

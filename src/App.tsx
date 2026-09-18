@@ -249,13 +249,13 @@ export default function App() {
   }, [activePage]);
 
   const openWhatsAppDirect = () => {
-    const encodedText = encodeURIComponent("Hi, I'm interested in your luxury curtain and wallpaper services.");
-    window.open(`https://wa.me/918884009398?text=${encodedText}`, '_blank');
+    const text = encodeURIComponent("Hi! I'm interested in your luxury curtain, wallpaper, and blinds services.");
+    window.location.href = `https://wa.me/918884009398?text=${text}`;
   };
 
   const handleInquireWhatsApp = (productName: string, category: string) => {
-    const text = encodeURIComponent(`Hi, I am interested in inquiring about "${productName}" from your ${category} collection.`);
-    window.open(`https://wa.me/918884009398?text=${text}`, '_blank');
+    const text = encodeURIComponent(`Hi! I am interested in inquiring about "${productName}" from your ${category} collection.`);
+    window.location.href = `https://wa.me/918884009398?text=${text}`;
   };
 
   // Curtains Page filtered datasets
