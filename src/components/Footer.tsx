@@ -32,11 +32,12 @@ export default function Footer({ setActivePage, openBookingModal, brandLogoUrl =
           {/* Column 1: Brand Logo & Description (4 columns wide) */}
           <div className="lg:col-span-4 flex flex-col space-y-5 text-left">
             {/* Logo */}
-            <div className="group flex items-center cursor-pointer" onClick={() => handlePageClick('home')}>
+            <div className="flex items-center cursor-pointer py-1" onClick={() => handlePageClick('home')}>
               <img 
                 src={brandLogoUrl} 
                 alt="Floating Drapes" 
-                className="h-[36px] sm:h-[42px] w-auto object-contain transition-transform duration-300 group-hover:scale-102"
+                draggable={false}
+                className="h-[34px] sm:h-[38px] md:h-[40px] w-auto max-h-[44px] object-contain select-none"
                 id="footer-logo-img"
               />
             </div>
@@ -58,18 +59,17 @@ export default function Footer({ setActivePage, openBookingModal, brandLogoUrl =
               >
                 <WhatsAppIcon className="h-4.5 w-4.5 fill-current" />
               </button>
-              <a 
-                href="https://instagram.com" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.location.href = "https://instagram.com";
+              <button 
+                type="button"
+                onClick={() => {
+                  window.open("https://instagram.com", "InstagramPopup", "width=600,height=750,resizable=yes,scrollbars=yes");
                 }}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-[#EAEAEA] text-zinc-600 hover:text-[#029BFA] hover:border-[#029BFA] transition-all bg-white shadow-sm"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-[#EAEAEA] text-zinc-600 hover:text-[#029BFA] hover:border-[#029BFA] transition-all bg-white shadow-sm cursor-pointer"
                 aria-label="Instagram"
                 title="Instagram"
               >
                 <Instagram className="h-4.5 w-4.5" />
-              </a>
+              </button>
             </div>
           </div>
 
@@ -169,7 +169,7 @@ export default function Footer({ setActivePage, openBookingModal, brandLogoUrl =
               </li>
               <li className="leading-relaxed text-zinc-500">
                 <span className="font-bold text-[#021E3B]">Experience Center:</span><br />
-                Floating Drapes, 1st Floor, indiranagar, Coimbatore.
+                Floating Drapes, 712, Niladhri Main Road, Begur Hobli, Chikkathoguru, Bengaluru, Karnataka 560100
               </li>
             </ul>
           </div>

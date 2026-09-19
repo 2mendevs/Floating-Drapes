@@ -70,76 +70,76 @@ export default function Header({ activePage, setActivePage, openBookingModal, br
 
   return (
     <header 
-      className="sticky top-0 left-0 w-full z-50 bg-[#FFFFFF] transition-all duration-300"
+      className="sticky top-0 left-0 w-full z-50 bg-[#FFFFFF] transition-all duration-200"
       style={{ 
-        height: '90px',
-        boxShadow: '0px 8px 30px rgba(0,0,0,0.05)',
+        boxShadow: isScrolled ? '0px 4px 20px rgba(0,0,0,0.06)' : '0px 2px 10px rgba(0,0,0,0.04)',
         borderBottom: '1px solid #EAEAEA'
       }}
       id="main-sticky-header"
     >
-      <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-6 sm:px-8 lg:px-12">
+      <div className="mx-auto flex h-[72px] sm:h-[76px] max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-12">
         
-        {/* LOGO LEFT */}
+        {/* LOGO LEFT - reduced size, static, no scale animation on hover/drag */}
         <div 
           onClick={() => {
             setActivePage('home');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }} 
-          className="group flex cursor-pointer items-center"
+          className="flex cursor-pointer items-center py-1 flex-shrink-0"
           id="brand-logo-container"
         >
           <img 
             src={brandLogoUrl} 
             alt="Floating Drapes" 
-            className="h-[36px] sm:h-[42px] w-auto object-contain transition-transform duration-300 group-hover:scale-102"
+            draggable={false}
+            className="h-[32px] sm:h-[36px] md:h-[38px] w-auto max-h-[42px] object-contain select-none"
             id="brand-logo-img"
           />
         </div>
 
-        {/* MENU CENTER */}
-        <nav className="hidden lg:flex items-center space-x-7">
+        {/* MENU CENTER - clean spacing, no wrapping, elegant typography */}
+        <nav className="hidden lg:flex items-center gap-3 lg:gap-4 xl:gap-6 2xl:gap-7 flex-shrink-0">
           {navItems.map((item) => (
             <button
               key={item.id}
               onClick={() => handleNavClick(item.id, item.targetId)}
-              className="relative py-2 text-[14px] font-medium tracking-normal text-[#111111] hover:text-[#029BFA] transition-colors duration-300 font-sans cursor-pointer"
+              className="relative py-1.5 text-[13px] xl:text-[14px] font-medium tracking-normal text-[#1a2e40] hover:text-[#029BFA] transition-colors duration-200 font-sans cursor-pointer whitespace-nowrap"
               id={`nav-link-${item.id}`}
             >
               {item.label}
               {activePage === 'home' && (
-                <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-[#029BFA] transition-all duration-300 hover:w-full" />
+                <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-[#029BFA] transition-all duration-200 hover:w-full" />
               )}
             </button>
           ))}
         </nav>
 
-        {/* PHONE CTA RIGHT */}
-        <div className="flex items-center space-x-4">
+        {/* PHONE CTA & ESTIMATE RIGHT */}
+        <div className="flex items-center space-x-3 sm:space-x-4 flex-shrink-0">
           <button
             type="button"
             onClick={handleCallSupport}
-            className="hidden md:flex items-center space-x-3 group cursor-pointer text-left bg-transparent border-0 p-0"
+            className="hidden md:flex items-center space-x-2.5 text-left bg-transparent border-0 p-1 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer group"
             id="header-phone-cta"
-            title="Call Us Now / Direct Support"
+            title="Call Us Now (+91 88840 09398)"
           >
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#029BFA] text-white shadow-[0_4px_12px_rgba(2,155,250,0.25)] group-hover:scale-105 transition-transform">
-              <Phone className="h-5 w-5 fill-current text-white" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#029BFA] text-white shadow-sm flex-shrink-0">
+              <Phone className="h-4 w-4 fill-current text-white" />
             </div>
-            <div className="flex flex-col text-left">
-              <span className="font-serif text-[14px] font-bold text-[#021E3B] leading-none tracking-normal">
+            <div className="flex flex-col text-left whitespace-nowrap">
+              <span className="font-serif text-[13px] font-bold text-[#021E3B] leading-none tracking-normal">
                 Call Us Now
               </span>
-              <span className="font-sans text-[9px] font-semibold text-[#029BFA] uppercase mt-1 leading-none">
+              <span className="font-sans text-[9px] font-semibold text-[#029BFA] uppercase mt-1 leading-none tracking-wider">
                 Direct Support
               </span>
             </div>
           </button>
 
-          {/* Booking Button for easy access */}
+          {/* Booking / Estimate Button */}
           <button
             onClick={openBookingModal}
-            className="bg-[#029BFA] hover:bg-[#0082db] text-white text-[12px] font-bold px-4 py-2.5 rounded-full transition-all tracking-wide shadow-[0_4px_12px_rgba(2,155,250,0.2)] hover:shadow-[0_6px_16px_rgba(2,155,250,0.3)] cursor-pointer"
+            className="bg-[#029BFA] hover:bg-[#0082db] text-white text-[12px] font-bold px-4 py-2 rounded-full transition-all tracking-wide shadow-sm hover:shadow-md cursor-pointer whitespace-nowrap flex-shrink-0"
           >
             Estimate
           </button>
@@ -147,11 +147,11 @@ export default function Header({ activePage, setActivePage, openBookingModal, br
           {/* Drawer Trigger on Mobile/Tablet */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="flex lg:hidden h-10 w-10 items-center justify-center rounded-full border border-[#EAEAEA] hover:border-[#029BFA] text-[#021E3B] hover:text-[#029BFA] transition-all duration-300 cursor-pointer"
+            className="flex lg:hidden h-9 w-9 items-center justify-center rounded-full border border-[#EAEAEA] hover:border-[#029BFA] text-[#021E3B] hover:text-[#029BFA] transition-all duration-200 cursor-pointer"
             aria-label="Toggle Menu"
             id="menu-drawer-trigger"
           >
-            {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {isOpen ? <X className="h-4.5 w-4.5" /> : <Menu className="h-4.5 w-4.5" />}
           </button>
         </div>
       </div>
@@ -165,15 +165,15 @@ export default function Header({ activePage, setActivePage, openBookingModal, br
               animate={{ opacity: 0.5 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
-              className="fixed inset-0 top-[90px] z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+              className="fixed inset-0 top-[72px] sm:top-[76px] z-40 bg-black/50 backdrop-blur-sm lg:hidden"
             />
 
             <motion.div
-              initial={{ opacity: 0, y: -20 }}
+              initial={{ opacity: 0, y: -15 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.25 }}
-              className="fixed top-[90px] left-0 right-0 z-50 bg-[#FFFFFF] border-b border-[#EAEAEA] px-6 py-6 shadow-[0_10px_25px_rgba(0,0,0,0.1)] lg:hidden flex flex-col space-y-4"
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.2 }}
+              className="fixed top-[72px] sm:top-[76px] left-0 right-0 z-50 bg-[#FFFFFF] border-b border-[#EAEAEA] px-6 py-6 shadow-[0_10px_25px_rgba(0,0,0,0.1)] lg:hidden flex flex-col space-y-3"
               id="mobile-nav-panel"
             >
               {navItems.map((item) => (
@@ -186,23 +186,23 @@ export default function Header({ activePage, setActivePage, openBookingModal, br
                 </button>
               ))}
 
-              <div className="pt-4 flex items-center justify-between">
+              <div className="pt-3 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={(e) => {
                     setIsOpen(false);
                     handleCallSupport(e);
                   }}
-                  className="flex items-center space-x-3 group cursor-pointer text-left bg-transparent border-0 p-0"
+                  className="flex items-center space-x-2.5 group cursor-pointer text-left bg-transparent border-0 p-0"
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#029BFA] text-white">
-                    <Phone className="h-4.5 w-4.5 fill-current" />
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#029BFA] text-white">
+                    <Phone className="h-4 w-4 fill-current" />
                   </div>
                   <div className="flex flex-col text-left">
-                    <span className="font-serif text-[14px] font-bold text-[#021E3B] leading-none">
+                    <span className="font-serif text-[13px] font-bold text-[#021E3B] leading-none">
                       Call Us Now
                     </span>
-                    <span className="font-sans text-[10px] font-semibold text-[#029BFA] uppercase mt-1 leading-none">
+                    <span className="font-sans text-[9px] font-semibold text-[#029BFA] uppercase mt-1 leading-none">
                       Direct Support
                     </span>
                   </div>
@@ -213,9 +213,9 @@ export default function Header({ activePage, setActivePage, openBookingModal, br
                     setIsOpen(false);
                     openBookingModal();
                   }}
-                  className="bg-[#029BFA] text-white font-sans text-xs font-bold px-4 py-2.5 rounded-full"
+                  className="bg-[#029BFA] text-white font-sans text-xs font-bold px-4 py-2 rounded-full"
                 >
-                  Free Estimate
+                  Estimate
                 </button>
               </div>
             </motion.div>

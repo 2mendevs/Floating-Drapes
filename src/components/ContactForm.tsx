@@ -154,7 +154,7 @@ export default function ContactForm() {
                 </div>
                 <div>
                   <span className="block text-[9px] font-bold tracking-widest text-gold uppercase">FLAGSHIP STUDIO</span>
-                  <span className="font-serif text-sm text-white">123 Design Street, Bangalore, India</span>
+                  <span className="font-serif text-sm text-white">712, Niladhri Main Road, Begur Hobli, Chikkathoguru, Bengaluru, Karnataka 560100</span>
                   <p className="text-[10px] text-muted-text mt-0.5">Scheduled appointments only</p>
                 </div>
               </div>
@@ -260,7 +260,7 @@ export default function ContactForm() {
                     type="text"
                     value={formData.location}
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    placeholder="e.g. Indiranagar, Bangalore"
+                    placeholder="e.g. Begur Hobli, Bengaluru"
                     className="w-full bg-white/5 border border-gold/15 px-4 py-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-gold transition-colors rounded-none"
                   />
                 </div>

@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { SiteConfig, CurtainItem, WallpaperItem, BookingSubmission, DEFAULT_SITE_CONFIG } from '../types';
+import { SiteConfig, CurtainItem, WallpaperItem, BookingSubmission, DEFAULT_SITE_CONFIG, Testimonial, TESTIMONIALS_DATA } from '../types';
 import { BlindItem, EXTENDED_CURTAINS_DATA, EXTENDED_WALLPAPERS_DATA, EXTENDED_BLINDS_DATA } from '../data/productsData';
 
 // Storage keys for custom Supabase credentials configured via Admin Panel
@@ -166,6 +166,7 @@ export async function fetchUniversalSiteData(): Promise<{
   curtains: CurtainItem[] | null;
   wallpapers: WallpaperItem[] | null;
   blinds: BlindItem[] | null;
+  testimonials: Testimonial[] | null;
   bookings: BookingSubmission[] | null;
   inquiries: any[] | null;
 }> {
@@ -176,17 +177,19 @@ export async function fetchUniversalSiteData(): Promise<{
       curtains: null,
       wallpapers: null,
       blinds: null,
+      testimonials: null,
       bookings: null,
       inquiries: null
     };
   }
 
   try {
-    const [configRes, curtainsRes, wallpapersRes, blindsRes, bookingsRes, inquiriesRes] = await Promise.allSettled([
+    const [configRes, curtainsRes, wallpapersRes, blindsRes, testimonialsRes, bookingsRes, inquiriesRes] = await Promise.allSettled([
       client.from('site_config').select('config').eq('id', 'current_config').single(),
       client.from('curtains').select('*').order('created_at', { ascending: false }),
       client.from('wallpapers').select('*').order('created_at', { ascending: false }),
       client.from('blinds').select('*').order('created_at', { ascending: false }),
+      client.from('testimonials').select('*').order('created_at', { ascending: false }),
       client.from('bookings').select('*').order('timestamp', { ascending: false }),
       client.from('inquiries').select('*').order('timestamp', { ascending: false })
     ]);
@@ -232,6 +235,19 @@ export async function fetchUniversalSiteData(): Promise<{
       }));
     }
 
+    let testimonials: Testimonial[] | null = null;
+    if (testimonialsRes.status === 'fulfilled' && testimonialsRes.value.data && testimonialsRes.value.data.length > 0) {
+      testimonials = testimonialsRes.value.data.map(item => ({
+        id: item.id,
+        name: item.name,
+        location: item.location || '',
+        role: item.role || '',
+        review: item.review,
+        rating: typeof item.rating === 'number' ? item.rating : 5,
+        image: item.image || ''
+      }));
+    }
+
     let bookings: BookingSubmission[] | null = null;
     if (bookingsRes.status === 'fulfilled' && bookingsRes.value.data) {
       bookings = bookingsRes.value.data.map(item => ({
@@ -253,7 +269,7 @@ export async function fetchUniversalSiteData(): Promise<{
       inquiries = inquiriesRes.value.data;
     }
 
-    return { siteConfig, curtains, wallpapers, blinds, bookings, inquiries };
+    return { siteConfig, curtains, wallpapers, blinds, testimonials, bookings, inquiries };
   } catch (err) {
     console.error('Error fetching data from Supabase:', err);
     return {
@@ -261,6 +277,7 @@ export async function fetchUniversalSiteData(): Promise<{
       curtains: null,
       wallpapers: null,
       blinds: null,
+      testimonials: null,
       bookings: null,
       inquiries: null
     };
@@ -497,19 +514,59 @@ export async function deleteInquiryFromSupabase(id: string): Promise<boolean> {
 }
 
 /**
+ * Universal Feedback / Testimonials Mutations
+ */
+export async function upsertFeedbackToSupabase(item: Testimonial): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (!client) return false;
+
+  try {
+    const { error } = await client.from('testimonials').upsert({
+      id: item.id,
+      name: item.name,
+      location: item.location || '',
+      role: item.role || '',
+      review: item.review,
+      rating: item.rating || 5,
+      image: item.image || '',
+      updated_at: new Date().toISOString()
+    });
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error('Failed to upsert testimonial in Supabase:', err);
+    return false;
+  }
+}
+
+export async function deleteFeedbackFromSupabase(id: string): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (!client) return false;
+
+  try {
+    const { error } = await client.from('testimonials').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error('Failed to delete testimonial from Supabase:', err);
+    return false;
+  }
+}
+
+/**
  * One-Click Seed Catalog: Uploads current comprehensive catalog into Supabase
  */
 export async function seedDefaultCatalogToSupabase(customConfig?: SiteConfig): Promise<{
   success: boolean;
   message: string;
-  counts: { curtains: number; wallpapers: number; blinds: number };
+  counts: { curtains: number; wallpapers: number; blinds: number; testimonials: number };
 }> {
   const client = getSupabaseClient();
   if (!client) {
     return {
       success: false,
       message: 'Supabase client is not initialized. Please connect your credentials first.',
-      counts: { curtains: 0, wallpapers: 0, blinds: 0 }
+      counts: { curtains: 0, wallpapers: 0, blinds: 0, testimonials: 0 }
     };
   }
 
@@ -557,13 +614,27 @@ export async function seedDefaultCatalogToSupabase(customConfig?: SiteConfig): P
     }));
     await client.from('blinds').upsert(blindsPayload);
 
+    // 5. Seed Testimonials / Feedbacks
+    const testimonialsPayload = TESTIMONIALS_DATA.map((t, i) => ({
+      id: t.id,
+      name: t.name,
+      location: t.location,
+      role: t.role || '',
+      review: t.review,
+      rating: t.rating || 5,
+      image: t.image || '',
+      created_at: new Date(Date.now() - i * 1000).toISOString()
+    }));
+    await client.from('testimonials').upsert(testimonialsPayload);
+
     return {
       success: true,
-      message: `Universal seed completed! Seeded ${curtainsPayload.length} curtains, ${wallpapersPayload.length} wallpapers, and ${blindsPayload.length} blinds to Supabase.`,
+      message: `Universal seed completed! Seeded ${curtainsPayload.length} curtains, ${wallpapersPayload.length} wallpapers, ${blindsPayload.length} blinds, and ${testimonialsPayload.length} testimonials to Supabase.`,
       counts: {
         curtains: curtainsPayload.length,
         wallpapers: wallpapersPayload.length,
-        blinds: blindsPayload.length
+        blinds: blindsPayload.length,
+        testimonials: testimonialsPayload.length
       }
     };
   } catch (err: any) {
@@ -571,7 +642,7 @@ export async function seedDefaultCatalogToSupabase(customConfig?: SiteConfig): P
     return {
       success: false,
       message: `Seeding error: ${err?.message || 'Database transaction rejected. Ensure tables exist in Supabase.'}`,
-      counts: { curtains: 0, wallpapers: 0, blinds: 0 }
+      counts: { curtains: 0, wallpapers: 0, blinds: 0, testimonials: 0 }
     };
   }
 }
@@ -606,6 +677,11 @@ export function subscribeToUniversalChanges(onUpdate: (table: string, payload: a
         'postgres_changes',
         { event: '*', schema: 'public', table: 'blinds' },
         payload => onUpdate('blinds', payload)
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'testimonials' },
+        payload => onUpdate('testimonials', payload)
       )
       .on(
         'postgres_changes',
@@ -684,7 +760,20 @@ CREATE TABLE IF NOT EXISTS public.blinds (
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 5. Bookings / Consultations Table
+-- 5. Customer Feedback & Testimonials Table
+CREATE TABLE IF NOT EXISTS public.testimonials (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  location TEXT,
+  role TEXT,
+  review TEXT NOT NULL,
+  rating INTEGER DEFAULT 5,
+  image TEXT,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 6. Bookings / Consultations Table
 CREATE TABLE IF NOT EXISTS public.bookings (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -700,7 +789,7 @@ CREATE TABLE IF NOT EXISTS public.bookings (
   created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 6. General Inquiries & Contact Form Submissions Table
+-- 7. General Inquiries & Contact Form Submissions Table
 CREATE TABLE IF NOT EXISTS public.inquiries (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -722,6 +811,7 @@ ALTER TABLE public.site_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.curtains ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wallpapers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.blinds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.testimonials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inquiries ENABLE ROW LEVEL SECURITY;
 
@@ -744,6 +834,10 @@ BEGIN
   DROP POLICY IF EXISTS "Public All blinds" ON public.blinds;
   CREATE POLICY "Public All blinds" ON public.blinds FOR ALL USING (true) WITH CHECK (true);
 
+  -- testimonials policies
+  DROP POLICY IF EXISTS "Public All testimonials" ON public.testimonials;
+  CREATE POLICY "Public All testimonials" ON public.testimonials FOR ALL USING (true) WITH CHECK (true);
+
   -- bookings policies
   DROP POLICY IF EXISTS "Public All bookings" ON public.bookings;
   CREATE POLICY "Public All bookings" ON public.bookings FOR ALL USING (true) WITH CHECK (true);
@@ -760,6 +854,7 @@ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.curtains;
   ALTER PUBLICATION supabase_realtime ADD TABLE public.wallpapers;
   ALTER PUBLICATION supabase_realtime ADD TABLE public.blinds;
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.testimonials;
   ALTER PUBLICATION supabase_realtime ADD TABLE public.bookings;
   ALTER PUBLICATION supabase_realtime ADD TABLE public.inquiries;
 EXCEPTION

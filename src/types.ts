@@ -39,11 +39,13 @@ export interface Testimonial {
   id: string;
   name: string;
   location: string;
-  role: string;
+  role?: string;
   review: string;
   rating: number;
-  image: string;
+  image?: string;
 }
+
+export type CustomerFeedback = Testimonial;
 
 export interface BookingSubmission {
   id: string;
@@ -215,30 +217,39 @@ export const PORTFOLIO_DATA: PortfolioItem[] = [
 export const TESTIMONIALS_DATA: Testimonial[] = [
   {
     id: 't1',
-    name: 'Alessandra Moretti',
-    location: 'Beverly Hills Villa',
-    role: 'Principal Architect',
-    review: 'Floating Drapes transformed our estate project completely. The velvet selection has a weight and fluid grace that ordinary drapes simply cannot match. They are our primary recommendation.',
+    name: 'Priya S.',
+    location: 'Bengaluru',
+    role: 'Home Owner',
+    review: 'Floating Drapes completely transformed our home. The quality, service and attention to detail were exceptional. The velvet curtains drape with effortless elegance.',
     rating: 5,
     image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80'
   },
   {
     id: 't2',
-    name: 'Julian Sterling',
-    location: 'Tribeca Penthouse',
-    role: 'Art Director',
-    review: 'The interactive slider in their catalog made choice effortless. We selected the Art Deco gilded papers. The installation team was surgical—aligned the complex geometric pattern down to the millimeter.',
+    name: 'Karthik R.',
+    location: 'Bengaluru',
+    role: 'Principal Architect',
+    review: 'Excellent collection and very professional team. They helped us choose the perfect textures and patterns. The motorized blinds work like a dream.',
     rating: 5,
     image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80'
   },
   {
     id: 't3',
-    name: 'Victoria Vance',
-    location: 'Bel Air Residence',
-    role: 'Villa Owner',
-    review: 'Unbelievable customer care. The whisper-sheer organzas give our oceanfront living room a dreamlike light. It feels less like buying curtains and more like commissioning custom works of fine art.',
+    name: 'Anita M.',
+    location: 'Bengaluru',
+    role: 'Interior Enthusiast',
+    review: 'From measurement to installation, everything was smooth and hassle-free. The wallpaper finish is seamless. Highly recommended!',
     rating: 5,
-    image: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&q=80'
+    image: '' // Demonstrates first-letter avatar fallback ("A")
+  },
+  {
+    id: 't4',
+    name: 'David Chen',
+    location: 'Bengaluru',
+    role: 'Design Consultant',
+    review: 'The craftsmanship and fabric weight exceeded all expectations. Their concierge team walked us through every sheer swatch patiently.',
+    rating: 5,
+    image: '' // Demonstrates first-letter avatar fallback ("D")
   }
 ];
 

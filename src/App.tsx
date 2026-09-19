@@ -21,7 +21,9 @@ import {
   CurtainItem, 
   WallpaperItem,
   SiteConfig,
-  DEFAULT_SITE_CONFIG
+  DEFAULT_SITE_CONFIG,
+  Testimonial,
+  TESTIMONIALS_DATA
 } from './types';
 
 import AdminPanel from './components/AdminPanel';
@@ -113,6 +115,18 @@ export default function App() {
     return EXTENDED_BLINDS_DATA;
   });
 
+  const [testimonials, setTestimonials] = useState<Testimonial[]>(() => {
+    const saved = localStorage.getItem('floatingdrapes_testimonials');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return TESTIMONIALS_DATA;
+  });
+
   const [adminPanelOpen, setAdminPanelOpen] = useState(false);
 
   // Universal Supabase Initialization & Realtime Synchronizer
@@ -136,6 +150,10 @@ export default function App() {
           if (data.blinds && data.blinds.length > 0) {
             setBlinds(data.blinds);
             localStorage.setItem('floatingdrapes_blinds', JSON.stringify(data.blinds));
+          }
+          if (data.testimonials && data.testimonials.length > 0) {
+            setTestimonials(data.testimonials);
+            localStorage.setItem('floatingdrapes_testimonials', JSON.stringify(data.testimonials));
           }
         })
         .catch((err) => {
@@ -208,6 +226,28 @@ export default function App() {
               materials: Array.isArray(newRecord.materials) ? newRecord.materials : []
             };
             setBlinds((prev) => {
+              const exists = prev.some((p) => p.id === formattedItem.id);
+              if (exists) {
+                return prev.map((p) => (p.id === formattedItem.id ? formattedItem : p));
+              } else {
+                return [formattedItem, ...prev];
+              }
+            });
+          }
+        } else if (table === 'testimonials') {
+          if (eventType === 'DELETE' && oldRecord) {
+            setTestimonials((prev) => prev.filter((item) => item.id !== oldRecord.id));
+          } else if (newRecord) {
+            const formattedItem: Testimonial = {
+              id: newRecord.id,
+              name: newRecord.name,
+              location: newRecord.location || '',
+              role: newRecord.role || '',
+              review: newRecord.review,
+              rating: typeof newRecord.rating === 'number' ? newRecord.rating : 5,
+              image: newRecord.image || ''
+            };
+            setTestimonials((prev) => {
               const exists = prev.some((p) => p.id === formattedItem.id);
               if (exists) {
                 return prev.map((p) => (p.id === formattedItem.id ? formattedItem : p));
@@ -311,7 +351,7 @@ export default function App() {
               <ProcessSection />
               <CustomizationSection openBookingModal={() => setBookingModalOpen(true)} />
               <BeforeAfterSection />
-              <Testimonials />
+              <Testimonials testimonials={testimonials} />
               <CTASection 
                 openBookingModal={() => setBookingModalOpen(true)} 
                 openWhatsApp={openWhatsAppDirect} 
@@ -326,78 +366,91 @@ export default function App() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="py-12 lg:py-20 bg-luxury-bg"
+              className="py-12 lg:py-20 bg-[#041c35] min-h-screen text-white"
               id="curtains-page"
             >
-              <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
+              <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8 xl:px-12">
                 <BackToHomeButton onClick={() => setActivePage('home')} />
                 
                 {/* Intro Heading */}
-                <div className="text-center mb-16">
-                  <span className="font-sans text-[10px] font-bold tracking-[0.4em] text-gold uppercase mb-2 block">✦ ELITE DRAPERIES ✦</span>
-                  <h1 className="font-serif text-4xl sm:text-5xl font-light text-white">
-                    The Curtains <span className="italic text-gold">Collection</span>
+                <div className="text-center mb-14 sm:mb-16">
+                  <span className="font-sans text-[11px] font-bold tracking-[0.3em] text-[#0099ff] uppercase mb-2 block">✦ ELITE DRAPERIES ✦</span>
+                  <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
+                    The Curtains <span className="italic text-[#0099ff]">Collection</span>
                   </h1>
-                  <p className="font-sans text-xs font-light text-muted-text max-w-xl mx-auto mt-4 leading-relaxed">
+                  <p className="font-sans text-xs sm:text-sm font-normal text-[#b0d2ee] max-w-xl mx-auto mt-3 sm:mt-4 leading-relaxed">
                     Sourced from historic silk weavers in northern Italy and heavier velvet mills in Belgium. Laser-fit with sub-millimeter tolerances.
                   </p>
-                  <div className="mx-auto h-0.5 w-16 bg-gold mt-6" />
+                  <div className="mx-auto h-0.5 w-16 bg-[#0099ff] mt-5 sm:mt-6" />
                 </div>
 
                 {/* Filter Controls */}
-                <div className="flex flex-wrap justify-center items-center gap-3 mb-12">
-                  {['All', 'Premium', 'Signature', 'Reserve'].map((tier) => (
-                    <button
-                      key={tier}
-                      onClick={() => setSelectedCurtainFilter(tier)}
-                      className={`px-6 py-2.5 text-[10px] font-bold tracking-[0.25em] uppercase transition-all duration-300 rounded-none ${
-                        selectedCurtainFilter === tier
-                          ? 'bg-gold text-luxury-bg shadow-[0_0_15px_rgba(200,165,106,0.2)]'
-                          : 'border border-white/10 text-muted-text hover:border-gold/30 hover:text-white'
-                      }`}
-                    >
-                      {tier} {tier !== 'All' ? 'Tier' : ''}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap justify-center items-center gap-2.5 sm:gap-3 mb-12 sm:mb-14">
+                  {['All', 'Premium', 'Signature', 'Reserve'].map((tier) => {
+                    const label = tier === 'All' ? 'ALL TIERS' : `${tier.toUpperCase()} TIER`;
+                    const isActive = selectedCurtainFilter === tier;
+                    return (
+                      <button
+                        key={tier}
+                        onClick={() => setSelectedCurtainFilter(tier)}
+                        className={`px-5 sm:px-6 py-2.5 text-xs font-bold tracking-[0.15em] uppercase transition-all duration-300 rounded-lg cursor-pointer ${
+                          isActive
+                            ? 'bg-[#0099ff] text-white shadow-lg shadow-[#0099ff]/35 border border-[#0099ff]'
+                            : 'bg-[#051f38] border border-[#0066aa]/50 text-[#88ccff] hover:border-[#0099ff] hover:text-white hover:bg-[#07284a]'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Grid Displays */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12" id="curtains-grid">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 xl:gap-8 items-stretch" id="curtains-grid">
                   {filteredCurtains.map((item: CurtainItem) => (
                     <div 
                       key={item.id} 
-                      className="group border border-gold/15 bg-luxury-sec flex flex-col md:flex-row overflow-hidden transition-all duration-500 hover:border-gold/40 hover:shadow-[0_0_30px_rgba(200,165,106,0.1)]"
+                      className="group bg-[#F4F9FD] rounded-2xl border border-[#d2e5f5]/60 shadow-xl overflow-hidden flex flex-col sm:flex-row transition-all duration-500 hover:shadow-2xl hover:border-[#0099ff]/50 hover:-translate-y-1 h-full"
                       id={`curtain-item-${item.id}`}
                     >
                       {/* Product Image */}
-                      <div className="md:w-1/2 aspect-[4/3] md:aspect-auto overflow-hidden relative">
-                        <OptimizedImage
-                          src={item.image}
-                          alt={item.name}
-                          width={600}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                        />
-                        <span className="absolute top-4 left-4 bg-black/70 backdrop-blur-md border border-gold/20 text-[9px] font-bold tracking-[0.2em] text-gold px-3 py-1 uppercase z-20">
-                          {item.priceClass}
-                        </span>
+                      <div className="w-full sm:w-[44%] lg:w-[44%] xl:w-[45%] flex-shrink-0 p-3 sm:p-3.5 pb-0 sm:pb-3.5 flex flex-col bg-[#F4F9FD]">
+                        <div className="relative h-[240px] sm:h-full min-h-[250px] sm:min-h-[320px] rounded-xl overflow-hidden w-full">
+                          <OptimizedImage
+                            src={item.image}
+                            alt={item.name}
+                            width={600}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                          />
+                          <span className="absolute top-3 left-3 bg-white/95 backdrop-blur-md border border-[#a2d4f8] text-[10px] font-bold tracking-[0.18em] text-[#0099ff] px-3.5 py-1 rounded-md uppercase z-10 shadow-sm">
+                            {item.priceClass}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Details Content */}
-                      <div className="p-6 sm:p-8 md:w-1/2 flex flex-col justify-between">
+                      <div className="p-5 sm:p-6 xl:p-7 w-full sm:w-[56%] lg:w-[56%] xl:w-[55%] flex flex-col justify-between bg-[#F4F9FD] text-[#002b49]">
                         <div>
-                          <span className="text-[10px] font-bold tracking-[0.2em] text-gold uppercase mb-1 block">✦ BESPOKE WEAVE</span>
-                          <h3 className="font-serif text-xl font-bold text-white">{item.name}</h3>
-                          <p className="font-sans text-xs font-light text-muted-text mt-3 leading-relaxed line-clamp-2 h-10">
+                          <div className="flex items-center space-x-1.5 text-[#0099ff] text-[11px] font-bold tracking-[0.2em] uppercase mb-1.5">
+                            <span>✦</span>
+                            <span>FINE FINISH</span>
+                          </div>
+                          <h3 className="font-serif text-xl sm:text-[22px] xl:text-2xl font-bold text-[#002b49] leading-snug line-clamp-2">
+                            {item.name}
+                          </h3>
+                          <p className="font-sans text-xs sm:text-[13px] font-normal text-[#335577] mt-2.5 leading-relaxed line-clamp-3">
                             {item.description}
                           </p>
                         </div>
 
                         {/* List of Materials */}
-                        <div className="mt-6 pt-4 border-t border-gold/10">
-                          <span className="text-[9px] font-bold tracking-widest text-gold uppercase block mb-2">Composed Of:</span>
-                          <div className="flex flex-wrap gap-1.5">
+                        <div className="mt-4 pt-3.5 border-t border-[#d2e5f5]">
+                          <span className="text-[10px] font-bold tracking-[0.18em] text-[#52779a] uppercase block mb-2">
+                            COMPOSED OF:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5 items-center">
                             {item.materials.map((mat, i) => (
-                              <span key={i} className="bg-white/5 border border-white/10 text-[9px] px-2 py-1 text-cream uppercase">
+                              <span key={i} className="bg-white border border-[#b8ddf8] text-[#0077c2] font-semibold text-[10px] px-2.5 py-1 rounded-md uppercase tracking-wider whitespace-nowrap shadow-2xs">
                                 {mat}
                               </span>
                             ))}
@@ -405,35 +458,18 @@ export default function App() {
                         </div>
 
                         {/* Action request */}
-                        <div className="mt-8 pt-4 flex items-center justify-between border-t border-gold/10">
+                        <div className="mt-5 pt-3.5 flex items-center justify-start border-t border-[#d2e5f5]">
                           <button
                             onClick={() => handleInquireWhatsApp(item.name, 'Curtains')}
-                            className="bg-gold hover:bg-gold-soft text-luxury-bg px-4 py-2 text-[10px] font-bold tracking-wider uppercase transition-colors flex items-center space-x-1"
+                            className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-5 py-2.5 text-[11px] sm:text-xs font-bold tracking-wider uppercase rounded-lg shadow-md shadow-[#0099ff]/20 flex items-center space-x-2 transition-all hover:scale-[1.02] cursor-pointer whitespace-nowrap flex-shrink-0"
                           >
                             <span>INQUIRE NOW</span>
-                            <ArrowRight className="h-3 w-3" />
+                            <ArrowRight className="h-3.5 w-3.5" />
                           </button>
-                          <span className="text-[9px] text-muted-text italic">Free Installation</span>
                         </div>
                       </div>
                     </div>
                   ))}
-                </div>
-
-                {/* Custom Styling Strip */}
-                <div className="mt-20 border border-gold/20 bg-white/[0.02] p-8 sm:p-12 text-center relative overflow-hidden">
-                  <div className="absolute top-0 right-0 h-32 w-32 bg-gold/5 blur-3xl pointer-events-none" />
-                  <span className="font-sans text-[10px] font-bold tracking-[0.3em] text-gold uppercase block mb-3">CUSTOM MOTORIZATION</span>
-                  <h3 className="font-serif text-2xl text-white mb-4">Whisper-Quiet Lutron Automation</h3>
-                  <p className="font-sans text-xs text-muted-text max-w-xl mx-auto leading-relaxed mb-6">
-                    Our master installers seamlessly integrate hidden motorized rails that interface with Apple HomeKit, Control4, Crestron, and manual brass controls.
-                  </p>
-                  <button
-                    onClick={() => setBookingModalOpen(true)}
-                    className="bg-gold hover:bg-gold-soft text-luxury-bg px-8 py-3.5 text-xs font-bold tracking-widest uppercase transition-colors inline-block"
-                  >
-                    INQUIRE ABOUT MOTORIZATION
-                  </button>
                 </div>
 
               </div>
@@ -447,78 +483,91 @@ export default function App() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="py-12 lg:py-20 bg-luxury-bg"
+              className="py-12 lg:py-20 bg-[#041c35] min-h-screen text-white"
               id="wallpapers-page"
             >
-              <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
+              <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8 xl:px-12">
                 <BackToHomeButton onClick={() => setActivePage('home')} />
                 
                 {/* Intro Heading */}
-                <div className="text-center mb-16">
-                  <span className="font-sans text-[10px] font-bold tracking-[0.4em] text-gold uppercase mb-2 block">✦ GILDED WALLCOVERINGS ✦</span>
-                  <h1 className="font-serif text-4xl sm:text-5xl font-light text-white">
-                    Designer <span className="italic text-gold">Wallpapers</span>
+                <div className="text-center mb-14 sm:mb-16">
+                  <span className="font-sans text-[11px] font-bold tracking-[0.3em] text-[#0099ff] uppercase mb-2 block">✦ GILDED WALLCOVERINGS ✦</span>
+                  <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
+                    Designer <span className="italic text-[#0099ff]">Wallpapers</span>
                   </h1>
-                  <p className="font-sans text-xs font-light text-muted-text max-w-xl mx-auto mt-4 leading-relaxed">
+                  <p className="font-sans text-xs sm:text-sm font-normal text-[#b0d2ee] max-w-xl mx-auto mt-3 sm:mt-4 leading-relaxed">
                     Intricate hand-painted silk murals, real brass-leaf geometry prints, and heavy flocked textured designs to create breathtaking visual feature walls.
                   </p>
-                  <div className="mx-auto h-0.5 w-16 bg-gold mt-6" />
+                  <div className="mx-auto h-0.5 w-16 bg-[#0099ff] mt-5 sm:mt-6" />
                 </div>
 
                 {/* Filter Controls */}
-                <div className="flex flex-wrap justify-center items-center gap-3 mb-12">
-                  {['All', 'Classic', 'Modern', 'Botanical', 'Textured'].map((style) => (
-                    <button
-                      key={style}
-                      onClick={() => setSelectedWallpaperFilter(style)}
-                      className={`px-6 py-2.5 text-[10px] font-bold tracking-[0.25em] uppercase transition-all duration-300 rounded-none ${
-                        selectedWallpaperFilter === style
-                          ? 'bg-gold text-luxury-bg shadow-[0_0_15px_rgba(200,165,106,0.2)]'
-                          : 'border border-white/10 text-muted-text hover:border-gold/30 hover:text-white'
-                      }`}
-                    >
-                      {style} Style
-                    </button>
-                  ))}
+                <div className="flex flex-wrap justify-center items-center gap-2.5 sm:gap-3 mb-12 sm:mb-14">
+                  {['All', 'Classic', 'Modern', 'Botanical', 'Textured'].map((style) => {
+                    const label = style === 'All' ? 'ALL STYLE' : `${style.toUpperCase()} STYLE`;
+                    const isActive = selectedWallpaperFilter === style;
+                    return (
+                      <button
+                        key={style}
+                        onClick={() => setSelectedWallpaperFilter(style)}
+                        className={`px-5 sm:px-6 py-2.5 text-xs font-bold tracking-[0.15em] uppercase transition-all duration-300 rounded-lg cursor-pointer ${
+                          isActive
+                            ? 'bg-[#0099ff] text-white shadow-lg shadow-[#0099ff]/35 border border-[#0099ff]'
+                            : 'bg-[#051f38] border border-[#0066aa]/50 text-[#88ccff] hover:border-[#0099ff] hover:text-white hover:bg-[#07284a]'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Grid Displays */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12" id="wallpapers-grid">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 xl:gap-8 items-stretch" id="wallpapers-grid">
                   {filteredWallpapers.map((item: WallpaperItem) => (
                     <div 
                       key={item.id} 
-                      className="group border border-gold/15 bg-luxury-sec flex flex-col md:flex-row overflow-hidden transition-all duration-500 hover:border-gold/40 hover:shadow-[0_0_30px_rgba(200,165,106,0.1)]"
+                      className="group bg-[#F4F9FD] rounded-2xl border border-[#d2e5f5]/60 shadow-xl overflow-hidden flex flex-col sm:flex-row transition-all duration-500 hover:shadow-2xl hover:border-[#0099ff]/50 hover:-translate-y-1 h-full"
                       id={`wallpaper-item-${item.id}`}
                     >
                       {/* Product Image */}
-                      <div className="md:w-1/2 aspect-[4/3] md:aspect-auto overflow-hidden relative">
-                        <OptimizedImage
-                          src={item.image}
-                          alt={item.name}
-                          width={600}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                        />
-                        <span className="absolute top-4 left-4 bg-black/70 backdrop-blur-md border border-gold/20 text-[9px] font-bold tracking-[0.2em] text-gold px-3 py-1 uppercase z-20">
-                          {item.style}
-                        </span>
+                      <div className="w-full sm:w-[44%] lg:w-[44%] xl:w-[45%] flex-shrink-0 p-3 sm:p-3.5 pb-0 sm:pb-3.5 flex flex-col bg-[#F4F9FD]">
+                        <div className="relative h-[240px] sm:h-full min-h-[250px] sm:min-h-[320px] rounded-xl overflow-hidden w-full">
+                          <OptimizedImage
+                            src={item.image}
+                            alt={item.name}
+                            width={600}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                          />
+                          <span className="absolute top-3 left-3 bg-white/95 backdrop-blur-md border border-[#a2d4f8] text-[10px] font-bold tracking-[0.18em] text-[#0099ff] px-3.5 py-1 rounded-md uppercase z-10 shadow-sm">
+                            {item.style}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Details Content */}
-                      <div className="p-6 sm:p-8 md:w-1/2 flex flex-col justify-between">
+                      <div className="p-5 sm:p-6 xl:p-7 w-full sm:w-[56%] lg:w-[56%] xl:w-[55%] flex flex-col justify-between bg-[#F4F9FD] text-[#002b49]">
                         <div>
-                          <span className="text-[10px] font-bold tracking-[0.2em] text-gold uppercase mb-1 block">✦ FINE FINISH</span>
-                          <h3 className="font-serif text-xl font-bold text-white">{item.name}</h3>
-                          <p className="font-sans text-xs font-light text-muted-text mt-3 leading-relaxed line-clamp-2 h-10">
+                          <div className="flex items-center space-x-1.5 text-[#0099ff] text-[11px] font-bold tracking-[0.2em] uppercase mb-1.5">
+                            <span>✦</span>
+                            <span>FINE FINISH</span>
+                          </div>
+                          <h3 className="font-serif text-xl sm:text-[22px] xl:text-2xl font-bold text-[#002b49] leading-snug line-clamp-2">
+                            {item.name}
+                          </h3>
+                          <p className="font-sans text-xs sm:text-[13px] font-normal text-[#335577] mt-2.5 leading-relaxed line-clamp-3">
                             {item.description}
                           </p>
                         </div>
 
                         {/* List of Materials */}
-                        <div className="mt-6 pt-4 border-t border-gold/10">
-                          <span className="text-[9px] font-bold tracking-widest text-gold uppercase block mb-2">Composed Of:</span>
-                          <div className="flex flex-wrap gap-1.5">
+                        <div className="mt-4 pt-3.5 border-t border-[#d2e5f5]">
+                          <span className="text-[10px] font-bold tracking-[0.18em] text-[#52779a] uppercase block mb-2">
+                            COMPOSED OF:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5 items-center">
                             {item.materials.map((mat, i) => (
-                              <span key={i} className="bg-white/5 border border-white/10 text-[9px] px-2 py-1 text-cream uppercase">
+                              <span key={i} className="bg-white border border-[#b8ddf8] text-[#0077c2] font-semibold text-[10px] px-2.5 py-1 rounded-md uppercase tracking-wider whitespace-nowrap shadow-2xs">
                                 {mat}
                               </span>
                             ))}
@@ -526,40 +575,18 @@ export default function App() {
                         </div>
 
                         {/* Action request */}
-                        <div className="mt-8 pt-4 flex items-center justify-between border-t border-gold/10">
+                        <div className="mt-5 pt-3.5 flex items-center justify-start border-t border-[#d2e5f5]">
                           <button
                             onClick={() => handleInquireWhatsApp(item.name, 'Wallpapers')}
-                            className="bg-gold hover:bg-gold-soft text-luxury-bg px-4 py-2 text-[10px] font-bold tracking-wider uppercase transition-colors flex items-center space-x-1"
+                            className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-5 py-2.5 text-[11px] sm:text-xs font-bold tracking-wider uppercase rounded-lg shadow-md shadow-[#0099ff]/20 flex items-center space-x-2 transition-all hover:scale-[1.02] cursor-pointer whitespace-nowrap flex-shrink-0"
                           >
                             <span>INQUIRE NOW</span>
-                            <ArrowRight className="h-3 w-3" />
+                            <ArrowRight className="h-3.5 w-3.5" />
                           </button>
-                          <span className="text-[9px] text-muted-text italic">Seamless Fit</span>
                         </div>
                       </div>
                     </div>
                   ))}
-                </div>
-
-                {/* Installation Promise block */}
-                <div className="mt-20 bg-luxury-sec border border-gold/15 p-8 sm:p-12 relative">
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
-                    <div className="lg:col-span-2 text-left">
-                      <span className="font-sans text-[10px] font-bold tracking-[0.3em] text-gold uppercase block mb-2">SURGICAL APPLICATION</span>
-                      <h3 className="font-serif text-2xl text-white mb-4">Flawless Pattern Alignment</h3>
-                      <p className="font-sans text-xs text-muted-text leading-relaxed">
-                        Fine wallpaper is an investment. Our in-house artisans prepare wall substrates dynamically, utilize moisture-neutral sizing adhesives, and align geometric patterns down to fractions of a millimeter so that joins are completely invisible.
-                      </p>
-                    </div>
-                    <div className="flex justify-start lg:justify-end">
-                      <button
-                        onClick={() => setBookingModalOpen(true)}
-                        className="bg-gold hover:bg-gold-soft text-luxury-bg px-8 py-4 text-xs font-bold tracking-widest uppercase transition-colors w-full sm:w-auto"
-                      >
-                        BOOK MASTER FITTER
-                      </button>
-                    </div>
-                  </div>
                 </div>
 
               </div>
@@ -573,78 +600,91 @@ export default function App() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="py-12 lg:py-20 bg-luxury-bg"
+              className="py-12 lg:py-20 bg-[#041c35] min-h-screen text-white"
               id="blinds-page"
             >
-              <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
+              <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8 xl:px-12">
                 <BackToHomeButton onClick={() => setActivePage('home')} />
                 
                 {/* Intro Heading */}
-                <div className="text-center mb-16">
-                  <span className="font-sans text-[10px] font-bold tracking-[0.4em] text-gold uppercase mb-2 block">✦ ELITE WINDOW SHADING ✦</span>
-                  <h1 className="font-serif text-4xl sm:text-5xl font-light text-white">
-                    Premium <span className="italic text-gold">Blinds</span>
+                <div className="text-center mb-14 sm:mb-16">
+                  <span className="font-sans text-[11px] font-bold tracking-[0.3em] text-[#0099ff] uppercase mb-2 block">✦ ELITE WINDOW SHADING ✦</span>
+                  <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
+                    Premium <span className="italic text-[#0099ff]">Blinds</span>
                   </h1>
-                  <p className="font-sans text-xs font-light text-muted-text max-w-xl mx-auto mt-4 leading-relaxed">
+                  <p className="font-sans text-xs sm:text-sm font-normal text-[#b0d2ee] max-w-xl mx-auto mt-3 sm:mt-4 leading-relaxed">
                     Exquisite hand-woven bamboo, sleek cedar woods, and intelligent motorized roller panels tailored to balance solar glare and architectural geometry.
                   </p>
-                  <div className="mx-auto h-0.5 w-16 bg-gold mt-6" />
+                  <div className="mx-auto h-0.5 w-16 bg-[#0099ff] mt-5 sm:mt-6" />
                 </div>
 
                 {/* Filter Controls */}
-                <div className="flex flex-wrap justify-center items-center gap-3 mb-12">
-                  {['All', 'Roman', 'Roller', 'Venetian', 'Motorized', 'Zebra'].map((style) => (
-                    <button
-                      key={style}
-                      onClick={() => setSelectedBlindFilter(style)}
-                      className={`px-6 py-2.5 text-[10px] font-bold tracking-[0.25em] uppercase transition-all duration-300 rounded-none ${
-                        selectedBlindFilter === style
-                          ? 'bg-gold text-luxury-bg shadow-[0_0_15px_rgba(200,165,106,0.2)]'
-                          : 'border border-white/10 text-muted-text hover:border-gold/30 hover:text-white'
-                      }`}
-                    >
-                      {style}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap justify-center items-center gap-2.5 sm:gap-3 mb-12 sm:mb-14">
+                  {['All', 'Roman', 'Roller', 'Venetian', 'Motorized', 'Zebra'].map((style) => {
+                    const label = style === 'All' ? 'ALL BLINDS' : `${style.toUpperCase()} STYLE`;
+                    const isActive = selectedBlindFilter === style;
+                    return (
+                      <button
+                        key={style}
+                        onClick={() => setSelectedBlindFilter(style)}
+                        className={`px-5 sm:px-6 py-2.5 text-xs font-bold tracking-[0.15em] uppercase transition-all duration-300 rounded-lg cursor-pointer ${
+                          isActive
+                            ? 'bg-[#0099ff] text-white shadow-lg shadow-[#0099ff]/35 border border-[#0099ff]'
+                            : 'bg-[#051f38] border border-[#0066aa]/50 text-[#88ccff] hover:border-[#0099ff] hover:text-white hover:bg-[#07284a]'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Grid Displays */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12" id="blinds-grid">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 xl:gap-8 items-stretch" id="blinds-grid">
                   {filteredBlinds.map((item: BlindItem) => (
                     <div 
                       key={item.id} 
-                      className="group border border-gold/15 bg-luxury-sec flex flex-col md:flex-row overflow-hidden transition-all duration-500 hover:border-gold/40 hover:shadow-[0_0_30px_rgba(200,165,106,0.1)]"
+                      className="group bg-[#F4F9FD] rounded-2xl border border-[#d2e5f5]/60 shadow-xl overflow-hidden flex flex-col sm:flex-row transition-all duration-500 hover:shadow-2xl hover:border-[#0099ff]/50 hover:-translate-y-1 h-full"
                       id={`blind-item-${item.id}`}
                     >
                       {/* Product Image */}
-                      <div className="md:w-1/2 aspect-[4/3] md:aspect-auto overflow-hidden relative">
-                        <OptimizedImage
-                          src={item.image}
-                          alt={item.name}
-                          width={600}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                        />
-                        <span className="absolute top-4 left-4 bg-black/70 backdrop-blur-md border border-gold/20 text-[9px] font-bold tracking-[0.2em] text-gold px-3 py-1 uppercase z-20">
-                          {item.style}
-                        </span>
+                      <div className="w-full sm:w-[44%] lg:w-[44%] xl:w-[45%] flex-shrink-0 p-3 sm:p-3.5 pb-0 sm:pb-3.5 flex flex-col bg-[#F4F9FD]">
+                        <div className="relative h-[240px] sm:h-full min-h-[250px] sm:min-h-[320px] rounded-xl overflow-hidden w-full">
+                          <OptimizedImage
+                            src={item.image}
+                            alt={item.name}
+                            width={600}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                          />
+                          <span className="absolute top-3 left-3 bg-white/95 backdrop-blur-md border border-[#a2d4f8] text-[10px] font-bold tracking-[0.18em] text-[#0099ff] px-3.5 py-1 rounded-md uppercase z-10 shadow-sm">
+                            {item.style}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Details Content */}
-                      <div className="p-6 sm:p-8 md:w-1/2 flex flex-col justify-between">
+                      <div className="p-5 sm:p-6 xl:p-7 w-full sm:w-[56%] lg:w-[56%] xl:w-[55%] flex flex-col justify-between bg-[#F4F9FD] text-[#002b49]">
                         <div>
-                          <span className="text-[10px] font-bold tracking-[0.2em] text-gold uppercase mb-1 block">✦ MODERN CONTROLS</span>
-                          <h3 className="font-serif text-xl font-bold text-white">{item.name}</h3>
-                          <p className="font-sans text-xs font-light text-muted-text mt-3 leading-relaxed line-clamp-2 h-10">
+                          <div className="flex items-center space-x-1.5 text-[#0099ff] text-[11px] font-bold tracking-[0.2em] uppercase mb-1.5">
+                            <span>✦</span>
+                            <span>FINE FINISH</span>
+                          </div>
+                          <h3 className="font-serif text-xl sm:text-[22px] xl:text-2xl font-bold text-[#002b49] leading-snug line-clamp-2">
+                            {item.name}
+                          </h3>
+                          <p className="font-sans text-xs sm:text-[13px] font-normal text-[#335577] mt-2.5 leading-relaxed line-clamp-3">
                             {item.description}
                           </p>
                         </div>
 
                         {/* List of Materials */}
-                        <div className="mt-6 pt-4 border-t border-gold/10">
-                          <span className="text-[9px] font-bold tracking-widest text-gold uppercase block mb-2">Composed Of:</span>
-                          <div className="flex flex-wrap gap-1.5">
+                        <div className="mt-4 pt-3.5 border-t border-[#d2e5f5]">
+                          <span className="text-[10px] font-bold tracking-[0.18em] text-[#52779a] uppercase block mb-2">
+                            COMPOSED OF:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5 items-center">
                             {item.materials.map((mat, i) => (
-                              <span key={i} className="bg-white/5 border border-white/10 text-[9px] px-2 py-1 text-cream uppercase">
+                              <span key={i} className="bg-white border border-[#b8ddf8] text-[#0077c2] font-semibold text-[10px] px-2.5 py-1 rounded-md uppercase tracking-wider whitespace-nowrap shadow-2xs">
                                 {mat}
                               </span>
                             ))}
@@ -652,40 +692,18 @@ export default function App() {
                         </div>
 
                         {/* Action request */}
-                        <div className="mt-8 pt-4 flex items-center justify-between border-t border-gold/10">
+                        <div className="mt-5 pt-3.5 flex items-center justify-start border-t border-[#d2e5f5]">
                           <button
                             onClick={() => handleInquireWhatsApp(item.name, 'Blinds')}
-                            className="bg-gold hover:bg-gold-soft text-luxury-bg px-4 py-2 text-[10px] font-bold tracking-wider uppercase transition-colors flex items-center space-x-1"
+                            className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-4 py-2.5 sm:px-5 sm:py-2.5 text-[11px] sm:text-xs font-bold tracking-wider uppercase rounded-lg shadow-md shadow-[#0099ff]/20 flex items-center space-x-2 transition-all hover:scale-[1.02] cursor-pointer whitespace-nowrap flex-shrink-0"
                           >
                             <span>INQUIRE NOW</span>
-                            <ArrowRight className="h-3 w-3" />
+                            <ArrowRight className="h-3.5 w-3.5" />
                           </button>
-                          <span className="text-[9px] text-muted-text italic">Calibrated Fit</span>
                         </div>
                       </div>
                     </div>
                   ))}
-                </div>
-
-                {/* Blind Smart Tech Integration Block */}
-                <div className="mt-20 bg-luxury-sec border border-gold/15 p-8 sm:p-12 relative">
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
-                    <div className="lg:col-span-2 text-left">
-                      <span className="font-sans text-[10px] font-bold tracking-[0.3em] text-gold uppercase block mb-2">INTELLIGENT LIVING</span>
-                      <h3 className="font-serif text-2xl text-white mb-4">Precision Motorized Smart Systems</h3>
-                      <p className="font-sans text-xs text-muted-text leading-relaxed">
-                        Control glare and heat levels dynamically. Our blinds integrate natively with Somfy, Lutron, and premium automated home hubs. Schedule scenes, set voice commands, and adjust venetian slats precisely using elite interior accessories.
-                      </p>
-                    </div>
-                    <div className="flex justify-start lg:justify-end">
-                      <button
-                        onClick={() => setBookingModalOpen(true)}
-                        className="bg-gold hover:bg-gold-soft text-luxury-bg px-8 py-4 text-xs font-bold tracking-widest uppercase transition-colors w-full sm:w-auto"
-                      >
-                        BOOK CONSULTATION
-                      </button>
-                    </div>
-                  </div>
                 </div>
 
               </div>
@@ -942,7 +960,7 @@ export default function App() {
 
                       <div className="space-y-4 text-xs font-light text-muted-text">
                         <p><strong>Flagship Hour:</strong> Mon - Sat: 10am - 8pm | Sun: By Private Reserved Request Only</p>
-                        <p><strong>Studio Address:</strong> 123 Design Street, Indiranagar, Bangalore, Karnataka 560038, India</p>
+                        <p><strong>Studio Address:</strong> 712, Niladhri Main Road, Begur Hobli, Chikkathoguru, Bengaluru, Karnataka 560100</p>
                         <p><strong>Valet Parking:</strong> Complimentary secure basement valet provided on-site.</p>
                       </div>
 
@@ -961,9 +979,9 @@ export default function App() {
                       
                       <div className="relative z-10">
                         <span className="text-gold text-2xl">🗺</span>
-                        <h4 className="font-serif text-lg text-cream mt-3 mb-2">Bangalore Central Design Core</h4>
+                        <h4 className="font-serif text-lg text-cream mt-3 mb-2">Bengaluru Experience Studio</h4>
                         <p className="font-sans text-[11px] text-muted-text max-w-xs mx-auto leading-normal">
-                          Located in the heart of Bangalore's primary architect and villa curation district. Conveniently near metro transit hubs.
+                          712, Niladhri Main Road, Begur Hobli, Chikkathoguru, Bengaluru, Karnataka 560100
                         </p>
                         
                         <div className="mt-4 inline-flex items-center space-x-2 text-[10px] text-gold tracking-widest uppercase font-bold">
@@ -1018,6 +1036,8 @@ export default function App() {
         setWallpapers={setWallpapers}
         blinds={blinds}
         setBlinds={setBlinds}
+        testimonials={testimonials}
+        setTestimonials={setTestimonials}
       />
 
     </div>

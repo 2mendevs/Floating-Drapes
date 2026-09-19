@@ -119,51 +119,51 @@ export default function SignatureCollections({ openBookingModal }: SignatureProp
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 30 }}
               transition={{ type: 'spring', duration: 0.6 }}
-              className="relative w-full max-w-2xl border border-gold/20 bg-luxury-sec p-6 sm:p-10 text-white overflow-hidden shadow-[0_0_50px_rgba(200,165,106,0.2)]"
+              className="relative w-full max-w-2xl rounded-2xl border border-[#d2e5f5] bg-[#F4F9FD] p-6 sm:p-10 text-[#002b49] overflow-hidden shadow-2xl"
               onClick={(e) => e.stopPropagation()}
               id="signature-expanded-modal"
             >
               {/* Close Button */}
               <button
                 onClick={() => setSelectedCol(null)}
-                className="absolute top-6 right-6 font-sans text-xs tracking-widest text-muted-text hover:text-gold uppercase"
+                className="absolute top-6 right-6 font-sans text-xs tracking-widest text-[#52779a] hover:text-[#0099ff] uppercase cursor-pointer"
               >
                 CLOSE ✕
               </button>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
                 {/* Left image */}
-                <div className="relative aspect-[3/4] w-full overflow-hidden border border-gold/15">
+                <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl border border-[#c5def2]">
                   <OptimizedImage
                     src={selectedCol.image}
                     alt={selectedCol.name}
                     width={800}
                     className="w-full h-full object-cover"
                   />
-                  <div className={`absolute inset-0 ${getOverlayClass(selectedCol.id)} opacity-60`} />
+                  <div className={`absolute inset-0 ${getOverlayClass(selectedCol.id)} opacity-40`} />
                 </div>
 
                 {/* Right text contents */}
                 <div className="flex flex-col space-y-4">
                   <div className="inline-flex items-center space-x-2">
-                    <Sparkles className="h-4 w-4 text-gold" />
-                    <span className="font-sans text-[9px] font-bold tracking-[0.3em] text-gold uppercase">{selectedCol.category} / EXCLUSIVE</span>
+                    <Sparkles className="h-4 w-4 text-[#0099ff]" />
+                    <span className="font-sans text-[10px] font-bold tracking-[0.25em] text-[#0099ff] uppercase">{selectedCol.category} / EXCLUSIVE</span>
                   </div>
                   
-                  <h3 className="font-serif text-3xl font-normal text-white">
+                  <h3 className="font-serif text-3xl font-bold text-[#002b49]">
                     {selectedCol.name}
                   </h3>
                   
-                  <p className="font-sans text-xs font-light leading-relaxed text-muted-text">
+                  <p className="font-sans text-xs font-normal leading-relaxed text-[#335577]">
                     {selectedCol.description}
                   </p>
 
-                  <div className="space-y-2 py-4 border-t border-b border-gold/10">
-                    <span className="font-serif text-xs italic text-gold block">Bespoke Specifications:</span>
+                  <div className="space-y-2 py-4 border-t border-b border-[#d8eaf7]">
+                    <span className="font-serif text-xs italic text-[#006699] block">Bespoke Specifications:</span>
                     <div className="flex flex-wrap gap-2">
-                      <span className="bg-white/5 border border-white/10 text-[9px] px-2 py-1 text-cream uppercase tracking-wider">Premium Lining</span>
-                      <span className="bg-white/5 border border-white/10 text-[9px] px-2 py-1 text-cream uppercase tracking-wider">Sound Shielding</span>
-                      <span className="bg-white/5 border border-white/10 text-[9px] px-2 py-1 text-cream uppercase tracking-wider">Gold Rod Fittings</span>
+                      <span className="bg-[#e3f2fd] border border-[#90cdf4] text-[9px] px-2.5 py-1 text-[#0077c2] font-semibold uppercase tracking-wider rounded-md">Premium Lining</span>
+                      <span className="bg-[#e3f2fd] border border-[#90cdf4] text-[9px] px-2.5 py-1 text-[#0077c2] font-semibold uppercase tracking-wider rounded-md">Sound Shielding</span>
+                      <span className="bg-[#e3f2fd] border border-[#90cdf4] text-[9px] px-2.5 py-1 text-[#0077c2] font-semibold uppercase tracking-wider rounded-md">Custom Fittings</span>
                     </div>
                   </div>
 
@@ -172,7 +172,7 @@ export default function SignatureCollections({ openBookingModal }: SignatureProp
                       setSelectedCol(null);
                       openBookingModal();
                     }}
-                    className="w-full bg-gold hover:bg-gold-soft text-luxury-bg py-3.5 text-xs font-bold tracking-widest uppercase transition-colors"
+                    className="w-full bg-[#0099ff] hover:bg-[#0088ee] text-white py-3.5 text-xs font-bold tracking-widest uppercase rounded-lg shadow-md shadow-[#0099ff]/25 transition-all cursor-pointer"
                   >
                     BOOK TRIAL & CONSULTATION
                   </button>
