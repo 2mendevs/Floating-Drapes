@@ -65,7 +65,7 @@ export interface UploadedImage {
   filename: string;
   file_url: string;
   storage_path?: string;
-  category?: 'curtains' | 'wallpapers' | 'blinds' | 'hero' | 'gallery' | 'general';
+  category?: 'curtains' | 'wallpapers' | 'blinds' | 'hero' | 'gallery' | 'general' | 'why_choose_us' | 'customization';
   size_bytes?: number;
   mime_type?: string;
   title?: string;
@@ -316,6 +316,12 @@ export interface SiteConfig {
   customizationWallpaperTitle?: string;
   customizationWallpaperDesc?: string;
   customizationWallpaperImage?: string;
+
+  // Why Choose Us Section
+  whyChooseUsImageUrl?: string;
+  whyChooseUsTitle?: string;
+  whyChooseUsSubtitle?: string;
+  whyChooseUsDesc?: string;
 }
 
 export const DEFAULT_SITE_CONFIG: SiteConfig = {
@@ -374,4 +380,9 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   customizationWallpaperTitle: 'Design Your Own Wallpaper',
   customizationWallpaperDesc: 'Create unique wallpaper designs that reflect your personality and style perfectly.',
   customizationWallpaperImage: 'https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=600&q=80',
+
+  whyChooseUsImageUrl: 'https://images.unsplash.com/photo-1540518614846-7eded433c457?auto=format&fit=crop&w=800&q=80',
+  whyChooseUsSubtitle: 'WHY CHOOSE US',
+  whyChooseUsTitle: 'Quality, Service & Satisfaction You Can Trust',
+  whyChooseUsDesc: 'At Floating Drapes, we are dedicated to bringing your design dreams to fruition. With premium fabrics, exquisite craftsmanship, and our highly customized approach, we ensure that every client experiences absolute comfort and class.',
 };

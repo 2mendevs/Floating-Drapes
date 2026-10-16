@@ -1,7 +1,19 @@
 import { motion } from 'motion/react';
 import { Check } from 'lucide-react';
+import { SiteConfig, DEFAULT_SITE_CONFIG } from '../types';
 
-export default function WhyChooseUs() {
+interface WhyChooseUsProps {
+  siteConfig?: SiteConfig;
+}
+
+export default function WhyChooseUs({ siteConfig }: WhyChooseUsProps) {
+  const whyChooseUsImg = siteConfig?.whyChooseUsImageUrl 
+    || DEFAULT_SITE_CONFIG.whyChooseUsImageUrl 
+    || "https://images.unsplash.com/photo-1540518614846-7eded433c457?auto=format&fit=crop&w=800&q=80";
+  const title = siteConfig?.whyChooseUsTitle || DEFAULT_SITE_CONFIG.whyChooseUsTitle;
+  const subtitle = siteConfig?.whyChooseUsSubtitle || DEFAULT_SITE_CONFIG.whyChooseUsSubtitle;
+  const desc = siteConfig?.whyChooseUsDesc || DEFAULT_SITE_CONFIG.whyChooseUsDesc;
+
   const checklist = [
     'Free Measurement',
     'Design Consultation',
@@ -38,7 +50,7 @@ export default function WhyChooseUs() {
             {/* Core Image card */}
             <div className="relative z-10 w-full max-w-lg aspect-[4/3] sm:aspect-video lg:aspect-[4/5] rounded-[24px] overflow-hidden shadow-[0_20px_40px_rgba(2,30,59,0.12)] border border-[#EAEAEA]">
               <img
-                src="https://images.unsplash.com/photo-1540518614846-7eded433c457?auto=format&fit=crop&w=800&q=80"
+                src={whyChooseUsImg}
                 alt="Elite curated fabric curtains in a beautiful modern layout"
                 className="w-full h-full object-cover transform hover:scale-102 transition-transform duration-700"
                 referrerPolicy="no-referrer"
@@ -51,17 +63,17 @@ export default function WhyChooseUs() {
           {/* RIGHT SIDE: Content and Check Grid */}
           <div className="lg:col-span-6 flex flex-col space-y-6 text-left">
             <span className="font-sans text-[13px] font-semibold tracking-[0.25em] text-[#029BFA] uppercase">
-              WHY CHOOSE US
+              {subtitle}
             </span>
             
             <h2 className="font-serif text-[36px] sm:text-[42px] font-bold text-[#021E3B] leading-[1.2] uppercase">
-              Quality, Service & Satisfaction You Can Trust
+              {title}
             </h2>
             
             <div className="h-[3px] w-12 bg-[#029BFA]" />
 
             <p className="font-sans text-[16px] font-light text-zinc-500 leading-[160%] pt-2">
-              At Floating Drapes, we are dedicated to bringing your design dreams to fruition. With premium fabrics, exquisite craftsmanship, and our highly customized approach, we ensure that every client experiences absolute comfort and class.
+              {desc}
             </p>
 
             {/* 2-Column Checklist Grid */}

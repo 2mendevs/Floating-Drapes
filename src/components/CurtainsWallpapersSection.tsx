@@ -1,6 +1,6 @@
 import { ArrowRight } from 'lucide-react';
 import OptimizedImage from './OptimizedImage';
-import { CurtainItem, WallpaperItem, SiteConfig } from '../types';
+import { CurtainItem, WallpaperItem, SiteConfig, DEFAULT_SITE_CONFIG } from '../types';
 import { BlindItem } from '../data/productsData';
 
 interface SectionProps {
@@ -22,15 +22,15 @@ export default function CurtainsWallpapersSection({
   // Decoupled from catalog products so individual product edits don't overwrite these showcase thumbnails!
   const curtainThumb = siteConfig?.categoryShowcase?.curtains?.thumbnail
     || siteConfig?.categoryImages?.curtains 
-    || 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=600&q=80';
+    || DEFAULT_SITE_CONFIG.categoryShowcase!.curtains.thumbnail;
 
   const wallpaperThumb = siteConfig?.categoryShowcase?.wallpapers?.thumbnail
     || siteConfig?.categoryImages?.wallpapers 
-    || 'https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=600&q=80';
+    || DEFAULT_SITE_CONFIG.categoryShowcase!.wallpapers.thumbnail;
 
   const blindThumb = siteConfig?.categoryShowcase?.blinds?.thumbnail
     || siteConfig?.categoryImages?.blinds 
-    || 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=600&q=80';
+    || DEFAULT_SITE_CONFIG.categoryShowcase!.blinds.thumbnail;
 
   const products = [
     {

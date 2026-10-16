@@ -217,6 +217,7 @@ export async function fetchUniversalSiteData(): Promise<{
   testimonials: Testimonial[] | null;
   bookings: BookingSubmission[] | null;
   inquiries: any[] | null;
+  uploadedImages: UploadedImage[] | null;
 }> {
   const client = getSupabaseClient();
   if (!client) {
@@ -227,24 +228,132 @@ export async function fetchUniversalSiteData(): Promise<{
       blinds: null,
       testimonials: null,
       bookings: null,
-      inquiries: null
+      inquiries: null,
+      uploadedImages: null
     };
   }
 
   try {
-    const [configRes, curtainsRes, wallpapersRes, blindsRes, testimonialsRes, bookingsRes, inquiriesRes] = await Promise.allSettled([
-      client.from('site_config').select('config').eq('id', 'current_config').single(),
+    const [configRes, curtainsRes, wallpapersRes, blindsRes, testimonialsRes, bookingsRes, inquiriesRes, uploadedImagesRes] = await Promise.allSettled([
+      client.from('site_config').select('*').limit(5),
       client.from('curtains').select('*').order('created_at', { ascending: false }),
       client.from('wallpapers').select('*').order('created_at', { ascending: false }),
       client.from('blinds').select('*').order('created_at', { ascending: false }),
       client.from('testimonials').select('*').order('created_at', { ascending: false }),
       client.from('bookings').select('*').order('timestamp', { ascending: false }),
-      client.from('inquiries').select('*').order('timestamp', { ascending: false })
+      client.from('inquiries').select('*').order('timestamp', { ascending: false }),
+      client.from('uploaded_images').select('*').order('created_at', { ascending: false }).limit(50)
     ]);
 
     let siteConfig: SiteConfig | null = null;
-    if (configRes.status === 'fulfilled' && configRes.value.data?.config) {
-      siteConfig = configRes.value.data.config as SiteConfig;
+    if (configRes.status === 'fulfilled' && configRes.value.data && configRes.value.data.length > 0) {
+      const records = configRes.value.data;
+      const targetRecord = records.find((r: any) => r.id === 'current_config') || records[0];
+      const parsed = targetRecord.config || targetRecord.config_data || (targetRecord.heroLabel ? targetRecord : null);
+      if (parsed) {
+        siteConfig = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+      }
+    }
+
+    let uploadedImages: UploadedImage[] = [];
+    if (uploadedImagesRes.status === 'fulfilled' && uploadedImagesRes.value.data && uploadedImagesRes.value.data.length > 0) {
+      uploadedImages = uploadedImagesRes.value.data.map((item: any) => ({
+        id: item.id,
+        filename: item.filename || 'image.jpg',
+        file_url: item.file_url || item.base64_data || '',
+        storage_path: item.storage_path || undefined,
+        category: item.category || 'general',
+        size_bytes: item.size_bytes || 0,
+        mime_type: item.mime_type || 'image/jpeg',
+        title: item.title || '',
+        base64_data: item.base64_data || '',
+        created_at: item.created_at || new Date().toISOString()
+      }));
+    }
+
+    // Intelligently resolve Supabase image paths: If an image was uploaded to Supabase,
+    // ensure the site pulls that exact path from Supabase database
+    if (uploadedImages.length > 0) {
+      const activeConfig: SiteConfig = {
+        ...(siteConfig || {} as any)
+      };
+
+      // 1. Hero image from Supabase
+      const heroUpload = uploadedImages.find(img => img.category === 'hero' && img.file_url);
+      if (heroUpload && (!activeConfig.heroImageUrl || activeConfig.heroImageUrl.includes('unsplash.com'))) {
+        activeConfig.heroImageUrl = heroUpload.file_url;
+      }
+
+      // 2. Curtains showcase thumbnail from Supabase
+      const curtainsUpload = uploadedImages.find(img => 
+        img.category === 'curtains' && 
+        img.file_url && 
+        (img.title.toLowerCase().includes('showcase') || img.title.toLowerCase().includes('thumbnail') || img.title.toLowerCase().includes('curtains'))
+      );
+      if (curtainsUpload) {
+        if (!activeConfig.categoryShowcase) activeConfig.categoryShowcase = {} as any;
+        if (!activeConfig.categoryShowcase.curtains) activeConfig.categoryShowcase.curtains = {} as any;
+        if (!activeConfig.categoryShowcase.curtains.thumbnail || activeConfig.categoryShowcase.curtains.thumbnail.includes('unsplash.com')) {
+          activeConfig.categoryShowcase.curtains.thumbnail = curtainsUpload.file_url;
+        }
+      }
+
+      // 3. Wallpapers showcase thumbnail from Supabase
+      const wallpapersUpload = uploadedImages.find(img => 
+        img.category === 'wallpapers' && 
+        img.file_url && 
+        (img.title.toLowerCase().includes('showcase') || img.title.toLowerCase().includes('thumbnail') || img.title.toLowerCase().includes('wallpaper'))
+      );
+      if (wallpapersUpload) {
+        if (!activeConfig.categoryShowcase) activeConfig.categoryShowcase = {} as any;
+        if (!activeConfig.categoryShowcase.wallpapers) activeConfig.categoryShowcase.wallpapers = {} as any;
+        if (!activeConfig.categoryShowcase.wallpapers.thumbnail || activeConfig.categoryShowcase.wallpapers.thumbnail.includes('unsplash.com')) {
+          activeConfig.categoryShowcase.wallpapers.thumbnail = wallpapersUpload.file_url;
+        }
+      }
+
+      // 4. Blinds showcase thumbnail from Supabase
+      const blindsUpload = uploadedImages.find(img => 
+        img.category === 'blinds' && 
+        img.file_url && 
+        (img.title.toLowerCase().includes('showcase') || img.title.toLowerCase().includes('thumbnail') || img.title.toLowerCase().includes('blind'))
+      );
+      if (blindsUpload) {
+        if (!activeConfig.categoryShowcase) activeConfig.categoryShowcase = {} as any;
+        if (!activeConfig.categoryShowcase.blinds) activeConfig.categoryShowcase.blinds = {} as any;
+        if (!activeConfig.categoryShowcase.blinds.thumbnail || activeConfig.categoryShowcase.blinds.thumbnail.includes('unsplash.com')) {
+          activeConfig.categoryShowcase.blinds.thumbnail = blindsUpload.file_url;
+        }
+      }
+
+      // 5. Why Choose Us image from Supabase
+      const whyChooseUsUpload = uploadedImages.find(img => 
+        (img.category === 'why_choose_us' || img.title.toLowerCase().includes('why choose us')) && 
+        img.file_url
+      );
+      if (whyChooseUsUpload && (!activeConfig.whyChooseUsImageUrl || activeConfig.whyChooseUsImageUrl.includes('unsplash.com'))) {
+        activeConfig.whyChooseUsImageUrl = whyChooseUsUpload.file_url;
+      }
+
+      // 6. Tailor-Made Customization Curtains image from Supabase
+      const custCurtainsUpload = uploadedImages.find(img => 
+        img.file_url && 
+        (img.title.toLowerCase().includes('customization curtains') || (img.category === 'curtains' && img.title.toLowerCase().includes('customization')))
+      );
+      if (custCurtainsUpload && (!activeConfig.customizationCurtainsImage || activeConfig.customizationCurtainsImage.includes('unsplash.com'))) {
+        activeConfig.customizationCurtainsImage = custCurtainsUpload.file_url;
+      }
+
+      // 7. Tailor-Made Customization Wallpaper image from Supabase
+      const custWallpaperUpload = uploadedImages.find(img => 
+        img.file_url && 
+        (img.title.toLowerCase().includes('customization wallpaper') || (img.category === 'wallpapers' && img.title.toLowerCase().includes('customization')))
+      );
+      if (custWallpaperUpload && (!activeConfig.customizationWallpaperImage || activeConfig.customizationWallpaperImage.includes('unsplash.com'))) {
+        activeConfig.customizationWallpaperImage = custWallpaperUpload.file_url;
+      }
+
+      siteConfig = activeConfig;
     }
 
     let curtains: CurtainItem[] | null = null;
@@ -317,7 +426,7 @@ export async function fetchUniversalSiteData(): Promise<{
       inquiries = inquiriesRes.value.data;
     }
 
-    return { siteConfig, curtains, wallpapers, blinds, testimonials, bookings, inquiries };
+    return { siteConfig, curtains, wallpapers, blinds, testimonials, bookings, inquiries, uploadedImages };
   } catch (err) {
     console.error('Error fetching data from Supabase:', err);
     return {
@@ -327,7 +436,8 @@ export async function fetchUniversalSiteData(): Promise<{
       blinds: null,
       testimonials: null,
       bookings: null,
-      inquiries: null
+      inquiries: null,
+      uploadedImages: null
     };
   }
 }
@@ -340,12 +450,31 @@ export async function syncSiteConfigToSupabase(config: SiteConfig): Promise<bool
   if (!client) return false;
 
   try {
-    const { error } = await client.from('site_config').upsert({
+    let { error } = await client.from('site_config').upsert({
       id: 'current_config',
       config: config,
       updated_at: new Date().toISOString()
     });
-    if (error) throw error;
+
+    if (error && (error.message?.includes('column "config"') || error.message?.includes('does not exist'))) {
+      const retry = await client.from('site_config').upsert({
+        id: 'current_config',
+        config_data: config,
+        updated_at: new Date().toISOString()
+      });
+      error = retry.error;
+    }
+
+    if (error) {
+      console.warn('Upsert fallback to update:', error.message);
+      const updateRes = await client.from('site_config').update({
+        config: config,
+        updated_at: new Date().toISOString()
+      }).eq('id', 'current_config');
+      if (!updateRes.error) return true;
+      throw error;
+    }
+
     return true;
   } catch (err) {
     console.error('Failed to sync site config to Supabase:', err);
@@ -734,7 +863,7 @@ export async function compressImageClientSide(
 export async function uploadImageToSupabase(
   file: File,
   options?: {
-    category?: 'curtains' | 'wallpapers' | 'blinds' | 'hero' | 'gallery' | 'general';
+    category?: 'curtains' | 'wallpapers' | 'blinds' | 'hero' | 'gallery' | 'general' | 'why_choose_us' | 'customization';
     title?: string;
   }
 ): Promise<{
@@ -1077,6 +1206,11 @@ export function subscribeToUniversalChanges(onUpdate: (table: string, payload: a
         'postgres_changes',
         { event: '*', schema: 'public', table: 'inquiries' },
         payload => onUpdate('inquiries', payload)
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'uploaded_images' },
+        payload => onUpdate('uploaded_images', payload)
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {

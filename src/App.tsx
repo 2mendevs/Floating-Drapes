@@ -72,7 +72,25 @@ export default function App() {
     const saved = localStorage.getItem('floatingdrapes_config');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        return {
+          ...DEFAULT_SITE_CONFIG,
+          ...parsed,
+          categoryShowcase: {
+            curtains: {
+              ...DEFAULT_SITE_CONFIG.categoryShowcase!.curtains,
+              ...(parsed.categoryShowcase?.curtains || {})
+            },
+            wallpapers: {
+              ...DEFAULT_SITE_CONFIG.categoryShowcase!.wallpapers,
+              ...(parsed.categoryShowcase?.wallpapers || {})
+            },
+            blinds: {
+              ...DEFAULT_SITE_CONFIG.categoryShowcase!.blinds,
+              ...(parsed.categoryShowcase?.blinds || {})
+            }
+          }
+        };
       } catch (e) {
         console.error(e);
       }
@@ -140,8 +158,32 @@ export default function App() {
         fetchUniversalSiteData()
           .then((data) => {
             if (data.siteConfig) {
-              setSiteConfig(data.siteConfig);
-              localStorage.setItem('floatingdrapes_config', JSON.stringify(data.siteConfig));
+              setSiteConfig(prev => {
+                const merged: SiteConfig = {
+                  ...DEFAULT_SITE_CONFIG,
+                  ...prev,
+                  ...data.siteConfig,
+                  categoryShowcase: {
+                    curtains: {
+                      ...DEFAULT_SITE_CONFIG.categoryShowcase!.curtains,
+                      ...(prev.categoryShowcase?.curtains || {}),
+                      ...(data.siteConfig?.categoryShowcase?.curtains || {})
+                    },
+                    wallpapers: {
+                      ...DEFAULT_SITE_CONFIG.categoryShowcase!.wallpapers,
+                      ...(prev.categoryShowcase?.wallpapers || {}),
+                      ...(data.siteConfig?.categoryShowcase?.wallpapers || {})
+                    },
+                    blinds: {
+                      ...DEFAULT_SITE_CONFIG.categoryShowcase!.blinds,
+                      ...(prev.categoryShowcase?.blinds || {}),
+                      ...(data.siteConfig?.categoryShowcase?.blinds || {})
+                    }
+                  }
+                };
+                localStorage.setItem('floatingdrapes_config', JSON.stringify(merged));
+                return merged;
+              });
             }
             if (data.curtains && data.curtains.length > 0) {
               setCurtains(data.curtains);
@@ -173,8 +215,64 @@ export default function App() {
 
         if (table === 'site_config' && newRecord && (newRecord.config || newRecord.config_data)) {
           const configObj = newRecord.config || newRecord.config_data;
-          setSiteConfig(configObj);
-          localStorage.setItem('floatingdrapes_config', JSON.stringify(configObj));
+          setSiteConfig(prev => {
+            const merged: SiteConfig = {
+              ...DEFAULT_SITE_CONFIG,
+              ...prev,
+              ...configObj,
+              categoryShowcase: {
+                curtains: {
+                  ...DEFAULT_SITE_CONFIG.categoryShowcase!.curtains,
+                  ...(prev.categoryShowcase?.curtains || {}),
+                  ...(configObj?.categoryShowcase?.curtains || {})
+                },
+                wallpapers: {
+                  ...DEFAULT_SITE_CONFIG.categoryShowcase!.wallpapers,
+                  ...(prev.categoryShowcase?.wallpapers || {}),
+                  ...(configObj?.categoryShowcase?.wallpapers || {})
+                },
+                blinds: {
+                  ...DEFAULT_SITE_CONFIG.categoryShowcase!.blinds,
+                  ...(prev.categoryShowcase?.blinds || {}),
+                  ...(configObj?.categoryShowcase?.blinds || {})
+                }
+              }
+            };
+            localStorage.setItem('floatingdrapes_config', JSON.stringify(merged));
+            return merged;
+          });
+        } else if (table === 'uploaded_images' && newRecord && (newRecord.file_url || newRecord.base64_data)) {
+          const fileUrl = newRecord.file_url || newRecord.base64_data;
+          const cat = newRecord.category;
+          setSiteConfig(prev => {
+            const next = { ...prev };
+            if (cat === 'hero') {
+              next.heroImageUrl = fileUrl;
+            } else if (cat === 'curtains') {
+              next.categoryShowcase = {
+                ...next.categoryShowcase!,
+                curtains: { ...next.categoryShowcase!.curtains, thumbnail: fileUrl }
+              };
+            } else if (cat === 'wallpapers') {
+              next.categoryShowcase = {
+                ...next.categoryShowcase!,
+                wallpapers: { ...next.categoryShowcase!.wallpapers, thumbnail: fileUrl }
+              };
+            } else if (cat === 'blinds') {
+              next.categoryShowcase = {
+                ...next.categoryShowcase!,
+                blinds: { ...next.categoryShowcase!.blinds, thumbnail: fileUrl }
+              };
+            } else if (cat === 'why_choose_us') {
+              next.whyChooseUsImageUrl = fileUrl;
+            } else if (cat === 'customization_curtains') {
+              next.customizationCurtainsImage = fileUrl;
+            } else if (cat === 'customization_wallpaper') {
+              next.customizationWallpaperImage = fileUrl;
+            }
+            localStorage.setItem('floatingdrapes_config', JSON.stringify(next));
+            return next;
+          });
         } else if (table === 'curtains') {
           if (eventType === 'DELETE' && oldRecord) {
             setCurtains((prev) => prev.filter((item) => item.id !== oldRecord.id));
@@ -356,7 +454,7 @@ export default function App() {
                 blinds={blinds}
                 siteConfig={siteConfig}
               />
-              <WhyChooseUs />
+              <WhyChooseUs siteConfig={siteConfig} />
               <ProcessSection />
               <CustomizationSection 
                 openBookingModal={() => setBookingModalOpen(true)} 

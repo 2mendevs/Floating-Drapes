@@ -197,7 +197,24 @@ export default function AdminPanel({
 
   // Load Supabase credentials & initial data on mount/open
   useEffect(() => {
-    setCaptions({ ...siteConfig });
+    setCaptions({
+      ...DEFAULT_SITE_CONFIG,
+      ...siteConfig,
+      categoryShowcase: {
+        curtains: {
+          ...DEFAULT_SITE_CONFIG.categoryShowcase!.curtains,
+          ...(siteConfig?.categoryShowcase?.curtains || {})
+        },
+        wallpapers: {
+          ...DEFAULT_SITE_CONFIG.categoryShowcase!.wallpapers,
+          ...(siteConfig?.categoryShowcase?.wallpapers || {})
+        },
+        blinds: {
+          ...DEFAULT_SITE_CONFIG.categoryShowcase!.blinds,
+          ...(siteConfig?.categoryShowcase?.blinds || {})
+        }
+      }
+    });
     
     // Load stored credentials
     const creds = getSupabaseCredentials();
@@ -439,7 +456,7 @@ export default function AdminPanel({
     if (isSupabaseConfigured()) {
       const success = await syncSiteConfigToSupabase(captions);
       if (success) {
-        alert('All Homepage & Section changes (Hero Image, 3 Showcase Thumbnails & Strings, Customization) saved and synced universally to Supabase!');
+        alert('All Homepage & Section changes (Hero Image, 3 Showcase Thumbnails, Why Choose Us, Customization) saved and synced universally to Supabase!');
       } else {
         alert('Saved locally. Note: Supabase database sync encountered an issue. Check connection in the Database tab.');
       }
@@ -562,6 +579,39 @@ export default function AdminPanel({
       }
     } catch (err: any) {
       alert('Error uploading customization photo: ' + (err?.message || 'Upload failed'));
+    }
+  };
+
+  // Upload Why Choose Us Section Image
+  const handleUploadWhyChooseUsImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const res = await uploadImageToSupabase(file, {
+        category: 'why_choose_us',
+        title: 'Why Choose Us Luxury Drapes Feature'
+      });
+
+      if (res.data?.file_url) {
+        const newUrl = res.data.file_url;
+        const updated: SiteConfig = {
+          ...captions,
+          whyChooseUsImageUrl: newUrl
+        };
+
+        setCaptions(updated);
+        onUpdateConfig(updated);
+        localStorage.setItem('floatingdrapes_config', JSON.stringify(updated));
+        if (isSupabaseConfigured()) {
+          await syncSiteConfigToSupabase(updated);
+        }
+        const fresh = await fetchUploadedImagesFromSupabase();
+        setUploadedImages(fresh);
+        alert('Why Choose Us showcase photo uploaded and synced universally to Supabase!');
+      }
+    } catch (err: any) {
+      alert('Error uploading Why Choose Us photo: ' + (err?.message || 'Upload failed'));
     }
   };
 
@@ -2190,6 +2240,141 @@ export default function AdminPanel({
                     </div>
                   </div>
 
+                  {/* 4. WHY CHOOSE US SECTION IMAGE & COPY */}
+                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 shadow-sm space-y-6">
+                    <div className="border-b border-[#e2effa] pb-3">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[12px] font-bold tracking-widest text-[#0099ff] uppercase">
+                          4. WHY CHOOSE US - LUXURY DRAPES IMAGE & COPY
+                        </span>
+                        <span className="bg-amber-50 text-amber-800 text-[10px] font-semibold px-2 py-0.5 rounded border border-amber-200">
+                          Supabase Account Storage
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#335577] mt-0.5">
+                        Change the featured luxury curtains image and copy for the "Why Choose Us" showcase section. When uploaded, this image is saved directly to your Supabase account and pulled whenever any user opens the site.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                      {/* Image Preview */}
+                      <div className="lg:col-span-5">
+                        <div className="relative aspect-[4/3] sm:aspect-video lg:aspect-[4/5] max-h-[360px] rounded-2xl overflow-hidden border-2 border-[#b8dcfa] bg-[#021E3B] shadow-md group">
+                          <img 
+                            src={captions.whyChooseUsImageUrl || DEFAULT_SITE_CONFIG.whyChooseUsImageUrl || "https://images.unsplash.com/photo-1540518614846-7eded433c457?auto=format&fit=crop&w=800&q=80"} 
+                            alt="Why Choose Us visual preview"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="text-white text-xs font-bold uppercase tracking-wider bg-black/60 px-3 py-1.5 rounded-full border border-white/20">
+                              Active Why Choose Us Visual
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Controls and String Inputs */}
+                      <div className="lg:col-span-7 space-y-4">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <label className="cursor-pointer bg-[#0099ff] hover:bg-[#0088ee] text-white px-5 py-3 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center space-x-2 shadow-md shadow-[#0099ff]/25 transition-all">
+                            <Camera className="h-4 w-4" />
+                            <span>Upload Why Choose Us Photo</span>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={handleUploadWhyChooseUsImage} 
+                              className="hidden" 
+                            />
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = { ...captions, whyChooseUsImageUrl: DEFAULT_SITE_CONFIG.whyChooseUsImageUrl };
+                              setCaptions(updated);
+                              onUpdateConfig(updated);
+                            }}
+                            className="text-xs font-semibold text-[#006699] hover:text-[#002b49] px-3 py-2 rounded-lg border border-[#c5def2] hover:bg-slate-50 transition-colors cursor-pointer"
+                          >
+                            Reset to Default Image
+                          </button>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                            Direct Image URL (Supabase CDN or Web Path)
+                          </label>
+                          <input 
+                            type="text"
+                            value={captions.whyChooseUsImageUrl || ''}
+                            onChange={(e) => {
+                              const updated = { ...captions, whyChooseUsImageUrl: e.target.value };
+                              setCaptions(updated);
+                              onUpdateConfig(updated);
+                            }}
+                            placeholder="https://..."
+                            className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                          />
+                        </div>
+
+                        {/* Strings edit for Why Choose Us */}
+                        <div className="space-y-3 pt-2 border-t border-[#e2effa]">
+                          <div>
+                            <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                              Section Eyebrow Subtitle
+                            </label>
+                            <input 
+                              type="text"
+                              value={captions.whyChooseUsSubtitle || 'WHY CHOOSE US'}
+                              onChange={(e) => {
+                                const updated = { ...captions, whyChooseUsSubtitle: e.target.value };
+                                setCaptions(updated);
+                                onUpdateConfig(updated);
+                              }}
+                              className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                              Main Section Title
+                            </label>
+                            <input 
+                              type="text"
+                              value={captions.whyChooseUsTitle || 'Quality, Service & Satisfaction You Can Trust'}
+                              onChange={(e) => {
+                                const updated = { ...captions, whyChooseUsTitle: e.target.value };
+                                setCaptions(updated);
+                                onUpdateConfig(updated);
+                              }}
+                              className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                              Description Paragraph
+                            </label>
+                            <textarea 
+                              rows={3}
+                              value={captions.whyChooseUsDesc || ''}
+                              onChange={(e) => {
+                                const updated = { ...captions, whyChooseUsDesc: e.target.value };
+                                setCaptions(updated);
+                                onUpdateConfig(updated);
+                              }}
+                              className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] resize-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="text-[11px] text-[#557799] bg-[#f0f7fc] p-3 rounded-lg border border-[#d2e5f5] leading-relaxed">
+                          💡 <strong>Universal Supabase Sync:</strong> When you upload a photo here, it saves to your Supabase account storage &amp; database table, and whenever visitors open the site, the site pulls this exact image path from Supabase.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Universal Sync Action Banner */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-[#eaf4fd] border border-[#b8dcfa] rounded-xl gap-4">
                     <div>
@@ -2197,7 +2382,7 @@ export default function AdminPanel({
                         Universal Cloud Sync Ready
                       </span>
                       <p className="text-xs text-[#335577] mt-0.5">
-                        Click below to commit your Hero image, 3 product showcase thumbnails, and tailor-made customization images to your database.
+                        Click below to commit your Hero image, 3 product showcase thumbnails, Why Choose Us image, and tailor-made customization images to your database.
                       </p>
                     </div>
                     <button 

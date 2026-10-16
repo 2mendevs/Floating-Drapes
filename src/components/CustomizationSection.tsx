@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
 import { ArrowRight, Scissors, Sparkles } from 'lucide-react';
-import { SiteConfig } from '../types';
+import { SiteConfig, DEFAULT_SITE_CONFIG } from '../types';
 
 interface CustomizationSectionProps {
   openBookingModal: () => void;
@@ -8,15 +8,19 @@ interface CustomizationSectionProps {
 }
 
 export default function CustomizationSection({ openBookingModal, siteConfig }: CustomizationSectionProps) {
-  const curtainsImg = siteConfig?.customizationCurtainsImage || 'https://images.unsplash.com/photo-1616046229478-9901c5536a45?auto=format&fit=crop&w=600&q=80';
-  const wallpaperImg = siteConfig?.customizationWallpaperImage || 'https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=600&q=80';
+  const curtainsImg = siteConfig?.customizationCurtainsImage 
+    || DEFAULT_SITE_CONFIG.customizationCurtainsImage 
+    || 'https://images.unsplash.com/photo-1616046229478-9901c5536a45?auto=format&fit=crop&w=600&q=80';
+  const wallpaperImg = siteConfig?.customizationWallpaperImage 
+    || DEFAULT_SITE_CONFIG.customizationWallpaperImage 
+    || 'https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=600&q=80';
   
-  const sectionTitle = siteConfig?.customizationSectionTitle || 'Tailor-Made Customization';
-  const sectionSubtitle = siteConfig?.customizationSectionSubtitle || 'BESPOKE STYLING';
-  const curtainsTitle = siteConfig?.customizationCurtainsTitle || 'Design Your Own Curtains';
-  const curtainsDesc = siteConfig?.customizationCurtainsDesc || 'Customize your curtains with your favorite fabric, color & style. Get precision fit.';
-  const wallpaperTitle = siteConfig?.customizationWallpaperTitle || 'Design Your Own Wallpaper';
-  const wallpaperDesc = siteConfig?.customizationWallpaperDesc || 'Create unique wallpaper designs that reflect your personality and style perfectly.';
+  const sectionTitle = siteConfig?.customizationSectionTitle || DEFAULT_SITE_CONFIG.customizationSectionTitle || 'Tailor-Made Customization';
+  const sectionSubtitle = siteConfig?.customizationSectionSubtitle || DEFAULT_SITE_CONFIG.customizationSectionSubtitle || 'BESPOKE STYLING';
+  const curtainsTitle = siteConfig?.customizationCurtainsTitle || DEFAULT_SITE_CONFIG.customizationCurtainsTitle || 'Design Your Own Curtains';
+  const curtainsDesc = siteConfig?.customizationCurtainsDesc || DEFAULT_SITE_CONFIG.customizationCurtainsDesc || 'Customize your curtains with your favorite fabric, color & style. Get precision fit.';
+  const wallpaperTitle = siteConfig?.customizationWallpaperTitle || DEFAULT_SITE_CONFIG.customizationWallpaperTitle || 'Design Your Own Wallpaper';
+  const wallpaperDesc = siteConfig?.customizationWallpaperDesc || DEFAULT_SITE_CONFIG.customizationWallpaperDesc || 'Create unique wallpaper designs that reflect your personality and style perfectly.';
 
   return (
     <section className="bg-white py-10 lg:py-14 border-b border-[#EAEAEA]" id="customization-section">
