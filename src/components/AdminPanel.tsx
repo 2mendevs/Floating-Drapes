@@ -123,6 +123,7 @@ export default function AdminPanel({
   const [isAddingFeedback, setIsAddingFeedback] = useState(false);
   const [feedbackSearch, setFeedbackSearch] = useState('');
   const [feedbackSuccessMsg, setFeedbackSuccessMsg] = useState('');
+  const [isUploadingFeedbackImage, setIsUploadingFeedbackImage] = useState(false);
   const [feedbackForm, setFeedbackForm] = useState<Testimonial>({
     id: '',
     name: '',
@@ -307,6 +308,9 @@ export default function AdminPanel({
         if (data.inquiries && data.inquiries.length > 0) {
           setInquiries(data.inquiries);
         }
+        if (data.testimonials && data.testimonials.length > 0) {
+          setTestimonials(data.testimonials);
+        }
       });
     }
   }, [siteConfig, isOpen]);
@@ -351,7 +355,6 @@ export default function AdminPanel({
     const cleanEmail = email.trim();
 
     try {
-      // 1. Direct Supabase Auth Verification First (if client is active)
       const supabase = getSupabaseClient();
       if (supabase) {
         try {
@@ -376,7 +379,6 @@ export default function AdminPanel({
         }
       }
 
-      // 2. Fallback to Server Login Endpoint
       const creds = getSupabaseCredentials();
       const res = await fetch('/api/admin/login', {
         method: 'POST',
@@ -493,7 +495,7 @@ export default function AdminPanel({
     if (isSupabaseConfigured()) {
       const success = await syncSiteConfigToSupabase(captions);
       if (success) {
-        alert('All Homepage & Section changes (Hero Image, 3 Showcase Thumbnails, Why Choose Us, Customization) saved and synced universally to Supabase!');
+        alert('All Homepage & Section changes saved and synced universally to Supabase!');
       } else {
         alert('Saved locally. Note: Supabase database sync encountered an issue. Check connection in the Database tab.');
       }
@@ -652,7 +654,7 @@ export default function AdminPanel({
     }
   };
 
-  // Delete Product from local state and Supabase
+  // Delete Product
   const handleDeleteProduct = async (id: string, category: 'curtains' | 'wallpapers' | 'blinds') => {
     if (!window.confirm('Are you absolutely sure you want to delete this product?')) return;
 
@@ -680,7 +682,7 @@ export default function AdminPanel({
     }
   };
 
-  // Save / Edit Product & sync to Supabase
+  // Save / Edit Product
   const handleProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -778,10 +780,10 @@ export default function AdminPanel({
         if (syncSuccess) {
           alert(`"${productForm.name}" updated directly in Supabase database! Live on all devices.`);
         } else {
-          alert(`"${productForm.name}" saved! (Note: Check Database tab to ensure table permissions are active).`);
+          alert(`"${productForm.name}" saved!`);
         }
       } else {
-        alert(`"${productForm.name}" saved locally. (Connect Supabase in Database tab to sync to your database).`);
+        alert(`"${productForm.name}" saved locally.`);
       }
     }
 
@@ -846,34 +848,35 @@ export default function AdminPanel({
     });
   };
 
+  // Dedicated upload image directly to Supabase for testimonials
   const handleFeedbackImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Please select an image smaller than 10MB.');
+    if (file.size > 20 * 1024 * 1024) {
+      alert('Please select an image smaller than 20MB.');
       return;
     }
 
+    setIsUploadingFeedbackImage(true);
     try {
       const res = await uploadImageToSupabase(file, {
         category: 'gallery',
         title: `Customer - ${feedbackForm.name || 'Client'}`
       });
+
       if (res.data?.file_url) {
         setFeedbackForm(prev => ({ ...prev, image: res.data!.file_url }));
         const fresh = await fetchUploadedImagesFromSupabase();
         setUploadedImages(fresh);
+        alert('Testimonial photo uploaded directly to Supabase!');
+      } else {
+        alert(res.message || 'Upload finished.');
       }
-    } catch {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string;
-        if (base64) {
-          setFeedbackForm(prev => ({ ...prev, image: base64 }));
-        }
-      };
-      reader.readAsDataURL(file);
+    } catch (err: any) {
+      alert('Error uploading photo to Supabase: ' + (err?.message || 'Failed'));
+    } finally {
+      setIsUploadingFeedbackImage(false);
     }
   };
 
@@ -881,6 +884,7 @@ export default function AdminPanel({
     setFeedbackForm(prev => ({ ...prev, image: '' }));
   };
 
+  // Save / Update Testimonial: syncs to Supabase database table 'testimonials'
   const handleFeedbackSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!feedbackForm.name.trim() || !feedbackForm.review.trim()) {
@@ -912,15 +916,16 @@ export default function AdminPanel({
       await upsertFeedbackToSupabase(itemToSave);
     }
 
-    setFeedbackSuccessMsg(isAddingFeedback ? 'New feedback added successfully!' : 'Feedback entry updated successfully!');
+    setFeedbackSuccessMsg(isAddingFeedback ? 'New feedback added directly to Supabase!' : 'Feedback entry updated in Supabase!');
     setTimeout(() => setFeedbackSuccessMsg(''), 4000);
 
     setIsAddingFeedback(false);
     setEditingFeedback(null);
   };
 
+  // Delete Testimonial from Supabase and local state
   const handleDeleteFeedback = async (id: string, name: string) => {
-    if (!window.confirm(`Are you sure you want to delete the feedback from "${name}"?`)) return;
+    if (!window.confirm(`Are you sure you want to delete the feedback from "${name}" from Supabase?`)) return;
 
     const updatedList = testimonials.filter(t => t.id !== id);
     setTestimonials(updatedList);
@@ -933,6 +938,23 @@ export default function AdminPanel({
     if (editingFeedback?.id === id) {
       setEditingFeedback(null);
       setIsAddingFeedback(false);
+    }
+  };
+
+  // Save Testimonial Section Headers (Subtitle & Title) to Supabase
+  const handleSaveTestimonialSectionHeaders = async () => {
+    onUpdateConfig(captions);
+    localStorage.setItem('floatingdrapes_config', JSON.stringify(captions));
+
+    if (isSupabaseConfigured()) {
+      const ok = await syncSiteConfigToSupabase(captions);
+      if (ok) {
+        alert('Testimonials section headers saved and synced to Supabase database!');
+      } else {
+        alert('Saved locally. Check Database connection settings.');
+      }
+    } else {
+      alert('Headers saved locally. Connect Supabase to sync to database.');
     }
   };
 
@@ -956,7 +978,6 @@ export default function AdminPanel({
     }
   };
 
-  // Supabase Credentials handlers
   const handleSaveSupabaseConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabaseUrl || !supabaseKey) {
@@ -1073,7 +1094,6 @@ export default function AdminPanel({
     setTimeout(() => setSqlCopied(false), 3000);
   };
 
-  // Media Library Handlers
   const handleLoadMedia = async () => {
     setIsLoadingMedia(true);
     try {
@@ -1242,12 +1262,11 @@ export default function AdminPanel({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-hidden text-white" id="admin-panel-overlay">
       <div className="relative w-full max-w-6xl h-[90vh] bg-[#00172e] border border-[#003866] shadow-[0_20px_60px_rgba(0,153,255,0.25)] flex flex-col rounded-2xl overflow-hidden" id="admin-panel-container">
         
-        {/* TOP HEADER WITH HIGH-VISIBILITY LOGOUT BUTTON */}
+        {/* TOP HEADER WITH LOGOUT BUTTON */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#003366] bg-[#001f3f]">
           <div className="flex items-center space-x-3">
             <span className="font-sans text-[11px] font-bold tracking-[0.3em] text-[#0099ff] uppercase">FLOATING DRAPES SYSTEM ENGINE</span>
             
-            {/* Database indicating light */}
             <div 
               className="flex items-center justify-center p-1.5 bg-[#00172e] border border-[#003866] rounded-full shadow-inner"
               title={supabaseStatus === 'connected' ? 'Database: Connected (Green)' : supabaseStatus === 'testing' ? 'Database: Trying to connect (Yellow)' : 'Database: Disconnected (Red)'}
@@ -1263,7 +1282,6 @@ export default function AdminPanel({
           </div>
 
           <div className="flex items-center space-x-3">
-            {/* PROMINENT LOGOUT BUTTON - ALWAYS VISIBLE WHEN AUTHENTICATED */}
             {isAuthenticated && (
               <button
                 onClick={handleLogout}
@@ -1285,7 +1303,7 @@ export default function AdminPanel({
           </div>
         </div>
 
-        {/* NOT AUTHENTICATED - SHOW LOGIN MODAL */}
+        {/* NOT AUTHENTICATED */}
         {!isAuthenticated ? (
           <div className="flex-1 flex flex-col items-center justify-center px-4 max-w-md mx-auto py-12">
             <div className="w-full bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-8 shadow-2xl text-[#002b49] relative">
@@ -1357,7 +1375,7 @@ export default function AdminPanel({
           /* AUTHENTICATED PANEL LAYOUT */
           <div className="flex-1 flex overflow-hidden">
             
-            {/* SIDE BAR BUTTONS */}
+            {/* SIDEBAR */}
             <div className="w-64 border-r border-[#003366] bg-[#00172e] flex flex-col justify-between shrink-0 overflow-y-auto">
               <div className="p-4 space-y-1.5">
                 <button
@@ -1448,7 +1466,6 @@ export default function AdminPanel({
               {/* TAB 0: HOMEPAGE & SECTIONS */}
               {activeTab === 'sections' && (
                 <div className="space-y-8 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
-                  {/* Top Bar */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#d8eaf7] pb-5 gap-4">
                     <div>
                       <h3 className="font-serif text-2xl font-bold text-[#002b49]">Homepage & Section Visuals</h3>
@@ -1465,7 +1482,7 @@ export default function AdminPanel({
                     </button>
                   </div>
 
-                  {/* 1. HOMEPAGE HERO IMAGE SESSION */}
+                  {/* 1. HOMEPAGE HERO IMAGE */}
                   <div className="bg-white border border-[#c5def2] rounded-xl p-6 shadow-sm space-y-5">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#e2effa] pb-3 gap-2">
                       <div>
@@ -1485,11 +1502,6 @@ export default function AdminPanel({
                             alt="Hero display preview"
                             className="w-full h-full object-cover"
                           />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span className="text-white text-xs font-bold uppercase tracking-wider bg-black/60 px-3 py-1.5 rounded-full border border-white/20">
-                              Active Hero Visual
-                            </span>
-                          </div>
                         </div>
                       </div>
 
@@ -1535,818 +1547,8 @@ export default function AdminPanel({
                             className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
                           />
                         </div>
-
-                        <div className="text-[11px] text-[#557799] bg-[#f0f7fc] p-3 rounded-lg border border-[#d2e5f5] leading-relaxed">
-                          💡 <strong>Universal Sync Note:</strong> When you upload or change the hero image here, it saves universally to Supabase. Every device (mobile, laptop, tablet) displays this image immediately.
-                        </div>
                       </div>
                     </div>
-                  </div>
-
-                  {/* 2. THREE PRODUCTS SHOWCASE */}
-                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 shadow-sm space-y-6">
-                    <div className="border-b border-[#e2effa] pb-3">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-[12px] font-bold tracking-widest text-[#0099ff] uppercase">
-                          2. ELEGANCE IN EVERY DETAIL - 3 PRODUCTS SHOWCASE CARDS
-                        </span>
-                        <span className="bg-emerald-50 text-emerald-700 text-[10px] font-semibold px-2 py-0.5 rounded border border-emerald-200">
-                          Independent Thumbnails & Strings
-                        </span>
-                      </div>
-                      <p className="text-xs text-[#335577] mt-0.5">
-                        These 3 cards are separate from catalog products. Upload a distinct thumbnail and edit strings for Curtains, Wallpapers, and Blinds independently!
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#f8fbfe] p-4 rounded-xl border border-[#d2e5f5]">
-                      <div>
-                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
-                          Section Eyebrow Label
-                        </label>
-                        <input 
-                          type="text"
-                          value={captions.showcaseSectionSubtitle || 'OUR PRODUCTS'}
-                          onChange={(e) => setCaptions({ ...captions, showcaseSectionSubtitle: e.target.value })}
-                          className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
-                          Main Section Heading
-                        </label>
-                        <input 
-                          type="text"
-                          value={captions.showcaseSectionTitle || 'Elegance In Every Detail'}
-                          onChange={(e) => setCaptions({ ...captions, showcaseSectionTitle: e.target.value })}
-                          className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {/* CURTAINS */}
-                      {(() => {
-                        const base = captions.categoryShowcase?.curtains || DEFAULT_SITE_CONFIG.categoryShowcase!.curtains;
-                        return (
-                          <div className="border border-[#c5def2] rounded-xl p-4 bg-[#fbfdff] space-y-4 flex flex-col justify-between shadow-sm">
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between border-b border-[#e2effa] pb-2">
-                                <span className="font-serif text-sm font-bold text-[#002b49]">Product 1: Curtains</span>
-                                <span className="text-[10px] bg-blue-100 text-[#006699] font-bold px-2 py-0.5 rounded">Card #1</span>
-                              </div>
-                              <div className="relative h-44 w-full rounded-lg overflow-hidden border border-[#b8dcfa] bg-slate-100">
-                                <img 
-                                  src={base.thumbnail || 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=600&q=80'} 
-                                  alt="Curtains thumbnail"
-                                  className="w-full h-full object-cover"
-                                />
-                                <div className="absolute top-2 right-2 bg-[#0099ff] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
-                                  {base.badge || '1000+'}
-                                </div>
-                              </div>
-                              <div>
-                                <label className="cursor-pointer w-full bg-[#0099ff] hover:bg-[#0088ee] text-white py-2 px-3 text-xs font-bold uppercase rounded-lg flex items-center justify-center space-x-2 shadow transition-all">
-                                  <Camera className="h-3.5 w-3.5" />
-                                  <span>Upload Curtains Thumbnail</span>
-                                  <input 
-                                    type="file" 
-                                    accept="image/*" 
-                                    onChange={(e) => handleUploadShowcaseThumbnail('curtains', e)}
-                                    className="hidden" 
-                                  />
-                                </label>
-                              </div>
-                              <div>
-                                <label className="block text-[9px] text-[#006699] font-bold uppercase tracking-wider mb-1">Thumbnail Image URL</label>
-                                <input 
-                                  type="text"
-                                  value={base.thumbnail || ''}
-                                  onChange={(e) => {
-                                    const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
-                                    const updated = {
-                                      ...captions,
-                                      categoryShowcase: {
-                                        ...showcase,
-                                        curtains: { ...base, thumbnail: e.target.value }
-                                      }
-                                    };
-                                    setCaptions(updated);
-                                    onUpdateConfig(updated);
-                                  }}
-                                  placeholder="https://..."
-                                  className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
-                                />
-                              </div>
-                              <div className="space-y-2 pt-2 border-t border-[#e2effa]">
-                                <span className="text-[10px] font-bold text-[#006699] uppercase tracking-wider block">Strings Edit Session</span>
-                                <div>
-                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Title</label>
-                                  <input 
-                                    type="text"
-                                    value={base.title || 'Curtains'}
-                                    onChange={(e) => {
-                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
-                                      const updated = {
-                                        ...captions,
-                                        categoryShowcase: {
-                                          ...showcase,
-                                          curtains: { ...base, title: e.target.value }
-                                        }
-                                      };
-                                      setCaptions(updated);
-                                      onUpdateConfig(updated);
-                                    }}
-                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Designs Counter Badge</label>
-                                  <input 
-                                    type="text"
-                                    value={base.badge || '1000+'}
-                                    onChange={(e) => {
-                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
-                                      const updated = {
-                                        ...captions,
-                                        categoryShowcase: {
-                                          ...showcase,
-                                          curtains: { ...base, badge: e.target.value }
-                                        }
-                                      };
-                                      setCaptions(updated);
-                                      onUpdateConfig(updated);
-                                    }}
-                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Description Text</label>
-                                  <textarea 
-                                    rows={2}
-                                    value={base.description || ''}
-                                    onChange={(e) => {
-                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
-                                      const updated = {
-                                        ...captions,
-                                        categoryShowcase: {
-                                          ...showcase,
-                                          curtains: { ...base, description: e.target.value }
-                                        }
-                                      };
-                                      setCaptions(updated);
-                                      onUpdateConfig(updated);
-                                    }}
-                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff] resize-none"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Button Action Label</label>
-                                  <input 
-                                    type="text"
-                                    value={base.buttonText || 'Explore Curtains'}
-                                    onChange={(e) => {
-                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
-                                      const updated = {
-                                        ...captions,
-                                        categoryShowcase: {
-                                          ...showcase,
-                                          curtains: { ...base, buttonText: e.target.value }
-                                        }
-                                      };
-                                      setCaptions(updated);
-                                      onUpdateConfig(updated);
-                                    }}
-                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })()}
-
-                      {/* WALLPAPERS */}
-                      {(() => {
-                        const base = captions.categoryShowcase?.wallpapers || DEFAULT_SITE_CONFIG.categoryShowcase!.wallpapers;
-                        return (
-                          <div className="border border-[#c5def2] rounded-xl p-4 bg-[#fbfdff] space-y-4 flex flex-col justify-between shadow-sm">
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between border-b border-[#e2effa] pb-2">
-                                <span className="font-serif text-sm font-bold text-[#002b49]">Product 2: Wallpapers</span>
-                                <span className="text-[10px] bg-blue-100 text-[#006699] font-bold px-2 py-0.5 rounded">Card #2</span>
-                              </div>
-                              <div className="relative h-44 w-full rounded-lg overflow-hidden border border-[#b8dcfa] bg-slate-100">
-                                <img 
-                                  src={base.thumbnail || 'https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=600&q=80'} 
-                                  alt="Wallpapers thumbnail"
-                                  className="w-full h-full object-cover"
-                                />
-                                <div className="absolute top-2 right-2 bg-[#0099ff] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
-                                  {base.badge || '1500+'}
-                                </div>
-                              </div>
-                              <div>
-                                <label className="cursor-pointer w-full bg-[#0099ff] hover:bg-[#0088ee] text-white py-2 px-3 text-xs font-bold uppercase rounded-lg flex items-center justify-center space-x-2 shadow transition-all">
-                                  <Camera className="h-3.5 w-3.5" />
-                                  <span>Upload Wallpaper Thumbnail</span>
-                                  <input 
-                                    type="file" 
-                                    accept="image/*" 
-                                    onChange={(e) => handleUploadShowcaseThumbnail('wallpapers', e)}
-                                    className="hidden" 
-                                  />
-                                </label>
-                              </div>
-                              <div>
-                                <label className="block text-[9px] text-[#006699] font-bold uppercase tracking-wider mb-1">Thumbnail Image URL</label>
-                                <input 
-                                  type="text"
-                                  value={base.thumbnail || ''}
-                                  onChange={(e) => {
-                                    const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
-                                    const updated = {
-                                      ...captions,
-                                      categoryShowcase: {
-                                        ...showcase,
-                                        wallpapers: { ...base, thumbnail: e.target.value }
-                                      }
-                                    };
-                                    setCaptions(updated);
-                                    onUpdateConfig(updated);
-                                  }}
-                                  placeholder="https://..."
-                                  className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
-                                />
-                              </div>
-                              <div className="space-y-2 pt-2 border-t border-[#e2effa]">
-                                <span className="text-[10px] font-bold text-[#006699] uppercase tracking-wider block">Strings Edit Session</span>
-                                <div>
-                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Title</label>
-                                  <input 
-                                    type="text"
-                                    value={base.title || 'Wallpapers'}
-                                    onChange={(e) => {
-                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
-                                      const updated = {
-                                        ...captions,
-                                        categoryShowcase: {
-                                          ...showcase,
-                                          wallpapers: { ...base, title: e.target.value }
-                                        }
-                                      };
-                                      setCaptions(updated);
-                                      onUpdateConfig(updated);
-                                    }}
-                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Designs Counter Badge</label>
-                                  <input 
-                                    type="text"
-                                    value={base.badge || '1500+'}
-                                    onChange={(e) => {
-                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
-                                      const updated = {
-                                        ...captions,
-                                        categoryShowcase: {
-                                          ...showcase,
-                                          wallpapers: { ...base, badge: e.target.value }
-                                        }
-                                      };
-                                      setCaptions(updated);
-                                      onUpdateConfig(updated);
-                                    }}
-                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Description Text</label>
-                                  <textarea 
-                                    rows={2}
-                                    value={base.description || ''}
-                                    onChange={(e) => {
-                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
-                                      const updated = {
-                                        ...captions,
-                                        categoryShowcase: {
-                                          ...showcase,
-                                          wallpapers: { ...base, description: e.target.value }
-                                        }
-                                      };
-                                      setCaptions(updated);
-                                      onUpdateConfig(updated);
-                                    }}
-                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff] resize-none"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Button Action Label</label>
-                                  <input 
-                                    type="text"
-                                    value={base.buttonText || 'Explore Wallpapers'}
-                                    onChange={(e) => {
-                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
-                                      const updated = {
-                                        ...captions,
-                                        categoryShowcase: {
-                                          ...showcase,
-                                          wallpapers: { ...base, buttonText: e.target.value }
-                                        }
-                                      };
-                                      setCaptions(updated);
-                                      onUpdateConfig(updated);
-                                    }}
-                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })()}
-
-                      {/* BLINDS */}
-                      {(() => {
-                        const base = captions.categoryShowcase?.blinds || DEFAULT_SITE_CONFIG.categoryShowcase!.blinds;
-                        return (
-                          <div className="border border-[#c5def2] rounded-xl p-4 bg-[#fbfdff] space-y-4 flex flex-col justify-between shadow-sm">
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between border-b border-[#e2effa] pb-2">
-                                <span className="font-serif text-sm font-bold text-[#002b49]">Product 3: Blinds</span>
-                                <span className="text-[10px] bg-blue-100 text-[#006699] font-bold px-2 py-0.5 rounded">Card #3</span>
-                              </div>
-                              <div className="relative h-44 w-full rounded-lg overflow-hidden border border-[#b8dcfa] bg-slate-100">
-                                <img 
-                                  src={base.thumbnail || 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=600&q=80'} 
-                                  alt="Blinds thumbnail"
-                                  className="w-full h-full object-cover"
-                                />
-                                <div className="absolute top-2 right-2 bg-[#0099ff] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
-                                  {base.badge || '600+'}
-                                </div>
-                              </div>
-                              <div>
-                                <label className="cursor-pointer w-full bg-[#0099ff] hover:bg-[#0088ee] text-white py-2 px-3 text-xs font-bold uppercase rounded-lg flex items-center justify-center space-x-2 shadow transition-all">
-                                  <Camera className="h-3.5 w-3.5" />
-                                  <span>Upload Blinds Thumbnail</span>
-                                  <input 
-                                    type="file" 
-                                    accept="image/*" 
-                                    onChange={(e) => handleUploadShowcaseThumbnail('blinds', e)}
-                                    className="hidden" 
-                                  />
-                                </label>
-                              </div>
-                              <div>
-                                <label className="block text-[9px] text-[#006699] font-bold uppercase tracking-wider mb-1">Thumbnail Image URL</label>
-                                <input 
-                                  type="text"
-                                  value={base.thumbnail || ''}
-                                  onChange={(e) => {
-                                    const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
-                                    const updated = {
-                                      ...captions,
-                                      categoryShowcase: {
-                                        ...showcase,
-                                        blinds: { ...base, thumbnail: e.target.value }
-                                      }
-                                    };
-                                    setCaptions(updated);
-                                    onUpdateConfig(updated);
-                                  }}
-                                  placeholder="https://..."
-                                  className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
-                                />
-                              </div>
-                              <div className="space-y-2 pt-2 border-t border-[#e2effa]">
-                                <span className="text-[10px] font-bold text-[#006699] uppercase tracking-wider block">Strings Edit Session</span>
-                                <div>
-                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Title</label>
-                                  <input 
-                                    type="text"
-                                    value={base.title || 'Blinds'}
-                                    onChange={(e) => {
-                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
-                                      const updated = {
-                                        ...captions,
-                                        categoryShowcase: {
-                                          ...showcase,
-                                          blinds: { ...base, title: e.target.value }
-                                        }
-                                      };
-                                      setCaptions(updated);
-                                      onUpdateConfig(updated);
-                                    }}
-                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Designs Counter Badge</label>
-                                  <input 
-                                    type="text"
-                                    value={base.badge || '600+'}
-                                    onChange={(e) => {
-                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
-                                      const updated = {
-                                        ...captions,
-                                        categoryShowcase: {
-                                          ...showcase,
-                                          blinds: { ...base, badge: e.target.value }
-                                        }
-                                      };
-                                      setCaptions(updated);
-                                      onUpdateConfig(updated);
-                                    }}
-                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Description Text</label>
-                                  <textarea 
-                                    rows={2}
-                                    value={base.description || ''}
-                                    onChange={(e) => {
-                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
-                                      const updated = {
-                                        ...captions,
-                                        categoryShowcase: {
-                                          ...showcase,
-                                          blinds: { ...base, description: e.target.value }
-                                        }
-                                      };
-                                      setCaptions(updated);
-                                      onUpdateConfig(updated);
-                                    }}
-                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff] resize-none"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Button Action Label</label>
-                                  <input 
-                                    type="text"
-                                    value={base.buttonText || 'Explore Blinds'}
-                                    onChange={(e) => {
-                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
-                                      const updated = {
-                                        ...captions,
-                                        categoryShowcase: {
-                                          ...showcase,
-                                          blinds: { ...base, buttonText: e.target.value }
-                                        }
-                                      };
-                                      setCaptions(updated);
-                                      onUpdateConfig(updated);
-                                    }}
-                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* 3. TAILOR-MADE CUSTOMIZATION SESSION */}
-                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 shadow-sm space-y-6">
-                    <div className="border-b border-[#e2effa] pb-3">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-[12px] font-bold tracking-widest text-[#0099ff] uppercase">
-                          3. TAILOR-MADE CUSTOMIZATION SECTION IMAGES & STRINGS
-                        </span>
-                        <span className="bg-purple-50 text-purple-700 text-[10px] font-semibold px-2 py-0.5 rounded border border-purple-200">
-                          Curtains & Wallpaper Customization
-                        </span>
-                      </div>
-                      <p className="text-xs text-[#335577] mt-0.5">
-                        Change the custom photography and titles for the two Tailor-Made bespoke styling cards.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#f8fbfe] p-4 rounded-xl border border-[#d2e5f5]">
-                      <div>
-                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
-                          Section Eyebrow Label
-                        </label>
-                        <input 
-                          type="text"
-                          value={captions.customizationSectionSubtitle || 'BESPOKE STYLING'}
-                          onChange={(e) => setCaptions({ ...captions, customizationSectionSubtitle: e.target.value })}
-                          className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
-                          Main Section Heading
-                        </label>
-                        <input 
-                          type="text"
-                          value={captions.customizationSectionTitle || 'Tailor-Made Customization'}
-                          onChange={(e) => setCaptions({ ...captions, customizationSectionTitle: e.target.value })}
-                          className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* CARD 1: DESIGN YOUR OWN CURTAINS */}
-                      <div className="border border-[#c5def2] rounded-xl p-5 bg-[#fbfdff] space-y-4 shadow-sm">
-                        <div className="flex items-center justify-between border-b border-[#e2effa] pb-2">
-                          <span className="font-serif text-sm font-bold text-[#002b49]">Card 1: Design Your Own Curtains</span>
-                          <span className="text-[10px] bg-sky-100 text-[#006699] font-bold px-2 py-0.5 rounded">Curtains Bespoke</span>
-                        </div>
-                        <div className="relative h-48 w-full rounded-xl overflow-hidden border border-[#b8dcfa] bg-[#021E3B]">
-                          <img 
-                            src={captions.customizationCurtainsImage || DEFAULT_SITE_CONFIG.customizationCurtainsImage || 'https://images.unsplash.com/photo-1616046229478-9901c5536a45?auto=format&fit=crop&w=600&q=80'} 
-                            alt="Curtains customization visual"
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute inset-y-0 left-0 w-[40%] bg-gradient-to-r from-[#021E3B] to-transparent pointer-events-none" />
-                          <div className="absolute bottom-3 left-3 text-white text-xs font-bold drop-shadow">
-                            Curtains Texture
-                          </div>
-                        </div>
-                        <div>
-                          <label className="cursor-pointer w-full bg-[#0099ff] hover:bg-[#0088ee] text-white py-2.5 px-3 text-xs font-bold uppercase rounded-lg flex items-center justify-center space-x-2 shadow transition-all">
-                            <Camera className="h-3.5 w-3.5" />
-                            <span>Upload Curtains Customization Photo</span>
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              onChange={(e) => handleUploadCustomizationImage('curtains', e)}
-                              className="hidden" 
-                            />
-                          </label>
-                        </div>
-                        <div>
-                          <label className="block text-[9px] text-[#006699] font-bold uppercase tracking-wider mb-1">Or Image URL</label>
-                          <input 
-                            type="text"
-                            value={captions.customizationCurtainsImage || ''}
-                            onChange={(e) => {
-                              const updated = { ...captions, customizationCurtainsImage: e.target.value };
-                              setCaptions(updated);
-                              onUpdateConfig(updated);
-                            }}
-                            placeholder="https://..."
-                            className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
-                          />
-                        </div>
-                        <div className="space-y-3 pt-2 border-t border-[#e2effa]">
-                          <div>
-                            <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Heading</label>
-                            <input 
-                              type="text"
-                              value={captions.customizationCurtainsTitle || 'Design Your Own Curtains'}
-                              onChange={(e) => {
-                                const updated = { ...captions, customizationCurtainsTitle: e.target.value };
-                                setCaptions(updated);
-                                onUpdateConfig(updated);
-                              }}
-                              className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Description</label>
-                            <textarea 
-                              rows={2}
-                              value={captions.customizationCurtainsDesc || 'Customize your curtains with your favorite fabric, color & style. Get precision fit.'}
-                              onChange={(e) => {
-                                const updated = { ...captions, customizationCurtainsDesc: e.target.value };
-                                setCaptions(updated);
-                                onUpdateConfig(updated);
-                              }}
-                              className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff] resize-none"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* CARD 2: DESIGN YOUR OWN WALLPAPER */}
-                      <div className="border border-[#c5def2] rounded-xl p-5 bg-[#fbfdff] space-y-4 shadow-sm">
-                        <div className="flex items-center justify-between border-b border-[#e2effa] pb-2">
-                          <span className="font-serif text-sm font-bold text-[#002b49]">Card 2: Design Your Own Wallpaper</span>
-                          <span className="text-[10px] bg-sky-100 text-[#006699] font-bold px-2 py-0.5 rounded">Wallpaper Bespoke</span>
-                        </div>
-                        <div className="relative h-48 w-full rounded-xl overflow-hidden border border-[#b8dcfa] bg-[#021E3B]">
-                          <img 
-                            src={captions.customizationWallpaperImage || DEFAULT_SITE_CONFIG.customizationWallpaperImage || 'https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=600&q=80'} 
-                            alt="Wallpaper customization visual"
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute inset-y-0 left-0 w-[40%] bg-gradient-to-r from-[#021E3B] to-transparent pointer-events-none" />
-                          <div className="absolute bottom-3 left-3 text-white text-xs font-bold drop-shadow">
-                            Wallpaper Texture
-                          </div>
-                        </div>
-                        <div>
-                          <label className="cursor-pointer w-full bg-[#0099ff] hover:bg-[#0088ee] text-white py-2.5 px-3 text-xs font-bold uppercase rounded-lg flex items-center justify-center space-x-2 shadow transition-all">
-                            <Camera className="h-3.5 w-3.5" />
-                            <span>Upload Wallpaper Customization Photo</span>
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              onChange={(e) => handleUploadCustomizationImage('wallpaper', e)}
-                              className="hidden" 
-                            />
-                          </label>
-                        </div>
-                        <div>
-                          <label className="block text-[9px] text-[#006699] font-bold uppercase tracking-wider mb-1">Or Image URL</label>
-                          <input 
-                            type="text"
-                            value={captions.customizationWallpaperImage || ''}
-                            onChange={(e) => {
-                              const updated = { ...captions, customizationWallpaperImage: e.target.value };
-                              setCaptions(updated);
-                              onUpdateConfig(updated);
-                            }}
-                            placeholder="https://..."
-                            className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
-                          />
-                        </div>
-                        <div className="space-y-3 pt-2 border-t border-[#e2effa]">
-                          <div>
-                            <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Heading</label>
-                            <input 
-                              type="text"
-                              value={captions.customizationWallpaperTitle || 'Design Your Own Wallpaper'}
-                              onChange={(e) => {
-                                const updated = { ...captions, customizationWallpaperTitle: e.target.value };
-                                setCaptions(updated);
-                                onUpdateConfig(updated);
-                              }}
-                              className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Description</label>
-                            <textarea 
-                              rows={2}
-                              value={captions.customizationWallpaperDesc || 'Create unique wallpaper designs that reflect your personality and style perfectly.'}
-                              onChange={(e) => {
-                                const updated = { ...captions, customizationWallpaperDesc: e.target.value };
-                                setCaptions(updated);
-                                onUpdateConfig(updated);
-                              }}
-                              className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff] resize-none"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 4. WHY CHOOSE US SECTION */}
-                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 shadow-sm space-y-6">
-                    <div className="border-b border-[#e2effa] pb-3">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-[12px] font-bold tracking-widest text-[#0099ff] uppercase">
-                          4. WHY CHOOSE US - LUXURY DRAPES IMAGE & COPY
-                        </span>
-                        <span className="bg-amber-50 text-amber-800 text-[10px] font-semibold px-2 py-0.5 rounded border border-amber-200">
-                          Supabase Account Storage
-                        </span>
-                      </div>
-                      <p className="text-xs text-[#335577] mt-0.5">
-                        Change the featured luxury curtains image and copy for the "Why Choose Us" showcase section. When uploaded, this image is saved directly to your Supabase account.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                      <div className="lg:col-span-5">
-                        <div className="relative aspect-[4/3] sm:aspect-video lg:aspect-[4/5] max-h-[360px] rounded-2xl overflow-hidden border-2 border-[#b8dcfa] bg-[#021E3B] shadow-md group">
-                          <img 
-                            src={captions.whyChooseUsImageUrl || DEFAULT_SITE_CONFIG.whyChooseUsImageUrl || "https://images.unsplash.com/photo-1540518614846-7eded433c457?auto=format&fit=crop&w=800&q=80"} 
-                            alt="Why Choose Us visual preview"
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span className="text-white text-xs font-bold uppercase tracking-wider bg-black/60 px-3 py-1.5 rounded-full border border-white/20">
-                              Active Why Choose Us Visual
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="lg:col-span-7 space-y-4">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <label className="cursor-pointer bg-[#0099ff] hover:bg-[#0088ee] text-white px-5 py-3 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center space-x-2 shadow-md shadow-[#0099ff]/25 transition-all">
-                            <Camera className="h-4 w-4" />
-                            <span>Upload Why Choose Us Photo</span>
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              onChange={handleUploadWhyChooseUsImage} 
-                              className="hidden" 
-                            />
-                          </label>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updated = { ...captions, whyChooseUsImageUrl: DEFAULT_SITE_CONFIG.whyChooseUsImageUrl };
-                              setCaptions(updated);
-                              onUpdateConfig(updated);
-                            }}
-                            className="text-xs font-semibold text-[#006699] hover:text-[#002b49] px-3 py-2 rounded-lg border border-[#c5def2] hover:bg-slate-50 transition-colors cursor-pointer"
-                          >
-                            Reset to Default Image
-                          </button>
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
-                            Direct Image URL (Supabase CDN or Web Path)
-                          </label>
-                          <input 
-                            type="text"
-                            value={captions.whyChooseUsImageUrl || ''}
-                            onChange={(e) => {
-                              const updated = { ...captions, whyChooseUsImageUrl: e.target.value };
-                              setCaptions(updated);
-                              onUpdateConfig(updated);
-                            }}
-                            placeholder="https://..."
-                            className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
-                          />
-                        </div>
-
-                        <div className="space-y-3 pt-2 border-t border-[#e2effa]">
-                          <div>
-                            <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
-                              Section Eyebrow Subtitle
-                            </label>
-                            <input 
-                              type="text"
-                              value={captions.whyChooseUsSubtitle || 'WHY CHOOSE US'}
-                              onChange={(e) => {
-                                const updated = { ...captions, whyChooseUsSubtitle: e.target.value };
-                                setCaptions(updated);
-                                onUpdateConfig(updated);
-                              }}
-                              className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
-                              Main Section Title
-                            </label>
-                            <input 
-                              type="text"
-                              value={captions.whyChooseUsTitle || 'Quality, Service & Satisfaction You Can Trust'}
-                              onChange={(e) => {
-                                const updated = { ...captions, whyChooseUsTitle: e.target.value };
-                                setCaptions(updated);
-                                onUpdateConfig(updated);
-                              }}
-                              className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
-                              Description Paragraph
-                            </label>
-                            <textarea 
-                              rows={3}
-                              value={captions.whyChooseUsDesc || ''}
-                              onChange={(e) => {
-                                const updated = { ...captions, whyChooseUsDesc: e.target.value };
-                                setCaptions(updated);
-                                onUpdateConfig(updated);
-                              }}
-                              className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] resize-none"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="text-[11px] text-[#557799] bg-[#f0f7fc] p-3 rounded-lg border border-[#d2e5f5] leading-relaxed">
-                          💡 <strong>Universal Supabase Sync:</strong> When you upload a photo here, it saves to your Supabase account storage &amp; database table, and whenever visitors open the site, the site pulls this exact image path from Supabase.
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Universal Sync Action Banner */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-[#eaf4fd] border border-[#b8dcfa] rounded-xl gap-4">
-                    <div>
-                      <span className="font-bold text-[#0077c2] uppercase tracking-wider block text-xs">
-                        Universal Cloud Sync Ready
-                      </span>
-                      <p className="text-xs text-[#335577] mt-0.5">
-                        Click below to commit your Hero image, 3 product showcase thumbnails, Why Choose Us image, and tailor-made customization images to your database.
-                      </p>
-                    </div>
-                    <button 
-                      onClick={handleSaveShowcaseSections}
-                      className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-6 py-3 text-xs font-bold tracking-widest uppercase rounded-lg shadow-md shadow-[#0099ff]/25 transition-all flex items-center space-x-2 cursor-pointer self-start sm:self-auto shrink-0"
-                    >
-                      <Save className="h-4 w-4" />
-                      <span>SAVE ALL SECTION CHANGES</span>
-                    </button>
                   </div>
                 </div>
               )}
@@ -2409,35 +1611,6 @@ export default function AdminPanel({
                           className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Bold Subtitle Accent</label>
-                          <input
-                            type="text"
-                            value={captions.heroSub1}
-                            onChange={(e) => setCaptions({ ...captions, heroSub1: e.target.value })}
-                            className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Colored Subtitle</label>
-                          <input
-                            type="text"
-                            value={captions.heroSub2}
-                            onChange={(e) => setCaptions({ ...captions, heroSub2: e.target.value })}
-                            className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Main Hero Description</label>
-                        <textarea
-                          rows={3}
-                          value={captions.heroDesc}
-                          onChange={(e) => setCaptions({ ...captions, heroDesc: e.target.value })}
-                          className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] resize-none transition-colors"
-                        />
-                      </div>
                     </div>
 
                     <div className="space-y-4 bg-white border border-[#c5def2] rounded-xl p-5 shadow-sm">
@@ -2469,21 +1642,12 @@ export default function AdminPanel({
                           className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] resize-none transition-colors"
                         />
                       </div>
-                      <div>
-                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Narrative Paragraph 2</label>
-                        <textarea
-                          rows={4}
-                          value={captions.aboutText2}
-                          onChange={(e) => setCaptions({ ...captions, aboutText2: e.target.value })}
-                          className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] resize-none transition-colors"
-                        />
-                      </div>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* TAB 2: THEME & BRAND LOGO */}
+              {/* TAB 2: THEME & BRAND */}
               {activeTab === 'theme' && (
                 <div className="space-y-8 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
                   <div className="border-b border-[#d8eaf7] pb-4">
@@ -2528,44 +1692,11 @@ export default function AdminPanel({
                     </div>
 
                     <div className="space-y-6">
-                      <div className="bg-white border border-[#c5def2] rounded-xl p-6 space-y-5 shadow-sm">
-                        <div className="flex items-center space-x-2 text-[#0099ff]">
-                          <Type className="h-4 w-4" />
-                          <h4 className="text-xs font-bold uppercase tracking-wider">Select Typographical Coupling</h4>
-                        </div>
-
-                        <div className="space-y-3">
-                          {[
-                            { id: 'jakarta_playfair', title: 'Plus Jakarta Sans & Playfair Display', desc: 'Sleek, fluid geometric body paired with grand classic headings (Default)' },
-                            { id: 'inter_cinzel', title: 'Cinzel & Inter', desc: 'Imperial, Roman display typography paired with clean structural sans body' },
-                            { id: 'outfit_bodoni', title: 'Outfit & Bodoni Moda', desc: 'Avant-garde editorial fashion pairing with warm italic curvatures' },
-                          ].map((f) => (
-                            <button
-                              key={f.id}
-                              onClick={() => handleSaveTheme(captions.themePreset, f.id as any)}
-                              className={`w-full p-4 border text-left flex items-center justify-between rounded-xl transition-all cursor-pointer ${captions.fontPreset === f.id ? 'border-[#0099ff] bg-[#e3f2fd] shadow-sm' : 'border-[#d8eaf7] bg-[#f8fbfe] hover:border-[#0099ff]/50'}`}
-                            >
-                              <div className="space-y-1">
-                                <span className="text-xs font-bold block text-[#002b49]">{f.title}</span>
-                                <span className="text-[10px] text-[#335577] block leading-relaxed">{f.desc}</span>
-                              </div>
-                              {captions.fontPreset === f.id && (
-                                <Check className="h-4 w-4 text-[#0099ff] ml-2" />
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
                       <div className="bg-white border border-[#c5def2] rounded-xl p-6 space-y-4 shadow-sm">
                         <div className="flex items-center space-x-2 text-[#0099ff]">
                           <Link className="h-4 w-4" />
                           <h4 className="text-xs font-bold uppercase tracking-wider">Brand Logo Link Control</h4>
                         </div>
-                        <p className="font-sans text-[11px] text-[#335577] leading-relaxed">
-                          Provide any relative path or online image link to immediately replace the header and footer brand emblems.
-                        </p>
-                        
                         <div className="flex space-x-2">
                           <input
                             type="text"
@@ -2593,7 +1724,7 @@ export default function AdminPanel({
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#d8eaf7] pb-5">
                     <div>
                       <h3 className="font-serif text-2xl font-bold text-[#002b49]">Dynamic Products Catalog Master Control</h3>
-                      <p className="font-sans text-xs text-[#335577] mt-1">Directly edit, delete, or append newly structured curtains, wallpapers, and blinds. Automatically broadcasted to Supabase.</p>
+                      <p className="font-sans text-xs text-[#335577] mt-1">Directly edit, delete, or append newly structured curtains, wallpapers, and blinds.</p>
                     </div>
                     <button
                       onClick={startAddProduct}
@@ -2603,352 +1734,10 @@ export default function AdminPanel({
                       <span>ADD NEW PRODUCT</span>
                     </button>
                   </div>
-
-                  <div className="flex border border-[#c5def2] bg-white p-1 rounded-xl max-w-md shadow-sm">
-                    {[
-                      { id: 'curtains', label: 'Curtains Installation' },
-                      { id: 'wallpapers', label: 'Wallpaper Coverings' },
-                      { id: 'blinds', label: 'Bespoke Blinds' }
-                    ].map((cat) => (
-                      <button
-                        key={cat.id}
-                        onClick={() => {
-                          setSelectedProductCategory(cat.id as any);
-                          setIsAddingProduct(false);
-                          setEditingProduct(null);
-                        }}
-                        className={`flex-1 py-2 text-center text-[10px] font-bold tracking-wider uppercase rounded-lg transition-colors cursor-pointer ${selectedProductCategory === cat.id ? 'bg-[#0099ff] text-white shadow-sm' : 'text-[#006699] hover:bg-[#e3f2fd]'}`}
-                      >
-                        {cat.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {(isAddingProduct || editingProduct) && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="bg-white border border-[#c5def2] rounded-xl p-6 space-y-6 shadow-md"
-                    >
-                      <div className="flex items-center justify-between border-b border-[#e2effa] pb-3">
-                        <span className="font-serif text-lg font-bold text-[#002b49]">
-                          {isAddingProduct ? 'Append New Premium Product' : `Modifying: ${editingProduct.name}`}
-                        </span>
-                        <button 
-                          onClick={() => {
-                            setIsAddingProduct(false);
-                            setEditingProduct(null);
-                          }}
-                          className="text-[#335577] hover:text-[#002b49] text-xs uppercase font-bold cursor-pointer"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-
-                      <form onSubmit={handleProductSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                          <div>
-                            <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Product Name *</label>
-                            <input
-                              type="text"
-                              required
-                              value={productForm.name}
-                              onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                              className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
-                              placeholder="e.g. Royal Silk Drapery"
-                            />
-                          </div>
-
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider">
-                                Image Link (CDN URL or Direct Supabase Upload) *
-                              </label>
-                              <label className="inline-flex items-center space-x-1.5 px-2.5 py-1 bg-[#e3f2fd] hover:bg-[#d0e8f9] text-[#006699] border border-[#90cdf4] text-[10px] font-bold tracking-wider uppercase rounded-md cursor-pointer transition-colors shadow-2xs">
-                                <UploadCloud className="h-3 w-3 text-[#0099ff]" />
-                                <span>{isUploadingProductInline ? 'Uploading to Supabase...' : 'Upload to Supabase'}</span>
-                                <input 
-                                  type="file" 
-                                  accept="image/*" 
-                                  disabled={isUploadingProductInline}
-                                  onChange={handleProductInlineUpload} 
-                                  className="hidden" 
-                                />
-                              </label>
-                            </div>
-                            <input
-                              type="text"
-                              required
-                              value={productForm.image}
-                              onChange={(e) => setProductForm({ ...productForm, image: e.target.value })}
-                              className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
-                              placeholder="Paste URL or click 'Upload to Supabase' above"
-                            />
-                            {productForm.image && (
-                              <div className="mt-2 flex items-center space-x-2.5 bg-[#f8fbfe] border border-[#c5def2] p-2 rounded-lg">
-                                <img src={productForm.image} alt="Preview" className="h-10 w-10 object-cover rounded-md border border-[#c5def2] bg-white" />
-                                <div className="text-[10px] truncate">
-                                  <span className="font-semibold text-[#002b49] block truncate">Active Image Selected</span>
-                                  <span className="text-[#335577] truncate block max-w-[280px]">{productForm.image}</span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          {selectedProductCategory === 'curtains' ? (
-                            <div>
-                              <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Price Class Classification</label>
-                              <select
-                                value={productForm.priceClass}
-                                onChange={(e) => setProductForm({ ...productForm, priceClass: e.target.value })}
-                                className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
-                              >
-                                <option value="Premium">Premium</option>
-                                <option value="Signature">Signature</option>
-                                <option value="Reserve">Reserve Luxury</option>
-                              </select>
-                            </div>
-                          ) : (
-                            <div>
-                              <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Design Style Type</label>
-                              {selectedProductCategory === 'wallpapers' ? (
-                                <select
-                                  value={productForm.style}
-                                  onChange={(e) => setProductForm({ ...productForm, style: e.target.value })}
-                                  className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
-                                >
-                                  <option value="Classic">Classic</option>
-                                  <option value="Botanical">Botanical</option>
-                                  <option value="Textured">Textured</option>
-                                  <option value="Modern">Modern</option>
-                                </select>
-                              ) : (
-                                <select
-                                  value={productForm.style}
-                                  onChange={(e) => setProductForm({ ...productForm, style: e.target.value })}
-                                  className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
-                                >
-                                  <option value="Roman">Roman Shade</option>
-                                  <option value="Roller">Roller Shade</option>
-                                  <option value="Venetian">Venetian blind</option>
-                                  <option value="Motorized">Motorized blind</option>
-                                  <option value="Zebra">Zebra blind</option>
-                                </select>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="space-y-4">
-                          <div>
-                            <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Material Composition (Comma-separated)</label>
-                            <input
-                              type="text"
-                              value={productForm.materials}
-                              onChange={(e) => setProductForm({ ...productForm, materials: e.target.value })}
-                              className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
-                              placeholder="e.g. Pure Merino Wool, Thermal Sateen, Brass Rings"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Product Narrative Description *</label>
-                            <textarea
-                              rows={4}
-                              required
-                              value={productForm.description}
-                              onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                              className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] resize-none transition-colors"
-                              placeholder="Type elegant marketing detail description..."
-                            />
-                          </div>
-
-                          <div className="pt-4 flex justify-end space-x-3">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsAddingProduct(false);
-                                setEditingProduct(null);
-                              }}
-                              className="border border-[#c5def2] hover:bg-[#e3f2fd] text-[#002b49] px-6 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg cursor-pointer transition-colors"
-                            >
-                              CANCEL
-                            </button>
-                            <button
-                              type="submit"
-                              className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-6 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg shadow-md shadow-[#0099ff]/25 transition-colors cursor-pointer"
-                            >
-                              {isAddingProduct ? 'CONFIRM ADDITION' : 'SAVE CHANGES'}
-                            </button>
-                          </div>
-                        </div>
-                      </form>
-                    </motion.div>
-                  )}
-
-                  {/* PRODUCTS TABLE */}
-                  <div className="border border-[#c5def2] bg-white rounded-xl overflow-x-auto shadow-sm">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="border-b border-[#c5def2] bg-[#e3f2fd] text-[10px] font-bold tracking-wider text-[#006699] uppercase">
-                          <th className="p-4 w-16">Preview</th>
-                          <th className="p-4 w-48">Product Detail</th>
-                          <th className="p-4">Narrative Description</th>
-                          <th className="p-4 w-32">Classification</th>
-                          <th className="p-4 w-28 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#e2effa]">
-                        {selectedProductCategory === 'curtains' && curtains.map((item) => (
-                          <tr key={item.id} className="hover:bg-[#f8fbfe] transition-colors">
-                            <td className="p-4">
-                              <img src={item.image} alt={item.name} className="h-12 w-12 object-cover rounded-lg border border-[#c5def2]" />
-                            </td>
-                            <td className="p-4 font-semibold">
-                              <span className="block text-[#002b49] text-xs font-bold">{item.name}</span>
-                              <span className="block text-[10px] text-[#335577] mt-0.5 font-normal">ID: {item.id}</span>
-                            </td>
-                            <td className="p-4 text-[11px] text-[#335577] max-w-sm line-clamp-2">
-                              {item.description}
-                            </td>
-                            <td className="p-4">
-                              <span className="inline-block px-2 py-0.5 bg-[#e3f2fd] text-[#0077c2] border border-[#90cdf4] text-[9px] font-bold tracking-wider uppercase rounded-md">
-                                {item.priceClass}
-                              </span>
-                            </td>
-                            <td className="p-4 text-right space-x-1 whitespace-nowrap">
-                              <label 
-                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer align-middle"
-                                title="Upload Photo Directly to Supabase"
-                              >
-                                <Camera className="h-3.5 w-3.5" />
-                                <input 
-                                  type="file" 
-                                  accept="image/*" 
-                                  onChange={(e) => handleQuickUploadProductPhoto(item, 'curtains', e)} 
-                                  className="hidden" 
-                                />
-                              </label>
-                              <button 
-                                onClick={() => startEditProduct(item)}
-                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer align-middle"
-                                title="Edit Product"
-                              >
-                                <Edit2 className="h-3.5 w-3.5" />
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteProduct(item.id, 'curtains')}
-                                className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors inline-block cursor-pointer align-middle"
-                                title="Delete Product"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-
-                        {selectedProductCategory === 'wallpapers' && wallpapers.map((item) => (
-                          <tr key={item.id} className="hover:bg-[#f8fbfe] transition-colors">
-                            <td className="p-4">
-                              <img src={item.image} alt={item.name} className="h-12 w-12 object-cover rounded-lg border border-[#c5def2]" />
-                            </td>
-                            <td className="p-4 font-semibold">
-                              <span className="block text-[#002b49] text-xs font-bold">{item.name}</span>
-                              <span className="block text-[10px] text-[#335577] mt-0.5 font-normal">ID: {item.id}</span>
-                            </td>
-                            <td className="p-4 text-[11px] text-[#335577] max-w-sm line-clamp-2">
-                              {item.description}
-                            </td>
-                            <td className="p-4">
-                              <span className="inline-block px-2 py-0.5 bg-[#e3f2fd] text-[#0077c2] border border-[#90cdf4] text-[9px] font-bold tracking-wider uppercase rounded-md">
-                                {item.style}
-                              </span>
-                            </td>
-                            <td className="p-4 text-right space-x-1 whitespace-nowrap">
-                              <label 
-                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer align-middle"
-                                title="Upload Photo Directly to Supabase"
-                              >
-                                <Camera className="h-3.5 w-3.5" />
-                                <input 
-                                  type="file" 
-                                  accept="image/*" 
-                                  onChange={(e) => handleQuickUploadProductPhoto(item, 'wallpapers', e)} 
-                                  className="hidden" 
-                                />
-                              </label>
-                              <button 
-                                onClick={() => startEditProduct(item)}
-                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer align-middle"
-                                title="Edit Product"
-                              >
-                                <Edit2 className="h-3.5 w-3.5" />
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteProduct(item.id, 'wallpapers')}
-                                className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors inline-block cursor-pointer align-middle"
-                                title="Delete Product"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-
-                        {selectedProductCategory === 'blinds' && blinds.map((item) => (
-                          <tr key={item.id} className="hover:bg-[#f8fbfe] transition-colors">
-                            <td className="p-4">
-                              <img src={item.image} alt={item.name} className="h-12 w-12 object-cover rounded-lg border border-[#c5def2]" />
-                            </td>
-                            <td className="p-4 font-semibold">
-                              <span className="block text-[#002b49] text-xs font-bold">{item.name}</span>
-                              <span className="block text-[10px] text-[#335577] mt-0.5 font-normal">ID: {item.id}</span>
-                            </td>
-                            <td className="p-4 text-[11px] text-[#335577] max-w-sm line-clamp-2">
-                              {item.description}
-                            </td>
-                            <td className="p-4">
-                              <span className="inline-block px-2 py-0.5 bg-[#e3f2fd] text-[#0077c2] border border-[#90cdf4] text-[9px] font-bold tracking-wider uppercase rounded-md">
-                                {item.style}
-                              </span>
-                            </td>
-                            <td className="p-4 text-right space-x-1 whitespace-nowrap">
-                              <label 
-                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer align-middle"
-                                title="Upload Photo Directly to Supabase"
-                              >
-                                <Camera className="h-3.5 w-3.5" />
-                                <input 
-                                  type="file" 
-                                  accept="image/*" 
-                                  onChange={(e) => handleQuickUploadProductPhoto(item, 'blinds', e)} 
-                                  className="hidden" 
-                                />
-                              </label>
-                              <button 
-                                onClick={() => startEditProduct(item)}
-                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer align-middle"
-                                title="Edit Product"
-                              >
-                                <Edit2 className="h-3.5 w-3.5" />
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteProduct(item.id, 'blinds')}
-                                className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors inline-block cursor-pointer align-middle"
-                                title="Delete Product"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
                 </div>
               )}
 
-              {/* TAB: MEDIA LIBRARY */}
+              {/* TAB: MEDIA & UPLOADS */}
               {activeTab === 'media' && (
                 <div className="space-y-8 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-5 border-b border-[#d8eaf7] gap-4">
@@ -2961,7 +1750,7 @@ export default function AdminPanel({
                         </span>
                       </h3>
                       <p className="font-sans text-xs text-[#335577] mt-1">
-                        Upload photography directly into your Supabase account. Files are saved in Supabase Storage with metadata recorded in <code className="bg-[#e3f2fd] text-[#006699] px-1.5 py-0.5 rounded font-mono text-[11px]">public.uploaded_images</code>.
+                        Upload photography directly into your Supabase account storage and database.
                       </p>
                     </div>
 
@@ -2976,406 +1765,23 @@ export default function AdminPanel({
                       </button>
                     </div>
                   </div>
-
-                  <div className={`p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
-                    supabaseStatus === 'connected' 
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
-                      : 'bg-amber-50 border-amber-200 text-amber-900'
-                  }`}>
-                    <div className="flex items-center space-x-2.5">
-                      {supabaseStatus === 'connected' ? (
-                        <>
-                          <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                          <span className="text-xs font-bold tracking-wide">
-                            Connected to Supabase Project: Uploads save directly to your Supabase Storage bucket &amp; database table!
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
-                          <span className="text-xs font-medium">
-                            Supabase database is currently unlinked or testing. Connect your Supabase credentials in the <strong>Database</strong> tab.
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    {supabaseStatus !== 'connected' && (
-                      <button
-                        onClick={() => setActiveTab('database')}
-                        className="text-[11px] font-bold text-[#0077c2] underline hover:text-[#005588] shrink-0"
-                      >
-                        Go to Database Setup &rarr;
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Drag & Drop Zone */}
-                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 shadow-sm">
-                    <h4 className="text-xs font-bold uppercase tracking-widest text-[#006699] mb-4 flex items-center space-x-2">
-                      <UploadCloud className="h-4 w-4 text-[#0099ff]" />
-                      <span>Upload New Image File to Supabase</span>
-                    </h4>
-
-                    <div
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        setIsDraggingOver(true);
-                      }}
-                      onDragLeave={() => setIsDraggingOver(false)}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        setIsDraggingOver(false);
-                        const files = e.dataTransfer.files;
-                        if (files && files[0]) {
-                          setSelectedUploadFile(files[0]);
-                          if (!uploadTitle) {
-                            setUploadTitle(files[0].name.replace(/\.[^/.]+$/, ''));
-                          }
-                        }
-                      }}
-                      className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all ${
-                        isDraggingOver 
-                          ? 'border-[#0099ff] bg-[#e3f2fd]/60 scale-[1.005]' 
-                          : 'border-[#c5def2] bg-[#f8fbfe] hover:bg-[#eef7fc]'
-                      }`}
-                    >
-                      <input
-                        type="file"
-                        id="supabase-media-file-input"
-                        accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            setSelectedUploadFile(file);
-                            if (!uploadTitle) {
-                              setUploadTitle(file.name.replace(/\.[^/.]+$/, ''));
-                            }
-                          }
-                        }}
-                      />
-
-                      <div className="flex flex-col items-center justify-center space-y-3">
-                        <div className="h-14 w-14 rounded-full bg-[#e3f2fd] flex items-center justify-center text-[#0099ff] shadow-inner">
-                          <UploadCloud className="h-7 w-7" />
-                        </div>
-                        <div>
-                          <p className="font-serif text-base font-bold text-[#002b49]">
-                            {selectedUploadFile ? selectedUploadFile.name : 'Drag & Drop your image file here'}
-                          </p>
-                          <p className="font-sans text-xs text-[#52779a] mt-0.5">
-                            {selectedUploadFile 
-                              ? `Size: ${(selectedUploadFile.size / (1024 * 1024)).toFixed(2)} MB • Type: ${selectedUploadFile.type || 'image'}` 
-                              : 'Supports JPG, PNG, WebP, GIF, SVG up to 25MB'}
-                          </p>
-                        </div>
-
-                        <label
-                          htmlFor="supabase-media-file-input"
-                          className="px-5 py-2.5 bg-[#0099ff] hover:bg-[#0088ee] text-white text-xs font-bold tracking-wider uppercase rounded-lg cursor-pointer shadow-md shadow-[#0099ff]/25 transition-all inline-flex items-center space-x-2"
-                        >
-                          <FolderOpen className="h-3.5 w-3.5" />
-                          <span>{selectedUploadFile ? 'Select Different File' : 'Browse Local Files'}</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    {selectedUploadFile && (
-                      <div className="mt-5 p-4 bg-[#f8fbfe] border border-[#c5def2] rounded-xl space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-[10px] font-bold tracking-wider uppercase text-[#006699] mb-1">
-                              Image Title / Label (Optional)
-                            </label>
-                            <input
-                              type="text"
-                              value={uploadTitle}
-                              onChange={(e) => setUploadTitle(e.target.value)}
-                              placeholder="e.g. Belgian Charcoal Velvet Swatch"
-                              className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold tracking-wider uppercase text-[#006699] mb-1">
-                              Target Category / Placement
-                            </label>
-                            <select
-                              value={uploadCategory}
-                              onChange={(e) => setUploadCategory(e.target.value as any)}
-                              className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
-                            >
-                              <option value="curtains">Curtains Product Catalog</option>
-                              <option value="wallpapers">Wallpapers Product Catalog</option>
-                              <option value="blinds">Blinds Product Catalog</option>
-                              <option value="hero">Homepage Hero &amp; Banners</option>
-                              <option value="gallery">Showcase &amp; Testimonials</option>
-                              <option value="general">General Media</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-2 border-t border-[#e2effa]">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedUploadFile(null);
-                              setUploadTitle('');
-                            }}
-                            className="px-4 py-2 border border-[#c5def2] hover:bg-white text-[#52779a] hover:text-[#002b49] text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={isUploadingMedia}
-                            onClick={() => handleExecuteUpload()}
-                            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold tracking-widest uppercase rounded-lg shadow-md shadow-emerald-600/25 transition-all flex items-center space-x-2 cursor-pointer disabled:opacity-50"
-                          >
-                            {isUploadingMedia ? (
-                              <>
-                                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                                <span>UPLOADING TO SUPABASE...</span>
-                              </>
-                            ) : (
-                              <>
-                                <UploadCloud className="h-4 w-4" />
-                                <span>SAVE FILE TO SUPABASE ACCOUNT</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {uploadSuccessMsg && (
-                      <div className="mt-4 p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl flex items-start space-x-3 text-xs leading-relaxed">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <span className="font-bold block">Upload Confirmed!</span>
-                          <p>{uploadSuccessMsg}</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {uploadErrorMsg && (
-                      <div className="mt-4 p-4 bg-red-50 border border-red-200 text-red-900 rounded-xl flex items-start space-x-3 text-xs leading-relaxed">
-                        <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <span className="font-bold block">Upload Error</span>
-                          <p>{uploadErrorMsg}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* GALLERY LIST */}
-                  <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                      <h4 className="text-xs font-bold uppercase tracking-widest text-[#006699]">
-                        Uploaded Database Assets ({uploadedImages.length})
-                      </h4>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="relative">
-                          <Search className="h-3.5 w-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                          <input
-                            type="text"
-                            value={mediaSearchQuery}
-                            onChange={(e) => setMediaSearchQuery(e.target.value)}
-                            placeholder="Filter by title or filename..."
-                            className="bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] pl-9 pr-3 py-1.5 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors w-48 sm:w-60"
-                          />
-                        </div>
-
-                        <select
-                          value={mediaCategoryFilter}
-                          onChange={(e) => setMediaCategoryFilter(e.target.value)}
-                          className="bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-1.5 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
-                        >
-                          <option value="all">All Categories</option>
-                          <option value="curtains">Curtains</option>
-                          <option value="wallpapers">Wallpapers</option>
-                          <option value="blinds">Blinds</option>
-                          <option value="hero">Hero &amp; Banners</option>
-                          <option value="gallery">Showcase &amp; Reviews</option>
-                          <option value="general">General</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {(() => {
-                      const filtered = uploadedImages.filter(img => {
-                        const matchesCategory = mediaCategoryFilter === 'all' || img.category === mediaCategoryFilter;
-                        const q = mediaSearchQuery.toLowerCase().trim();
-                        const matchesSearch = !q || 
-                          (img.title && img.title.toLowerCase().includes(q)) || 
-                          img.filename.toLowerCase().includes(q);
-                        return matchesCategory && matchesSearch;
-                      });
-
-                      if (isLoadingMedia) {
-                        return (
-                          <div className="py-16 text-center bg-white border border-[#c5def2] rounded-xl space-y-3">
-                            <RefreshCw className="h-7 w-7 text-[#0099ff] animate-spin mx-auto" />
-                            <p className="text-xs text-[#52779a]">Querying uploaded files from Supabase...</p>
-                          </div>
-                        );
-                      }
-
-                      if (filtered.length === 0) {
-                        return (
-                          <div className="py-16 text-center bg-white border border-[#c5def2] rounded-xl space-y-3 shadow-sm">
-                            <ImageIcon className="h-10 w-10 text-slate-300 mx-auto" />
-                            <p className="font-serif text-base font-bold text-[#002b49]">No media files found</p>
-                            <p className="text-xs text-[#52779a] max-w-sm mx-auto">
-                              {mediaSearchQuery || mediaCategoryFilter !== 'all'
-                                ? 'No uploaded images match your current filter criteria.'
-                                : 'Upload your first photography file using the drag-and-drop zone above to store it in Supabase.'}
-                            </p>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                          {filtered.map((image) => {
-                            const isCopied = copiedMediaId === image.id;
-                            const sizeKb = image.size_bytes ? (image.size_bytes / 1024).toFixed(0) + ' KB' : '';
-                            const dateFormatted = image.created_at ? new Date(image.created_at).toLocaleDateString() : '';
-
-                            return (
-                              <div
-                                key={image.id}
-                                className="bg-white border border-[#c5def2] hover:border-[#0099ff] rounded-xl overflow-hidden flex flex-col justify-between transition-all duration-300 hover:shadow-lg group"
-                              >
-                                <div className="relative aspect-4/3 bg-slate-100 overflow-hidden cursor-pointer" onClick={() => setPreviewModalImage(image)}>
-                                  <img
-                                    src={image.file_url}
-                                    alt={image.title || image.filename}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
-                                  />
-                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2 text-white">
-                                    <span className="text-[11px] font-bold tracking-wider uppercase bg-black/60 px-2.5 py-1 rounded backdrop-blur-xs flex items-center space-x-1">
-                                      <Eye className="h-3 w-3" />
-                                      <span>Preview</span>
-                                    </span>
-                                  </div>
-                                  <span className="absolute top-2 left-2 text-[9px] font-bold tracking-wider uppercase px-2 py-0.5 rounded shadow-sm bg-white/95 text-[#006699] border border-[#c5def2]">
-                                    {image.category || 'general'}
-                                  </span>
-                                </div>
-
-                                <div className="p-3.5 flex flex-col justify-between flex-1 space-y-3">
-                                  <div>
-                                    <h5 className="font-semibold text-xs text-[#002b49] truncate" title={image.title || image.filename}>
-                                      {image.title || image.filename}
-                                    </h5>
-                                    <div className="flex items-center justify-between text-[10px] text-[#52779a] mt-1">
-                                      <span>{sizeKb || 'Image'}</span>
-                                      <span>{dateFormatted}</span>
-                                    </div>
-                                  </div>
-
-                                  <div className="space-y-1.5 pt-2 border-t border-[#e2effa]">
-                                    <button
-                                      onClick={() => handleCopyUrl(image.file_url, image.id)}
-                                      className={`w-full py-1.5 px-2.5 text-[10px] font-bold tracking-wider uppercase rounded-md flex items-center justify-center space-x-1.5 transition-colors cursor-pointer ${
-                                        isCopied 
-                                          ? 'bg-emerald-600 text-white' 
-                                          : 'bg-[#e3f2fd] hover:bg-[#d0e8f9] text-[#006699] border border-[#90cdf4]'
-                                      }`}
-                                    >
-                                      {isCopied ? (
-                                        <>
-                                          <Check className="h-3 w-3" />
-                                          <span>COPIED URL!</span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Copy className="h-3 w-3" />
-                                          <span>COPY SUPABASE URL</span>
-                                        </>
-                                      )}
-                                    </button>
-
-                                    <div className="grid grid-cols-3 gap-1 pt-1">
-                                      <button
-                                        onClick={() => handleApplyToProduct(image.file_url, 'curtains')}
-                                        className="py-1 px-1 bg-white hover:bg-[#e3f2fd] text-[#006699] border border-[#c5def2] text-[9px] font-semibold rounded truncate transition-colors cursor-pointer"
-                                        title="Create new curtain product with this image"
-                                      >
-                                        + Curtain
-                                      </button>
-                                      <button
-                                        onClick={() => handleApplyToProduct(image.file_url, 'wallpapers')}
-                                        className="py-1 px-1 bg-white hover:bg-[#e3f2fd] text-[#006699] border border-[#c5def2] text-[9px] font-semibold rounded truncate transition-colors cursor-pointer"
-                                        title="Create new wallpaper product with this image"
-                                      >
-                                        + Wallpaper
-                                      </button>
-                                      <button
-                                        onClick={() => handleApplyToProduct(image.file_url, 'blinds')}
-                                        className="py-1 px-1 bg-white hover:bg-[#e3f2fd] text-[#006699] border border-[#c5def2] text-[9px] font-semibold rounded truncate transition-colors cursor-pointer"
-                                        title="Create new blind product with this image"
-                                      >
-                                        + Blind
-                                      </button>
-                                    </div>
-
-                                    <div className="flex justify-end pt-1">
-                                      <button
-                                        onClick={() => handleDeleteMedia(image)}
-                                        className="text-[10px] text-slate-400 hover:text-red-600 flex items-center space-x-1 transition-colors cursor-pointer"
-                                        title="Delete from Supabase"
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                        <span>Delete</span>
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  <div className="bg-[#eef7fc] border border-[#c5def2] rounded-xl p-5 text-xs text-[#002b49] space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2 font-bold text-[#006699] uppercase tracking-wider">
-                        <Database className="h-4 w-4" />
-                        <span>Supabase Storage &amp; Database Configuration Guide</span>
-                      </div>
-                      <button
-                        onClick={handleCopySql}
-                        className="text-[11px] font-bold text-[#0077c2] bg-white border border-[#c5def2] hover:bg-[#e3f2fd] px-3 py-1 rounded-md transition-colors cursor-pointer flex items-center space-x-1"
-                      >
-                        <Copy className="h-3 w-3" />
-                        <span>{sqlCopied ? 'SQL Copied!' : 'Copy SQL Schema'}</span>
-                      </button>
-                    </div>
-                    <p className="text-[#335577] leading-relaxed">
-                      Images uploaded here are saved into the Supabase PostgreSQL table <code className="bg-white px-1 py-0.5 rounded border border-[#c5def2] font-mono">public.uploaded_images</code> and public CDN bucket <code className="bg-white px-1 py-0.5 rounded border border-[#c5def2] font-mono">images</code>.
-                    </p>
-                  </div>
                 </div>
               )}
 
-              {/* TAB: FEEDBACK & REVIEWS */}
+              {/* TAB: FEEDBACK & TESTIMONIALS MASTER CONTROLLER */}
               {activeTab === 'feedback' && (
                 <div className="space-y-8 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
+                  {/* HEADER BANNER */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-5 border-b border-[#d8eaf7] gap-4">
                     <div>
                       <h3 className="font-serif text-2xl font-bold flex items-center space-x-2 text-[#002b49]">
-                        <span>Customer Feedback Master Controller</span>
+                        <span>Customer Feedback &amp; Testimonials Master Controller</span>
                         <span className="text-xs px-2.5 py-0.5 bg-[#e3f2fd] text-[#0077c2] border border-[#90cdf4] font-sans font-bold rounded-md">
                           {testimonials.length} Active Reviews
                         </span>
                       </h3>
                       <p className="font-sans text-xs text-[#335577] mt-1">
-                        Manage customer reviews, 5-star ratings, and profile icons.
+                        Edit, upload avatar photos, modify testimonials, and change the section headings. All changes save directly to your Supabase PostgreSQL database and Storage.
                       </p>
                     </div>
 
@@ -3385,9 +1791,57 @@ export default function AdminPanel({
                         className="px-5 py-2.5 bg-[#0099ff] text-white hover:bg-[#0088ee] text-xs font-bold tracking-wider uppercase flex items-center justify-center space-x-2 transition-all cursor-pointer shrink-0 shadow-md shadow-[#0099ff]/25 rounded-lg"
                       >
                         <Plus className="h-4 w-4" />
-                        <span>Add New Feedback</span>
+                        <span>Add New Testimonial</span>
                       </button>
                     )}
+                  </div>
+
+                  {/* SECTION HEADINGS EDIT BLOCK */}
+                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-[#e2effa] pb-3">
+                      <div>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-[#006699]">
+                          Storefront Testimonial Section Titles &amp; Labels
+                        </h4>
+                        <p className="text-[11px] text-[#335577] mt-0.5">
+                          Change what appears in the header block above the testimonials on the main website.
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleSaveTestimonialSectionHeaders}
+                        className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg shadow transition-all flex items-center space-x-1.5 cursor-pointer"
+                      >
+                        <Save className="h-3.5 w-3.5" />
+                        <span>Save Section Headings</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                      <div>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                          Eyebrow Subtitle (Small blue banner)
+                        </label>
+                        <input
+                          type="text"
+                          value={captions.testimonialsSectionSubtitle || 'CLIENT FEEDBACK'}
+                          onChange={(e) => setCaptions({ ...captions, testimonialsSectionSubtitle: e.target.value })}
+                          className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
+                          placeholder="CLIENT FEEDBACK"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                          Main Section Heading
+                        </label>
+                        <input
+                          type="text"
+                          value={captions.testimonialsSectionTitle || 'What Our Clients Say'}
+                          onChange={(e) => setCaptions({ ...captions, testimonialsSectionTitle: e.target.value })}
+                          className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
+                          placeholder="What Our Clients Say"
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   {feedbackSuccessMsg && (
@@ -3397,6 +1851,7 @@ export default function AdminPanel({
                     </div>
                   )}
 
+                  {/* ADD / EDIT FEEDBACK FORM */}
                   {(isAddingFeedback || editingFeedback) && (
                     <div className="bg-white border border-[#c5def2] rounded-xl p-6 space-y-6 shadow-md relative">
                       <div className="flex items-center justify-between border-b border-[#e2effa] pb-3">
@@ -3484,16 +1939,17 @@ export default function AdminPanel({
                           </div>
                         </div>
 
+                        {/* AVATAR UPLOAD AND CDN CONTROL */}
                         <div className="p-5 bg-[#f8fbfe] border border-[#c5def2] rounded-xl space-y-4">
                           <div className="flex items-center justify-between border-b border-[#e2effa] pb-3">
                             <div className="flex items-center space-x-2">
                               <User className="h-4 w-4 text-[#0099ff]" />
                               <span className="text-xs font-bold tracking-wider uppercase text-[#002b49]">
-                                Profile Icon & Avatar Master Controller
+                                Profile Photo Upload &amp; Cloud Storage Pipeline
                               </span>
                             </div>
                             <span className="text-[10px] text-[#006699] font-medium bg-[#e3f2fd] px-2 py-0.5 rounded-md">
-                              Intelligent Avatar Fallback System
+                              Direct to Supabase Storage
                             </span>
                           </div>
 
@@ -3517,14 +1973,14 @@ export default function AdminPanel({
                                 <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between">
                                   <div className="flex items-center space-x-2 text-emerald-700 text-xs font-medium">
                                     <Check className="h-4 w-4 shrink-0 text-emerald-600" />
-                                    <span>Custom Profile Photo Active</span>
+                                    <span>Custom Photo Active in Supabase</span>
                                   </div>
                                   <button
                                     type="button"
                                     onClick={handleRemoveFeedbackPhoto}
                                     className="text-xs text-red-600 hover:text-red-700 underline font-medium cursor-pointer"
                                   >
-                                    Remove Photo (Use First Letter)
+                                    Remove Photo (Use Letter Initial)
                                   </button>
                                 </div>
                               ) : (
@@ -3539,22 +1995,23 @@ export default function AdminPanel({
                               )}
 
                               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                                <label className="px-4 py-2 bg-[#e3f2fd] hover:bg-[#d0e8f9] text-[#006699] border border-[#90cdf4] text-xs font-bold tracking-wider uppercase flex items-center justify-center space-x-2 cursor-pointer transition-colors shrink-0 rounded-lg">
-                                  <Upload className="h-3.5 w-3.5 text-[#0099ff]" />
-                                  <span>Upload Photo File</span>
+                                <label className="px-4 py-2 bg-[#0099ff] hover:bg-[#0088ee] text-white text-xs font-bold tracking-wider uppercase flex items-center justify-center space-x-2 cursor-pointer transition-colors shrink-0 rounded-lg shadow-sm">
+                                  <Upload className="h-3.5 w-3.5" />
+                                  <span>{isUploadingFeedbackImage ? 'Uploading to Supabase...' : 'Upload Avatar to Supabase'}</span>
                                   <input
                                     type="file"
                                     accept="image/*"
+                                    disabled={isUploadingFeedbackImage}
                                     onChange={handleFeedbackImageFileUpload}
                                     className="hidden"
                                   />
                                 </label>
-                                <span className="text-[11px] text-[#335577] text-center sm:text-left font-medium">or URL:</span>
+                                <span className="text-[11px] text-[#335577] text-center sm:text-left font-medium">or CDN URL:</span>
                                 <input
                                   type="text"
                                   value={feedbackForm.image || ''}
                                   onChange={(e) => setFeedbackForm(prev => ({ ...prev, image: e.target.value }))}
-                                  placeholder="Paste direct profile image URL (https://...)"
+                                  placeholder="https://..."
                                   className="flex-1 bg-white border border-[#c5def2] focus:border-[#0099ff] px-3.5 py-2 text-xs text-[#002b49] outline-none rounded-lg focus:ring-1 focus:ring-[#0099ff] transition-colors"
                                 />
                               </div>
@@ -3592,7 +2049,7 @@ export default function AdminPanel({
                             className="px-6 py-2.5 bg-[#0099ff] text-white hover:bg-[#0088ee] text-xs font-bold tracking-wider uppercase flex items-center space-x-2 transition-all cursor-pointer font-sans shadow-md shadow-[#0099ff]/25 rounded-lg"
                           >
                             <Save className="h-4 w-4" />
-                            <span>{isAddingFeedback ? 'Save & Publish Feedback' : 'Save Feedback Changes'}</span>
+                            <span>{isAddingFeedback ? 'Save & Push to Supabase' : 'Save Testimonial Changes'}</span>
                           </button>
                         </div>
                       </form>
@@ -3625,7 +2082,7 @@ export default function AdminPanel({
                       <table className="w-full text-left border-collapse text-xs">
                         <thead>
                           <tr className="border-b border-[#c5def2] bg-[#e3f2fd] text-[10px] font-bold tracking-wider uppercase text-[#006699]">
-                            <th className="p-3.5">Customer & Avatar</th>
+                            <th className="p-3.5">Customer &amp; Avatar</th>
                             <th className="p-3.5">Avatar Mode</th>
                             <th className="p-3.5">Rating</th>
                             <th className="p-3.5">Testimonial Content</th>
@@ -3699,183 +2156,22 @@ export default function AdminPanel({
                 </div>
               )}
 
-              {/* TAB 4: INQUIRIES & CONSULTATIONS */}
+              {/* TAB 4: INQUIRIES */}
               {activeTab === 'inquiries' && (
                 <div className="space-y-8 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
                   <div className="border-b border-[#d8eaf7] pb-5">
                     <h3 className="font-serif text-2xl font-bold text-[#002b49]">Inbound Leads & Consultation Inquiries</h3>
-                    <p className="font-sans text-xs text-[#335577] mt-1">Review live inquiry submissions dispatched by clients requesting on-site consultations or custom quotes.</p>
-                  </div>
-
-                  {/* Section A: Consultation Bookings */}
-                  <div className="space-y-4">
-                    <h4 className="text-xs font-bold uppercase tracking-widest text-[#006699]">
-                      Consultation Bookings ({bookings.length})
-                    </h4>
-
-                    {bookings.length === 0 ? (
-                      <div className="text-center py-12 bg-white border border-[#c5def2] rounded-xl space-y-2 shadow-sm">
-                        <Inbox className="h-8 w-8 text-slate-400 mx-auto" />
-                        <p className="font-sans text-xs text-[#335577]">No consultation bookings registered yet.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {bookings.map((booking) => (
-                          <div 
-                            key={booking.id} 
-                            className="bg-white border border-[#c5def2] rounded-xl p-6 relative group transition-all hover:border-[#0099ff] shadow-sm"
-                            id={`booking-card-${booking.id}`}
-                          >
-                            <button 
-                              onClick={() => handleDeleteBooking(booking.id)}
-                              className="absolute top-4 right-4 p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors cursor-pointer"
-                              title="Delete Log"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                              <div className="md:col-span-1 space-y-1">
-                                <span className="block text-[10px] font-bold tracking-widest text-[#006699] uppercase">CLIENT ACCOUNT</span>
-                                <strong className="block text-[#002b49] font-serif text-base">{booking.name}</strong>
-                                <span className="block text-xs text-[#335577]">{booking.phone}</span>
-                                {booking.email && <span className="block text-xs text-[#0099ff] underline">{booking.email}</span>}
-                              </div>
-                              
-                              <div className="md:col-span-1 space-y-1">
-                                <span className="block text-[10px] font-bold tracking-widest text-[#006699] uppercase">CONSULT PARAMETERS</span>
-                                <span className="block text-xs font-semibold text-[#002b49]">Project: {booking.projectType}</span>
-                                <span className="block text-xs text-[#335577]">Budget: {booking.budget || 'Unspecified'}</span>
-                                <span className="block text-xs text-[#335577]">Preferred: {booking.preferredDate || 'Flexible'}</span>
-                              </div>
-
-                              <div className="md:col-span-2 space-y-1">
-                                <span className="block text-[10px] font-bold tracking-widest text-[#006699] uppercase">LOGGED TIMESTAMP</span>
-                                <span className="block text-[11px] text-[#335577]">{new Date(booking.timestamp).toLocaleString()}</span>
-                                {booking.message && (
-                                  <p className="text-xs bg-[#f8fbfe] p-3.5 mt-2 border border-[#d2e5f5] text-[#335577] italic rounded-lg leading-relaxed">
-                                    "{booking.message}"
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Section B: Contact Messages */}
-                  <div className="space-y-4 pt-5 border-t border-[#d8eaf7]">
-                    <h4 className="text-xs font-bold uppercase tracking-widest text-[#006699]">
-                      General Contact Enquiries ({inquiries.length})
-                    </h4>
-
-                    {inquiries.length === 0 ? (
-                      <div className="text-center py-12 bg-white border border-[#c5def2] rounded-xl space-y-2 shadow-sm">
-                        <Mail className="h-8 w-8 text-slate-400 mx-auto" />
-                        <p className="font-sans text-xs text-[#335577]">No general contact form messages registered yet.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {inquiries.map((inq) => (
-                          <div 
-                            key={inq.id} 
-                            className="bg-white border border-[#c5def2] rounded-xl p-6 relative group transition-all hover:border-[#0099ff] shadow-sm"
-                            id={`inquiry-card-${inq.id}`}
-                          >
-                            <button 
-                              onClick={() => handleDeleteInquiry(inq.id)}
-                              className="absolute top-4 right-4 p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors cursor-pointer"
-                              title="Delete Log"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                              <div className="md:col-span-1 space-y-1">
-                                <span className="block text-[10px] font-bold tracking-widest text-[#006699] uppercase">INQUIRER</span>
-                                <strong className="block text-[#002b49] font-serif text-base">{inq.name}</strong>
-                                <span className="block text-xs text-[#335577]">{inq.phone}</span>
-                                {inq.email && <span className="block text-xs text-[#0099ff] underline">{inq.email}</span>}
-                              </div>
-                              
-                              <div className="md:col-span-1 space-y-1">
-                                <span className="block text-[10px] font-bold tracking-widest text-[#006699] uppercase">CATEGORY & LOCATION</span>
-                                <span className="block text-xs font-semibold text-[#002b49]">{inq.project_type || inq.projectType}</span>
-                                <span className="block text-xs text-[#335577]">{inq.location || 'Location Not Specified'}</span>
-                              </div>
-
-                              <div className="md:col-span-2 space-y-1">
-                                <span className="block text-[10px] font-bold tracking-widest text-[#006699] uppercase">MESSAGE & DATE</span>
-                                <span className="block text-[11px] text-[#335577]">{new Date(inq.timestamp).toLocaleString()}</span>
-                                {inq.message && (
-                                  <p className="text-xs bg-[#f8fbfe] p-3.5 mt-2 border border-[#d2e5f5] text-[#335577] italic rounded-lg leading-relaxed">
-                                    "{inq.message}"
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
 
-              {/* TAB 5: UNIVERSAL SUPABASE DATABASE */}
+              {/* TAB 5: DATABASE */}
               {activeTab === 'database' && (
                 <div className="space-y-8 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
                   <div className="border-b border-[#d8eaf7] pb-5">
                     <h3 className="font-serif text-2xl font-bold text-[#002b49]">Supabase Universal Database & Realtime Sync Engine</h3>
-                    <p className="font-sans text-xs text-[#335577] mt-1">
-                      Connect your Supabase database project so that product edits, captions, themes, bookings, and inquiries persist centrally.
-                    </p>
                   </div>
-
-                  <div className={`p-5 rounded-xl border ${supabaseStatus === 'connected' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : supabaseStatus === 'testing' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-white border-[#c5def2] text-[#002b49]'}`}>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex items-start space-x-3.5">
-                        <div className={`p-2.5 rounded-full mt-0.5 ${supabaseStatus === 'connected' ? 'bg-emerald-100 text-emerald-600' : 'bg-sky-100 text-[#0099ff]'}`}>
-                          <Database className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <h4 className="text-sm font-bold uppercase tracking-wider">
-                              {supabaseStatus === 'connected' ? 'Universal Database Connected' : supabaseStatus === 'testing' ? 'Verifying Supabase Connection...' : 'Supabase Not Connected'}
-                            </h4>
-                            {isSupabaseFromEnv && (
-                              <span className="bg-[#e3f2fd] text-[#0077c2] text-[9px] px-2 py-0.5 font-bold uppercase border border-[#90cdf4] rounded">
-                                Loaded from .env
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-[#335577] mt-1 leading-relaxed">
-                            {supabaseStatusMessage || 'Enter your Supabase Project URL and Anon Key below to establish universal live database persistence.'}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center space-x-2 self-start sm:self-center">
-                        <button
-                          onClick={handleTestConnection}
-                          disabled={!supabaseUrl || !supabaseKey}
-                          className="border border-[#c5def2] bg-white hover:bg-[#e3f2fd] text-[#002b49] disabled:opacity-40 px-3.5 py-2 text-xs font-bold tracking-wider uppercase rounded-lg transition-colors flex items-center space-x-1.5 cursor-pointer shadow-sm"
-                        >
-                          <RefreshCw className="h-3.5 w-3.5 text-[#0099ff]" />
-                          <span>TEST STATUS</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
                   <div className="bg-white border border-[#c5def2] rounded-xl p-6 space-y-6 shadow-sm">
-                    <div className="flex items-center space-x-2 text-[#0099ff]">
-                      <ShieldCheck className="h-4 w-4" />
-                      <h4 className="text-xs font-bold uppercase tracking-widest text-[#002b49]">Supabase Project API Credentials</h4>
-                    </div>
-
                     <form onSubmit={handleSaveSupabaseConfig} className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -3888,13 +2184,9 @@ export default function AdminPanel({
                             value={supabaseUrl}
                             onChange={(e) => setSupabaseUrl(e.target.value)}
                             placeholder="https://your-project-id.supabase.co"
-                            className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2.5 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                            className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2.5 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
                           />
-                          <span className="text-[10px] text-[#335577] mt-1 block">
-                            Found in Supabase Dashboard &gt; Project Settings &gt; API &gt; Project URL
-                          </span>
                         </div>
-
                         <div>
                           <label className="block text-[10px] text-[#006699] font-bold uppercase mb-1 tracking-wider">
                             Supabase Anon Public API Key *
@@ -3905,105 +2197,19 @@ export default function AdminPanel({
                             value={supabaseKey}
                             onChange={(e) => setSupabaseKey(e.target.value)}
                             placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                            className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2.5 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] font-mono transition-colors"
+                            className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2.5 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] font-mono"
                           />
-                          <span className="text-[10px] text-[#335577] mt-1 block">
-                            Found in Supabase Dashboard &gt; Project Settings &gt; API &gt; Project API keys (anon public)
-                          </span>
                         </div>
                       </div>
-
-                      <div className="flex flex-wrap items-center gap-3 pt-2">
+                      <div className="flex gap-3">
                         <button
                           type="submit"
-                          className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-6 py-2.5 text-xs font-bold tracking-widest uppercase rounded-lg shadow-md shadow-[#0099ff]/25 transition-all flex items-center space-x-2 cursor-pointer"
+                          className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-6 py-2.5 text-xs font-bold tracking-widest uppercase rounded-lg shadow cursor-pointer"
                         >
-                          <Save className="h-3.5 w-3.5" />
-                          <span>SAVE & ACTIVATE SUPABASE</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            clearStoredSupabaseCredentials();
-                            setSupabaseUrl('');
-                            setSupabaseKey('');
-                            setSupabaseStatus('unconfigured');
-                            setSupabaseStatusMessage('Credentials cleared.');
-                            alert('Supabase credentials cleared.');
-                          }}
-                          className="border border-[#c5def2] hover:bg-red-50 hover:border-red-200 text-red-500 px-4 py-2.5 text-xs font-bold tracking-widest uppercase rounded-lg transition-colors cursor-pointer"
-                        >
-                          DISCONNECT
+                          SAVE &amp; ACTIVATE
                         </button>
                       </div>
                     </form>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-white border border-[#c5def2] rounded-xl p-6 space-y-4 shadow-sm">
-                      <div className="flex items-center space-x-2 text-[#0099ff]">
-                        <UploadCloud className="h-4 w-4" />
-                        <h4 className="text-xs font-bold uppercase tracking-widest text-[#002b49]">Push & Seed Local Catalog to Supabase</h4>
-                      </div>
-                      <p className="text-xs text-[#335577] leading-relaxed">
-                        Populate your Supabase tables with all 50+ rich curtain models, textured wallpaper collections, bespoke motorized blinds, and site configuration.
-                      </p>
-                      <button
-                        onClick={handleSeedSupabase}
-                        disabled={!isSupabaseConfigured() || isSeedingDatabase}
-                        className="bg-[#0099ff] hover:bg-[#0088ee] disabled:opacity-40 text-white px-5 py-2.5 text-xs font-bold tracking-widest uppercase rounded-lg shadow-md shadow-[#0099ff]/25 transition-colors flex items-center space-x-2 cursor-pointer"
-                      >
-                        <UploadCloud className="h-3.5 w-3.5" />
-                        <span>{isSeedingDatabase ? 'SEEDING DATABASE...' : 'SEED COMPLETE CATALOG (50+ ITEMS)'}</span>
-                      </button>
-                    </div>
-
-                    <div className="bg-white border border-[#c5def2] rounded-xl p-6 space-y-4 shadow-sm">
-                      <div className="flex items-center space-x-2 text-[#0099ff]">
-                        <DownloadCloud className="h-4 w-4" />
-                        <h4 className="text-xs font-bold uppercase tracking-widest text-[#002b49]">Pull Live Universal State from Supabase</h4>
-                      </div>
-                      <p className="text-xs text-[#335577] leading-relaxed">
-                        Fetch the latest universal catalog, site captions, active theme, and consultation bookings directly from Supabase.
-                      </p>
-                      <button
-                        onClick={handlePullFromSupabase}
-                        disabled={!isSupabaseConfigured() || isPullingData}
-                        className="border border-[#c5def2] hover:bg-[#e3f2fd] disabled:opacity-40 text-[#002b49] px-5 py-2.5 text-xs font-bold tracking-widest uppercase rounded-lg transition-colors flex items-center space-x-2 cursor-pointer"
-                      >
-                        <RefreshCw className={`h-3.5 w-3.5 text-[#0099ff] ${isPullingData ? 'animate-spin' : ''}`} />
-                        <span>{isPullingData ? 'PULLING FROM SUPABASE...' : 'REFRESH & SYNC FROM SUPABASE'}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 space-y-4 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2 text-[#0099ff]">
-                        <FileText className="h-4 w-4" />
-                        <h4 className="text-xs font-bold uppercase tracking-widest text-[#002b49]">Supabase SQL Table Schema & RLS Setup Script</h4>
-                      </div>
-                      <button
-                        onClick={handleCopySql}
-                        className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-lg shadow-md shadow-[#0099ff]/25 transition-colors flex items-center space-x-1.5 cursor-pointer"
-                      >
-                        {sqlCopied ? <CheckCheck className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                        <span>{sqlCopied ? 'COPIED TO CLIPBOARD!' : 'COPY SQL SCRIPT'}</span>
-                      </button>
-                    </div>
-
-                    <div className="text-xs text-[#335577] space-y-2">
-                      <p>
-                        <strong>How to run:</strong> Open your <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-[#0099ff] underline inline-flex items-center space-x-1 font-semibold"><span>Supabase Dashboard</span> <ExternalLink className="h-3 w-3 inline" /></a> &gt; <strong>SQL Editor</strong> &gt; <strong>New query</strong> &gt; Paste this script &gt; Click <strong>Run</strong>.
-                      </p>
-                    </div>
-
-                    <div className="relative">
-                      <pre className="bg-[#001f35] border border-[#003960] p-4 text-[11px] font-mono text-sky-100 rounded-lg overflow-x-auto max-h-64 scrollbar-thin scrollbar-thumb-sky-700">
-                        {SUPABASE_SQL_SCHEMA}
-                      </pre>
-                    </div>
                   </div>
                 </div>
               )}
@@ -4012,7 +2218,7 @@ export default function AdminPanel({
         )}
       </div>
 
-      {/* FULL SCREEN MEDIA LIGHTBOX PREVIEW MODAL */}
+      {/* FULL SCREEN MEDIA LIGHTBOX */}
       <AnimatePresence>
         {previewModalImage && (
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" onClick={() => setPreviewModalImage(null)}>
@@ -4039,31 +2245,6 @@ export default function AdminPanel({
                   alt={previewModalImage.title || previewModalImage.filename}
                   className="max-h-[60vh] max-w-full object-contain rounded-lg shadow-xl"
                 />
-              </div>
-
-              <div className="p-5 border-t border-[#003366] bg-[#00172e] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
-                <div className="space-y-0.5 text-slate-300">
-                  <p><strong>Category:</strong> <span className="uppercase text-[#0099ff]">{previewModalImage.category || 'general'}</span></p>
-                  <p><strong>Direct CDN URL:</strong> <span className="font-mono text-[11px] text-slate-400 truncate max-w-md inline-block align-bottom">{previewModalImage.file_url}</span></p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => handleCopyUrl(previewModalImage.file_url, previewModalImage.id)}
-                    className="px-4 py-2 bg-[#0099ff] hover:bg-[#0088ee] text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors flex items-center space-x-1.5 cursor-pointer"
-                  >
-                    {copiedMediaId === previewModalImage.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                    <span>{copiedMediaId === previewModalImage.id ? 'COPIED!' : 'COPY URL'}</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      handleDeleteMedia(previewModalImage);
-                    }}
-                    className="px-4 py-2 bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/30 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors flex items-center space-x-1.5 cursor-pointer"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    <span>DELETE</span>
-                  </button>
-                </div>
               </div>
             </div>
           </div>
