@@ -18,49 +18,49 @@ export default function CurtainsWallpapersSection({
   blinds = [],
   siteConfig
 }: SectionProps) {
-  // Dynamically resolve the primary image from the Supabase database.
-  // Prioritizes user-uploaded images (non-stock/uploaded) or the primary catalog item from database.
-  const curtainImg = siteConfig?.categoryImages?.curtains 
-    || curtains.find(c => c.image && !c.image.includes('images.unsplash.com'))?.image 
-    || curtains[0]?.image 
+  // Dedicated thumbnails for the 3 showcase products ("Elegance In Every Detail").
+  // Decoupled from catalog products so individual product edits don't overwrite these showcase thumbnails!
+  const curtainThumb = siteConfig?.categoryShowcase?.curtains?.thumbnail
+    || siteConfig?.categoryImages?.curtains 
     || 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=600&q=80';
 
-  const wallpaperImg = siteConfig?.categoryImages?.wallpapers 
-    || wallpapers.find(w => w.image && !w.image.includes('images.unsplash.com'))?.image 
-    || wallpapers[0]?.image 
+  const wallpaperThumb = siteConfig?.categoryShowcase?.wallpapers?.thumbnail
+    || siteConfig?.categoryImages?.wallpapers 
     || 'https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=600&q=80';
 
-  const blindImg = siteConfig?.categoryImages?.blinds 
-    || blinds.find(b => b.image && !b.image.includes('images.unsplash.com'))?.image 
-    || blinds[0]?.image 
+  const blindThumb = siteConfig?.categoryShowcase?.blinds?.thumbnail
+    || siteConfig?.categoryImages?.blinds 
     || 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=600&q=80';
 
   const products = [
     {
       id: 'curtains' as const,
-      title: 'Curtains',
-      badge: curtains.length > 0 ? `${curtains.length * 100}+` : '1000+',
-      description: 'Premium quality fabrics in a wide range of colors, textures & patterns.',
-      image: curtainImg,
-      actionLabel: 'Explore Curtains',
+      title: siteConfig?.categoryShowcase?.curtains?.title || 'Curtains',
+      badge: siteConfig?.categoryShowcase?.curtains?.badge || (curtains.length > 0 ? `${curtains.length * 100}+` : '1000+'),
+      description: siteConfig?.categoryShowcase?.curtains?.description || 'Premium quality fabrics in a wide range of colors, textures & patterns.',
+      image: curtainThumb,
+      actionLabel: siteConfig?.categoryShowcase?.curtains?.buttonText || 'Explore Curtains',
     },
     {
       id: 'wallpapers' as const,
-      title: 'Wallpapers',
-      badge: wallpapers.length > 0 ? `${wallpapers.length * 150}+` : '1500+',
-      description: 'From modern textures to timeless patterns, find the perfect match.',
-      image: wallpaperImg,
-      actionLabel: 'Explore Wallpapers',
+      title: siteConfig?.categoryShowcase?.wallpapers?.title || 'Wallpapers',
+      badge: siteConfig?.categoryShowcase?.wallpapers?.badge || (wallpapers.length > 0 ? `${wallpapers.length * 150}+` : '1500+'),
+      description: siteConfig?.categoryShowcase?.wallpapers?.description || 'From modern textures to timeless patterns, find the perfect match.',
+      image: wallpaperThumb,
+      actionLabel: siteConfig?.categoryShowcase?.wallpapers?.buttonText || 'Explore Wallpapers',
     },
     {
       id: 'blinds' as const,
-      title: 'Blinds',
-      badge: blinds.length > 0 ? `${blinds.length * 80}+` : '600+',
-      description: 'Stylish & functional blinds for light control and privacy.',
-      image: blindImg,
-      actionLabel: 'Explore Blinds',
+      title: siteConfig?.categoryShowcase?.blinds?.title || 'Blinds',
+      badge: siteConfig?.categoryShowcase?.blinds?.badge || (blinds.length > 0 ? `${blinds.length * 80}+` : '600+'),
+      description: siteConfig?.categoryShowcase?.blinds?.description || 'Stylish & functional blinds for light control and privacy.',
+      image: blindThumb,
+      actionLabel: siteConfig?.categoryShowcase?.blinds?.buttonText || 'Explore Blinds',
     }
   ];
+
+  const sectionTitle = siteConfig?.showcaseSectionTitle || 'Elegance In Every Detail';
+  const sectionSubtitle = siteConfig?.showcaseSectionSubtitle || 'OUR PRODUCTS';
 
   return (
     <section className="bg-white py-14 lg:py-20 border-b border-[#e2effa]" id="categories-overview-section">
@@ -69,10 +69,10 @@ export default function CurtainsWallpapersSection({
         {/* Header Block */}
         <div className="text-center max-w-2xl mx-auto mb-16">
           <span className="font-sans text-[13px] md:text-[14px] font-semibold tracking-[0.25em] text-[#0099ff] uppercase mb-3 block">
-            OUR PRODUCTS
+            {sectionSubtitle}
           </span>
           <h2 className="font-serif text-[36px] sm:text-[42px] font-bold text-[#002b49] leading-[1.2] uppercase">
-            Elegance In Every Detail
+            {sectionTitle}
           </h2>
           <div className="h-[3px] w-12 bg-[#0099ff] mx-auto mt-4" />
         </div>

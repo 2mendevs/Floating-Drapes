@@ -358,7 +358,10 @@ export default function App() {
               />
               <WhyChooseUs />
               <ProcessSection />
-              <CustomizationSection openBookingModal={() => setBookingModalOpen(true)} />
+              <CustomizationSection 
+                openBookingModal={() => setBookingModalOpen(true)} 
+                siteConfig={siteConfig}
+              />
               <BeforeAfterSection />
               <Testimonials testimonials={testimonials} />
               <CTASection 

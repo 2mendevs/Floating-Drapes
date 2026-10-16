@@ -266,6 +266,14 @@ export const TESTIMONIALS_DATA: Testimonial[] = [
   }
 ];
 
+export interface ShowcaseProductItem {
+  title: string;
+  badge: string;
+  description: string;
+  buttonText: string;
+  thumbnail: string;
+}
+
 export interface SiteConfig {
   heroLabel: string;
   heroHeadline1: string;
@@ -274,6 +282,7 @@ export interface SiteConfig {
   heroSub1: string;
   heroSub2: string;
   heroDesc: string;
+  heroImageUrl?: string;
   aboutTitle: string;
   aboutText1: string;
   aboutText2: string;
@@ -281,12 +290,32 @@ export interface SiteConfig {
   themePreset: 'sapphire' | 'amber' | 'emerald' | 'crimson' | 'obsidian';
   fontPreset: 'jakarta_playfair' | 'inter_cinzel' | 'outfit_bodoni';
   brandLogoUrl: string;
-  heroImageUrl?: string;
+
+  // 3 Products Showcase ("Elegance In Every Detail") Section
+  showcaseSectionTitle?: string;
+  showcaseSectionSubtitle?: string;
+  categoryShowcase?: {
+    curtains: ShowcaseProductItem;
+    wallpapers: ShowcaseProductItem;
+    blinds: ShowcaseProductItem;
+  };
+
+  // Backward-compat fallback
   categoryImages?: {
     curtains?: string;
     wallpapers?: string;
     blinds?: string;
   };
+
+  // Tailor-Made Customization Section Images and Strings
+  customizationSectionTitle?: string;
+  customizationSectionSubtitle?: string;
+  customizationCurtainsTitle?: string;
+  customizationCurtainsDesc?: string;
+  customizationCurtainsImage?: string;
+  customizationWallpaperTitle?: string;
+  customizationWallpaperDesc?: string;
+  customizationWallpaperImage?: string;
 }
 
 export const DEFAULT_SITE_CONFIG: SiteConfig = {
@@ -297,11 +326,52 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   heroSub1: 'Your Vision. Our Craftsmanship.',
   heroSub2: 'Perfectly Delivered.',
   heroDesc: 'We help homeowners and businesses elevate their interiors with premium curtains, wallpapers, and blinds that perfectly blend style, comfort, and functionality. Come with a vision. Leave with complete satisfaction.',
+  heroImageUrl: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=80',
   aboutTitle: 'YOUR COMPANION IN ARTFUL FITTINGS',
   aboutText1: 'At Floating Drapes, we believe every space tells a story. With over 12 years of expertise in interior furnishing solutions, we help our clients create elegant and personalized spaces through carefully selected curtains, wallpapers, and blinds.',
   aboutText2: 'Our team of experienced design consultants and skilled installation artisans work in perfect harmony to deliver a seamless, stress-free transformation. From residential estates to commercial showrooms, we bring absolute precision and premium design.',
   aboutExperience: '12+',
   themePreset: 'sapphire',
   fontPreset: 'jakarta_playfair',
-  brandLogoUrl: '/logo.svg'
+  brandLogoUrl: '/logo.svg',
+
+  showcaseSectionTitle: 'Elegance In Every Detail',
+  showcaseSectionSubtitle: 'OUR PRODUCTS',
+  categoryShowcase: {
+    curtains: {
+      title: 'Curtains',
+      badge: '1000+',
+      description: 'Premium quality fabrics in a wide range of colors, textures & patterns.',
+      buttonText: 'Explore Curtains',
+      thumbnail: 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=600&q=80',
+    },
+    wallpapers: {
+      title: 'Wallpapers',
+      badge: '1500+',
+      description: 'From modern textures to timeless patterns, find the perfect match.',
+      buttonText: 'Explore Wallpapers',
+      thumbnail: 'https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=600&q=80',
+    },
+    blinds: {
+      title: 'Blinds',
+      badge: '600+',
+      description: 'Stylish & functional blinds for light control and privacy.',
+      buttonText: 'Explore Blinds',
+      thumbnail: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=600&q=80',
+    },
+  },
+  categoryImages: {
+    curtains: 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=600&q=80',
+    wallpapers: 'https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=600&q=80',
+    blinds: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=600&q=80',
+  },
+
+  customizationSectionTitle: 'Tailor-Made Customization',
+  customizationSectionSubtitle: 'BESPOKE STYLING',
+  customizationCurtainsTitle: 'Design Your Own Curtains',
+  customizationCurtainsDesc: 'Customize your curtains with your favorite fabric, color & style. Get precision fit.',
+  customizationCurtainsImage: 'https://images.unsplash.com/photo-1616046229478-9901c5536a45?auto=format&fit=crop&w=600&q=80',
+  customizationWallpaperTitle: 'Design Your Own Wallpaper',
+  customizationWallpaperDesc: 'Create unique wallpaper designs that reflect your personality and style perfectly.',
+  customizationWallpaperImage: 'https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=600&q=80',
 };

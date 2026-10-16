@@ -8,7 +8,7 @@ import {
   Star, MessageSquare, Upload, User, Image as ImageIcon, Search,
   Filter, CheckCircle2, ArrowUpRight, Camera
 } from 'lucide-react';
-import { CurtainItem, WallpaperItem, SiteConfig, BookingSubmission, Testimonial, UploadedImage } from '../types';
+import { CurtainItem, WallpaperItem, SiteConfig, BookingSubmission, Testimonial, UploadedImage, DEFAULT_SITE_CONFIG } from '../types';
 import { BlindItem } from '../data/productsData';
 import { motion, AnimatePresence } from 'motion/react';
 import CustomerAvatar from './CustomerAvatar';
@@ -77,7 +77,7 @@ export default function AdminPanel({
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
 
   // Active control panel tab
-  const [activeTab, setActiveTab] = useState<'captions' | 'theme' | 'products' | 'media' | 'feedback' | 'inquiries' | 'database'>('captions');
+  const [activeTab, setActiveTab] = useState<'sections' | 'captions' | 'theme' | 'products' | 'media' | 'feedback' | 'inquiries' | 'database'>('sections');
 
   // Media Library & Image Uploading states
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
@@ -261,6 +261,38 @@ export default function AdminPanel({
     }
   }, [siteConfig, isOpen]);
 
+  // Database connection indicating light helper
+  // Green = connected, Yellow = trying to connect / checking, Red = disconnected / unconfigured
+  const renderIndicatorLight = (size: 'sm' | 'md' = 'sm') => {
+    const isGreen = supabaseStatus === 'connected';
+    const isYellow = supabaseStatus === 'testing';
+    const dotSize = size === 'sm' ? 'h-2.5 w-2.5' : 'h-3.5 w-3.5';
+    const pingSize = size === 'sm' ? 'h-3 w-3' : 'h-4 w-4';
+
+    return (
+      <div 
+        className="relative inline-flex items-center justify-center cursor-default"
+        title={isGreen ? 'Database: Connected (Green)' : isYellow ? 'Database: Trying to connect / checking (Yellow)' : 'Database: Disconnected (Red)'}
+      >
+        {isGreen && (
+          <>
+            <span className={`animate-ping absolute inline-flex ${pingSize} rounded-full bg-emerald-400 opacity-75`} />
+            <span className={`relative inline-flex rounded-full ${dotSize} bg-emerald-500 shadow-[0_0_10px_#10b981]`} />
+          </>
+        )}
+        {isYellow && (
+          <>
+            <span className={`animate-ping absolute inline-flex ${pingSize} rounded-full bg-amber-400 opacity-75`} />
+            <span className={`relative inline-flex rounded-full ${dotSize} bg-amber-400 shadow-[0_0_10px_#f59e0b]`} />
+          </>
+        )}
+        {!isGreen && !isYellow && (
+          <span className={`relative inline-flex rounded-full ${dotSize} bg-rose-500 shadow-[0_0_8px_#f43f5e]`} />
+        )}
+      </div>
+    );
+  };
+
   // Handle Login via Supabase Auth or Backend API
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -396,6 +428,140 @@ export default function AdminPanel({
       alert('Brand logo link updated and synchronized universally in Supabase!');
     } else {
       alert('Brand logo link updated successfully!');
+    }
+  };
+
+  // Save all Showcase & Page Sections universally
+  const handleSaveShowcaseSections = async () => {
+    onUpdateConfig(captions);
+    localStorage.setItem('floatingdrapes_config', JSON.stringify(captions));
+
+    if (isSupabaseConfigured()) {
+      const success = await syncSiteConfigToSupabase(captions);
+      if (success) {
+        alert('All Homepage & Section changes (Hero Image, 3 Showcase Thumbnails & Strings, Customization) saved and synced universally to Supabase!');
+      } else {
+        alert('Saved locally. Note: Supabase database sync encountered an issue. Check connection in the Database tab.');
+      }
+    } else {
+      alert('Homepage & Section changes saved locally! (Connect Supabase to sync universally).');
+    }
+  };
+
+  // Upload Homepage Hero Image
+  const handleUploadHeroImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const res = await uploadImageToSupabase(file, {
+        category: 'hero',
+        title: 'Homepage Hero Luxury Living Room'
+      });
+
+      if (res.data?.file_url) {
+        const newUrl = res.data.file_url;
+        const updated: SiteConfig = {
+          ...captions,
+          heroImageUrl: newUrl
+        };
+        setCaptions(updated);
+        onUpdateConfig(updated);
+        localStorage.setItem('floatingdrapes_config', JSON.stringify(updated));
+        if (isSupabaseConfigured()) {
+          await syncSiteConfigToSupabase(updated);
+        }
+        const fresh = await fetchUploadedImagesFromSupabase();
+        setUploadedImages(fresh);
+        alert('Homepage Hero photo uploaded and synced universally to Supabase!');
+      }
+    } catch (err: any) {
+      alert('Error uploading hero image: ' + (err?.message || 'Upload failed'));
+    }
+  };
+
+  // Upload Dedicated Showcase Thumbnail for Curtains, Wallpapers, or Blinds
+  const handleUploadShowcaseThumbnail = async (
+    category: 'curtains' | 'wallpapers' | 'blinds',
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const res = await uploadImageToSupabase(file, {
+        category: category,
+        title: `${category} showcase card thumbnail`
+      });
+
+      if (res.data?.file_url) {
+        const newUrl = res.data.file_url;
+        const baseShowcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+        const currentItem = baseShowcase[category] || DEFAULT_SITE_CONFIG.categoryShowcase![category];
+
+        const updated: SiteConfig = {
+          ...captions,
+          categoryShowcase: {
+            ...baseShowcase,
+            [category]: {
+              ...currentItem,
+              thumbnail: newUrl
+            }
+          },
+          categoryImages: {
+            ...(captions.categoryImages || {}),
+            [category]: newUrl
+          }
+        };
+
+        setCaptions(updated);
+        onUpdateConfig(updated);
+        localStorage.setItem('floatingdrapes_config', JSON.stringify(updated));
+        if (isSupabaseConfigured()) {
+          await syncSiteConfigToSupabase(updated);
+        }
+        const fresh = await fetchUploadedImagesFromSupabase();
+        setUploadedImages(fresh);
+        alert(`${category.toUpperCase()} dedicated thumbnail updated and synced universally to Supabase!`);
+      }
+    } catch (err: any) {
+      alert('Error uploading thumbnail: ' + (err?.message || 'Upload failed'));
+    }
+  };
+
+  // Upload Tailor-Made Customization Image (Curtains or Wallpaper)
+  const handleUploadCustomizationImage = async (
+    type: 'curtains' | 'wallpaper',
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const res = await uploadImageToSupabase(file, {
+        category: type === 'curtains' ? 'curtains' : 'wallpapers',
+        title: `Tailor-Made Customization ${type}`
+      });
+
+      if (res.data?.file_url) {
+        const newUrl = res.data.file_url;
+        const updated: SiteConfig = {
+          ...captions,
+          [type === 'curtains' ? 'customizationCurtainsImage' : 'customizationWallpaperImage']: newUrl
+        };
+
+        setCaptions(updated);
+        onUpdateConfig(updated);
+        localStorage.setItem('floatingdrapes_config', JSON.stringify(updated));
+        if (isSupabaseConfigured()) {
+          await syncSiteConfigToSupabase(updated);
+        }
+        const fresh = await fetchUploadedImagesFromSupabase();
+        setUploadedImages(fresh);
+        alert(`Tailor-Made ${type.toUpperCase()} customization image updated and synced universally to Supabase!`);
+      }
+    } catch (err: any) {
+      alert('Error uploading customization photo: ' + (err?.message || 'Upload failed'));
     }
   };
 
@@ -1008,26 +1174,15 @@ export default function AdminPanel({
         {/* HEADER */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#003366] bg-[#001f3f]">
           <div className="flex items-center space-x-3">
-            <div className="h-2.5 w-2.5 rounded-full bg-[#0099ff] animate-pulse" />
             <span className="font-sans text-[11px] font-bold tracking-[0.3em] text-[#0099ff] uppercase">FLOATING DRAPES SYSTEM ENGINE</span>
             
-            {/* Supabase status badge */}
-            {supabaseStatus === 'connected' ? (
-              <span className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 text-[9px] font-bold tracking-wider uppercase flex items-center space-x-1.5 rounded">
-                <Wifi className="h-3 w-3 text-emerald-400" />
-                <span>SUPABASE REALTIME: ACTIVE</span>
-              </span>
-            ) : supabaseStatus === 'testing' ? (
-              <span className="bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 text-[9px] font-bold tracking-wider uppercase flex items-center space-x-1.5 rounded">
-                <RefreshCw className="h-3 w-3 animate-spin text-amber-400" />
-                <span>CONNECTING SUPABASE...</span>
-              </span>
-            ) : (
-              <span className="bg-[#002b49] text-[#88a3bc] border border-[#003866] px-2.5 py-0.5 text-[9px] font-bold tracking-wider uppercase flex items-center space-x-1.5 rounded">
-                <WifiOff className="h-3 w-3 text-[#88a3bc]" />
-                <span>LOCAL BUFFER (OFFLINE)</span>
-              </span>
-            )}
+            {/* Database indicating light - NO letters/string */}
+            <div 
+              className="flex items-center justify-center p-1.5 bg-[#00172e] border border-[#003866] rounded-full shadow-inner"
+              title={supabaseStatus === 'connected' ? 'Database: Connected (Green)' : supabaseStatus === 'testing' ? 'Database: Trying to connect (Yellow)' : 'Database: Disconnected (Red)'}
+            >
+              {renderIndicatorLight('sm')}
+            </div>
 
             {isAuthenticated && (
               <span className="hidden sm:inline-block bg-[#0099ff]/15 text-[#0099ff] px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border border-[#0099ff]/30 rounded">
@@ -1047,14 +1202,22 @@ export default function AdminPanel({
         {/* NOT AUTHENTICATED - SHOW LOGIN MODAL */}
         {!isAuthenticated ? (
           <div className="flex-1 flex flex-col items-center justify-center px-4 max-w-md mx-auto py-12">
-            <div className="w-full bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-8 shadow-2xl text-[#002b49]">
+            <div className="w-full bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-8 shadow-2xl text-[#002b49] relative">
+              {/* Corner database status indicating light - NO text string */}
+              <div 
+                className="absolute top-5 right-5 p-2 bg-white border border-[#c5def2] rounded-full shadow-sm flex items-center justify-center"
+                title={supabaseStatus === 'connected' ? 'Database: Connected (Green)' : supabaseStatus === 'testing' ? 'Database: Trying to connect (Yellow)' : 'Database: Disconnected (Red)'}
+              >
+                {renderIndicatorLight('md')}
+              </div>
+
               <div className="w-14 h-14 bg-[#e3f2fd] border border-[#90cdf4] rounded-full flex items-center justify-center text-[#0099ff] mx-auto mb-5 shadow-sm">
                 <Lock className="h-6 w-6" />
               </div>
               
               <h2 className="font-serif text-2xl text-center font-bold text-[#002b49] mb-1.5">Enter Master Credentials</h2>
               <p className="font-sans text-xs text-[#335577] text-center mb-6 leading-relaxed">
-                Floating Drapes control panel. Enter your Supabase Admin user credentials (or server credentials) to access the dashboard.
+                Floating Drapes control panel. Enter your admin user credentials to access the dashboard.
               </p>
 
               <form onSubmit={handleLogin} className="w-full space-y-4">
@@ -1067,7 +1230,7 @@ export default function AdminPanel({
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your Supabase admin user email"
+                      placeholder="Enter your admin user email"
                       className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] px-11 py-2.5 text-xs text-[#002b49] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
                     />
                   </div>
@@ -1100,15 +1263,9 @@ export default function AdminPanel({
                   className="w-full bg-[#0099ff] hover:bg-[#0088ee] text-white py-3 text-xs font-bold tracking-widest uppercase transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer rounded-lg shadow-md shadow-[#0099ff]/25"
                 >
                   <LogIn className="h-3.5 w-3.5" />
-                  <span>{isSubmittingLogin ? 'VERIFYING WITH SUPABASE...' : 'AUTHORIZE AND SIGN IN'}</span>
+                  <span>{isSubmittingLogin ? 'VERIFYING WITH DATABASE...' : 'AUTHORIZE AND SIGN IN'}</span>
                 </button>
               </form>
-
-              {/* SECURE BACKEND VERIFICATION NOTICE */}
-              <div className="w-full mt-6 bg-[#e3f2fd]/60 border border-[#b8dcfa] p-3.5 rounded-lg text-[11px] leading-relaxed text-[#335577] text-center">
-                <span className="font-bold text-[#0077c2] uppercase tracking-wider block mb-0.5">🛡️ Supabase Authentication Active</span>
-                Sign in with your newly created Supabase user email and password.
-              </div>
             </div>
           </div>
         ) : (
@@ -1118,6 +1275,13 @@ export default function AdminPanel({
             {/* SIDE BAR BUTTONS */}
             <div className="w-64 border-r border-[#003366] bg-[#00172e] flex flex-col justify-between shrink-0">
               <div className="p-4 space-y-1.5">
+                <button
+                  onClick={() => setActiveTab('sections')}
+                  className={`w-full text-left px-4 py-3 text-xs font-bold tracking-widest uppercase flex items-center space-x-3 transition-all cursor-pointer rounded-lg ${activeTab === 'sections' ? 'bg-[#0099ff] text-white shadow-md shadow-[#0099ff]/30' : 'hover:bg-[#002b49] text-[#88ccff] hover:text-white'}`}
+                >
+                  <Layers className="h-4 w-4" />
+                  <span>Homepage & Sections</span>
+                </button>
                 <button
                   onClick={() => setActiveTab('captions')}
                   className={`w-full text-left px-4 py-3 text-xs font-bold tracking-widest uppercase flex items-center space-x-3 transition-all cursor-pointer rounded-lg ${activeTab === 'captions' ? 'bg-[#0099ff] text-white shadow-md shadow-[#0099ff]/30' : 'hover:bg-[#002b49] text-[#88ccff] hover:text-white'}`}
@@ -1195,6 +1359,858 @@ export default function AdminPanel({
             {/* MAIN CONTENT AREA */}
             <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-[#001428]">
               
+              {/* TAB 0: HOMEPAGE & SECTIONS (HERO IMAGE, 3 SHOWCASE PRODUCTS, TAILOR-MADE CUSTOMIZATION) */}
+              {activeTab === 'sections' && (
+                <div className="space-y-8 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
+                  {/* Top Bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#d8eaf7] pb-5 gap-4">
+                    <div>
+                      <h3 className="font-serif text-2xl font-bold text-[#002b49]">Homepage & Section Visuals</h3>
+                      <p className="font-sans text-xs text-[#335577] mt-1">
+                        Dedicated upload & string editor for Homepage Hero, the 3 Showcase Products ("Elegance In Every Detail"), and Tailor-Made Customization.
+                      </p>
+                    </div>
+                    <button 
+                      onClick={handleSaveShowcaseSections}
+                      className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-5 py-2.5 text-xs font-bold tracking-widest uppercase rounded-lg shadow-md shadow-[#0099ff]/25 transition-all flex items-center space-x-2 cursor-pointer self-start sm:self-auto"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                      <span>SAVE & SYNC TO SUPABASE</span>
+                    </button>
+                  </div>
+
+                  {/* 1. HOMEPAGE HERO IMAGE SESSION */}
+                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 shadow-sm space-y-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#e2effa] pb-3 gap-2">
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-[12px] font-bold tracking-widest text-[#0099ff] uppercase">1. HOMEPAGE HERO IMAGE</span>
+                          <span className="bg-sky-50 text-[#0077c2] text-[10px] font-semibold px-2 py-0.5 rounded border border-[#b8dcfa]">Main Living Room Banner</span>
+                        </div>
+                        <p className="text-xs text-[#335577] mt-0.5">Upload a custom luxury room image to display on the top hero banner of the website.</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                      {/* Image Preview */}
+                      <div className="lg:col-span-5">
+                        <div className="relative aspect-[4/3] rounded-xl overflow-hidden border-2 border-[#b8dcfa] bg-slate-100 shadow-md group">
+                          <img 
+                            src={captions.heroImageUrl || DEFAULT_SITE_CONFIG.heroImageUrl || "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=80"} 
+                            alt="Hero display preview"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="text-white text-xs font-bold uppercase tracking-wider bg-black/60 px-3 py-1.5 rounded-full border border-white/20">
+                              Active Hero Visual
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Controls */}
+                      <div className="lg:col-span-7 space-y-4">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <label className="cursor-pointer bg-[#0099ff] hover:bg-[#0088ee] text-white px-5 py-3 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center space-x-2 shadow-md shadow-[#0099ff]/25 transition-all">
+                            <Camera className="h-4 w-4" />
+                            <span>Upload Hero Photo</span>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={handleUploadHeroImage} 
+                              className="hidden" 
+                            />
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = { ...captions, heroImageUrl: DEFAULT_SITE_CONFIG.heroImageUrl };
+                              setCaptions(updated);
+                              onUpdateConfig(updated);
+                            }}
+                            className="text-xs font-semibold text-[#006699] hover:text-[#002b49] px-3 py-2 rounded-lg border border-[#c5def2] hover:bg-slate-50 transition-colors cursor-pointer"
+                          >
+                            Reset to Default Image
+                          </button>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                            Or Enter Direct Image URL
+                          </label>
+                          <input 
+                            type="text"
+                            value={captions.heroImageUrl || ''}
+                            onChange={(e) => {
+                              const updated = { ...captions, heroImageUrl: e.target.value };
+                              setCaptions(updated);
+                              onUpdateConfig(updated);
+                            }}
+                            placeholder="https://..."
+                            className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                          />
+                        </div>
+
+                        <div className="text-[11px] text-[#557799] bg-[#f0f7fc] p-3 rounded-lg border border-[#d2e5f5] leading-relaxed">
+                          💡 <strong>Universal Sync Note:</strong> When you upload or change the hero image here, it saves universally to Supabase. Every device (mobile, laptop, tablet) displays this image immediately.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. THREE PRODUCTS SHOWCASE ("ELEGANCE IN EVERY DETAIL") */}
+                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 shadow-sm space-y-6">
+                    <div className="border-b border-[#e2effa] pb-3">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[12px] font-bold tracking-widest text-[#0099ff] uppercase">
+                          2. ELEGANCE IN EVERY DETAIL - 3 PRODUCTS SHOWCASE CARDS
+                        </span>
+                        <span className="bg-emerald-50 text-emerald-700 text-[10px] font-semibold px-2 py-0.5 rounded border border-emerald-200">
+                          Independent Thumbnails & Strings
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#335577] mt-0.5">
+                        These 3 cards are separate from catalog products. Upload a distinct thumbnail and edit strings for Curtains, Wallpapers, and Blinds independently!
+                      </p>
+                    </div>
+
+                    {/* Section Titles */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#f8fbfe] p-4 rounded-xl border border-[#d2e5f5]">
+                      <div>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                          Section Eyebrow Label
+                        </label>
+                        <input 
+                          type="text"
+                          value={captions.showcaseSectionSubtitle || 'OUR PRODUCTS'}
+                          onChange={(e) => setCaptions({ ...captions, showcaseSectionSubtitle: e.target.value })}
+                          className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                          Main Section Heading
+                        </label>
+                        <input 
+                          type="text"
+                          value={captions.showcaseSectionTitle || 'Elegance In Every Detail'}
+                          onChange={(e) => setCaptions({ ...captions, showcaseSectionTitle: e.target.value })}
+                          className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 3 Showcase Product Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {/* CARD 1: CURTAINS */}
+                      {(() => {
+                        const base = captions.categoryShowcase?.curtains || DEFAULT_SITE_CONFIG.categoryShowcase!.curtains;
+                        return (
+                          <div className="border border-[#c5def2] rounded-xl p-4 bg-[#fbfdff] space-y-4 flex flex-col justify-between shadow-sm">
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between border-b border-[#e2effa] pb-2">
+                                <span className="font-serif text-sm font-bold text-[#002b49]">Product 1: Curtains</span>
+                                <span className="text-[10px] bg-blue-100 text-[#006699] font-bold px-2 py-0.5 rounded">Card #1</span>
+                              </div>
+
+                              {/* Thumbnail preview */}
+                              <div className="relative h-44 w-full rounded-lg overflow-hidden border border-[#b8dcfa] bg-slate-100">
+                                <img 
+                                  src={base.thumbnail || 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=600&q=80'} 
+                                  alt="Curtains thumbnail"
+                                  className="w-full h-full object-cover"
+                                />
+                                <div className="absolute top-2 right-2 bg-[#0099ff] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
+                                  {base.badge || '1000+'}
+                                </div>
+                              </div>
+
+                              {/* Thumbnail Upload Button */}
+                              <div>
+                                <label className="cursor-pointer w-full bg-[#0099ff] hover:bg-[#0088ee] text-white py-2 px-3 text-xs font-bold uppercase rounded-lg flex items-center justify-center space-x-2 shadow transition-all">
+                                  <Camera className="h-3.5 w-3.5" />
+                                  <span>Upload Curtains Thumbnail</span>
+                                  <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    onChange={(e) => handleUploadShowcaseThumbnail('curtains', e)}
+                                    className="hidden" 
+                                  />
+                                </label>
+                              </div>
+
+                              {/* Thumbnail URL input */}
+                              <div>
+                                <label className="block text-[9px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                                  Thumbnail Image URL
+                                </label>
+                                <input 
+                                  type="text"
+                                  value={base.thumbnail || ''}
+                                  onChange={(e) => {
+                                    const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                    const updated = {
+                                      ...captions,
+                                      categoryShowcase: {
+                                        ...showcase,
+                                        curtains: { ...base, thumbnail: e.target.value }
+                                      }
+                                    };
+                                    setCaptions(updated);
+                                    onUpdateConfig(updated);
+                                  }}
+                                  placeholder="https://..."
+                                  className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                />
+                              </div>
+
+                              {/* String Edit Session for Curtains */}
+                              <div className="space-y-2 pt-2 border-t border-[#e2effa]">
+                                <span className="text-[10px] font-bold text-[#006699] uppercase tracking-wider block">
+                                  Strings Edit Session
+                                </span>
+
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Title</label>
+                                  <input 
+                                    type="text"
+                                    value={base.title || 'Curtains'}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          curtains: { ...base, title: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Designs Counter Badge</label>
+                                  <input 
+                                    type="text"
+                                    value={base.badge || '1000+'}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          curtains: { ...base, badge: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Description Text</label>
+                                  <textarea 
+                                    rows={2}
+                                    value={base.description || ''}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          curtains: { ...base, description: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff] resize-none"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Button Action Label</label>
+                                  <input 
+                                    type="text"
+                                    value={base.buttonText || 'Explore Curtains'}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          curtains: { ...base, buttonText: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* CARD 2: WALLPAPERS */}
+                      {(() => {
+                        const base = captions.categoryShowcase?.wallpapers || DEFAULT_SITE_CONFIG.categoryShowcase!.wallpapers;
+                        return (
+                          <div className="border border-[#c5def2] rounded-xl p-4 bg-[#fbfdff] space-y-4 flex flex-col justify-between shadow-sm">
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between border-b border-[#e2effa] pb-2">
+                                <span className="font-serif text-sm font-bold text-[#002b49]">Product 2: Wallpapers</span>
+                                <span className="text-[10px] bg-blue-100 text-[#006699] font-bold px-2 py-0.5 rounded">Card #2</span>
+                              </div>
+
+                              {/* Thumbnail preview */}
+                              <div className="relative h-44 w-full rounded-lg overflow-hidden border border-[#b8dcfa] bg-slate-100">
+                                <img 
+                                  src={base.thumbnail || 'https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=600&q=80'} 
+                                  alt="Wallpapers thumbnail"
+                                  className="w-full h-full object-cover"
+                                />
+                                <div className="absolute top-2 right-2 bg-[#0099ff] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
+                                  {base.badge || '1500+'}
+                                </div>
+                              </div>
+
+                              {/* Thumbnail Upload Button */}
+                              <div>
+                                <label className="cursor-pointer w-full bg-[#0099ff] hover:bg-[#0088ee] text-white py-2 px-3 text-xs font-bold uppercase rounded-lg flex items-center justify-center space-x-2 shadow transition-all">
+                                  <Camera className="h-3.5 w-3.5" />
+                                  <span>Upload Wallpaper Thumbnail</span>
+                                  <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    onChange={(e) => handleUploadShowcaseThumbnail('wallpapers', e)}
+                                    className="hidden" 
+                                  />
+                                </label>
+                              </div>
+
+                              {/* Thumbnail URL input */}
+                              <div>
+                                <label className="block text-[9px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                                  Thumbnail Image URL
+                                </label>
+                                <input 
+                                  type="text"
+                                  value={base.thumbnail || ''}
+                                  onChange={(e) => {
+                                    const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                    const updated = {
+                                      ...captions,
+                                      categoryShowcase: {
+                                        ...showcase,
+                                        wallpapers: { ...base, thumbnail: e.target.value }
+                                      }
+                                    };
+                                    setCaptions(updated);
+                                    onUpdateConfig(updated);
+                                  }}
+                                  placeholder="https://..."
+                                  className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                />
+                              </div>
+
+                              {/* String Edit Session for Wallpapers */}
+                              <div className="space-y-2 pt-2 border-t border-[#e2effa]">
+                                <span className="text-[10px] font-bold text-[#006699] uppercase tracking-wider block">
+                                  Strings Edit Session
+                                </span>
+
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Title</label>
+                                  <input 
+                                    type="text"
+                                    value={base.title || 'Wallpapers'}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          wallpapers: { ...base, title: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Designs Counter Badge</label>
+                                  <input 
+                                    type="text"
+                                    value={base.badge || '1500+'}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          wallpapers: { ...base, badge: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Description Text</label>
+                                  <textarea 
+                                    rows={2}
+                                    value={base.description || ''}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          wallpapers: { ...base, description: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff] resize-none"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Button Action Label</label>
+                                  <input 
+                                    type="text"
+                                    value={base.buttonText || 'Explore Wallpapers'}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          wallpapers: { ...base, buttonText: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* CARD 3: BLINDS */}
+                      {(() => {
+                        const base = captions.categoryShowcase?.blinds || DEFAULT_SITE_CONFIG.categoryShowcase!.blinds;
+                        return (
+                          <div className="border border-[#c5def2] rounded-xl p-4 bg-[#fbfdff] space-y-4 flex flex-col justify-between shadow-sm">
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between border-b border-[#e2effa] pb-2">
+                                <span className="font-serif text-sm font-bold text-[#002b49]">Product 3: Blinds</span>
+                                <span className="text-[10px] bg-blue-100 text-[#006699] font-bold px-2 py-0.5 rounded">Card #3</span>
+                              </div>
+
+                              {/* Thumbnail preview */}
+                              <div className="relative h-44 w-full rounded-lg overflow-hidden border border-[#b8dcfa] bg-slate-100">
+                                <img 
+                                  src={base.thumbnail || 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=600&q=80'} 
+                                  alt="Blinds thumbnail"
+                                  className="w-full h-full object-cover"
+                                />
+                                <div className="absolute top-2 right-2 bg-[#0099ff] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
+                                  {base.badge || '600+'}
+                                </div>
+                              </div>
+
+                              {/* Thumbnail Upload Button */}
+                              <div>
+                                <label className="cursor-pointer w-full bg-[#0099ff] hover:bg-[#0088ee] text-white py-2 px-3 text-xs font-bold uppercase rounded-lg flex items-center justify-center space-x-2 shadow transition-all">
+                                  <Camera className="h-3.5 w-3.5" />
+                                  <span>Upload Blinds Thumbnail</span>
+                                  <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    onChange={(e) => handleUploadShowcaseThumbnail('blinds', e)}
+                                    className="hidden" 
+                                  />
+                                </label>
+                              </div>
+
+                              {/* Thumbnail URL input */}
+                              <div>
+                                <label className="block text-[9px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                                  Thumbnail Image URL
+                                </label>
+                                <input 
+                                  type="text"
+                                  value={base.thumbnail || ''}
+                                  onChange={(e) => {
+                                    const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                    const updated = {
+                                      ...captions,
+                                      categoryShowcase: {
+                                        ...showcase,
+                                        blinds: { ...base, thumbnail: e.target.value }
+                                      }
+                                    };
+                                    setCaptions(updated);
+                                    onUpdateConfig(updated);
+                                  }}
+                                  placeholder="https://..."
+                                  className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                />
+                              </div>
+
+                              {/* String Edit Session for Blinds */}
+                              <div className="space-y-2 pt-2 border-t border-[#e2effa]">
+                                <span className="text-[10px] font-bold text-[#006699] uppercase tracking-wider block">
+                                  Strings Edit Session
+                                </span>
+
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Title</label>
+                                  <input 
+                                    type="text"
+                                    value={base.title || 'Blinds'}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          blinds: { ...base, title: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Designs Counter Badge</label>
+                                  <input 
+                                    type="text"
+                                    value={base.badge || '600+'}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          blinds: { ...base, badge: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Description Text</label>
+                                  <textarea 
+                                    rows={2}
+                                    value={base.description || ''}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          blinds: { ...base, description: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff] resize-none"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Button Action Label</label>
+                                  <input 
+                                    type="text"
+                                    value={base.buttonText || 'Explore Blinds'}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          blinds: { ...base, buttonText: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* 3. TAILOR-MADE CUSTOMIZATION SESSION */}
+                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 shadow-sm space-y-6">
+                    <div className="border-b border-[#e2effa] pb-3">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[12px] font-bold tracking-widest text-[#0099ff] uppercase">
+                          3. TAILOR-MADE CUSTOMIZATION SECTION IMAGES & STRINGS
+                        </span>
+                        <span className="bg-purple-50 text-purple-700 text-[10px] font-semibold px-2 py-0.5 rounded border border-purple-200">
+                          Curtains & Wallpaper Customization
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#335577] mt-0.5">
+                        Change the custom photography and titles for the two Tailor-Made bespoke styling cards.
+                      </p>
+                    </div>
+
+                    {/* Section Titles */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#f8fbfe] p-4 rounded-xl border border-[#d2e5f5]">
+                      <div>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                          Section Eyebrow Label
+                        </label>
+                        <input 
+                          type="text"
+                          value={captions.customizationSectionSubtitle || 'BESPOKE STYLING'}
+                          onChange={(e) => setCaptions({ ...captions, customizationSectionSubtitle: e.target.value })}
+                          className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                          Main Section Heading
+                        </label>
+                        <input 
+                          type="text"
+                          value={captions.customizationSectionTitle || 'Tailor-Made Customization'}
+                          onChange={(e) => setCaptions({ ...captions, customizationSectionTitle: e.target.value })}
+                          className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 2 Customization Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* CARD 1: DESIGN YOUR OWN CURTAINS */}
+                      <div className="border border-[#c5def2] rounded-xl p-5 bg-[#fbfdff] space-y-4 shadow-sm">
+                        <div className="flex items-center justify-between border-b border-[#e2effa] pb-2">
+                          <span className="font-serif text-sm font-bold text-[#002b49]">Card 1: Design Your Own Curtains</span>
+                          <span className="text-[10px] bg-sky-100 text-[#006699] font-bold px-2 py-0.5 rounded">Curtains Bespoke</span>
+                        </div>
+
+                        {/* Image Preview */}
+                        <div className="relative h-48 w-full rounded-xl overflow-hidden border border-[#b8dcfa] bg-[#021E3B]">
+                          <img 
+                            src={captions.customizationCurtainsImage || DEFAULT_SITE_CONFIG.customizationCurtainsImage || 'https://images.unsplash.com/photo-1616046229478-9901c5536a45?auto=format&fit=crop&w=600&q=80'} 
+                            alt="Curtains customization visual"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-y-0 left-0 w-[40%] bg-gradient-to-r from-[#021E3B] to-transparent pointer-events-none" />
+                          <div className="absolute bottom-3 left-3 text-white text-xs font-bold drop-shadow">
+                            Curtains Texture
+                          </div>
+                        </div>
+
+                        {/* Upload Button */}
+                        <div>
+                          <label className="cursor-pointer w-full bg-[#0099ff] hover:bg-[#0088ee] text-white py-2.5 px-3 text-xs font-bold uppercase rounded-lg flex items-center justify-center space-x-2 shadow transition-all">
+                            <Camera className="h-3.5 w-3.5" />
+                            <span>Upload Curtains Customization Photo</span>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={(e) => handleUploadCustomizationImage('curtains', e)}
+                              className="hidden" 
+                            />
+                          </label>
+                        </div>
+
+                        {/* Image URL */}
+                        <div>
+                          <label className="block text-[9px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                            Or Image URL
+                          </label>
+                          <input 
+                            type="text"
+                            value={captions.customizationCurtainsImage || ''}
+                            onChange={(e) => {
+                              const updated = { ...captions, customizationCurtainsImage: e.target.value };
+                              setCaptions(updated);
+                              onUpdateConfig(updated);
+                            }}
+                            placeholder="https://..."
+                            className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                          />
+                        </div>
+
+                        {/* Text fields */}
+                        <div className="space-y-3 pt-2 border-t border-[#e2effa]">
+                          <div>
+                            <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Heading</label>
+                            <input 
+                              type="text"
+                              value={captions.customizationCurtainsTitle || 'Design Your Own Curtains'}
+                              onChange={(e) => {
+                                const updated = { ...captions, customizationCurtainsTitle: e.target.value };
+                                setCaptions(updated);
+                                onUpdateConfig(updated);
+                              }}
+                              className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Description</label>
+                            <textarea 
+                              rows={2}
+                              value={captions.customizationCurtainsDesc || 'Customize your curtains with your favorite fabric, color & style. Get precision fit.'}
+                              onChange={(e) => {
+                                const updated = { ...captions, customizationCurtainsDesc: e.target.value };
+                                setCaptions(updated);
+                                onUpdateConfig(updated);
+                              }}
+                              className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff] resize-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* CARD 2: DESIGN YOUR OWN WALLPAPER */}
+                      <div className="border border-[#c5def2] rounded-xl p-5 bg-[#fbfdff] space-y-4 shadow-sm">
+                        <div className="flex items-center justify-between border-b border-[#e2effa] pb-2">
+                          <span className="font-serif text-sm font-bold text-[#002b49]">Card 2: Design Your Own Wallpaper</span>
+                          <span className="text-[10px] bg-sky-100 text-[#006699] font-bold px-2 py-0.5 rounded">Wallpaper Bespoke</span>
+                        </div>
+
+                        {/* Image Preview */}
+                        <div className="relative h-48 w-full rounded-xl overflow-hidden border border-[#b8dcfa] bg-[#021E3B]">
+                          <img 
+                            src={captions.customizationWallpaperImage || DEFAULT_SITE_CONFIG.customizationWallpaperImage || 'https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=600&q=80'} 
+                            alt="Wallpaper customization visual"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-y-0 left-0 w-[40%] bg-gradient-to-r from-[#021E3B] to-transparent pointer-events-none" />
+                          <div className="absolute bottom-3 left-3 text-white text-xs font-bold drop-shadow">
+                            Wallpaper Texture
+                          </div>
+                        </div>
+
+                        {/* Upload Button */}
+                        <div>
+                          <label className="cursor-pointer w-full bg-[#0099ff] hover:bg-[#0088ee] text-white py-2.5 px-3 text-xs font-bold uppercase rounded-lg flex items-center justify-center space-x-2 shadow transition-all">
+                            <Camera className="h-3.5 w-3.5" />
+                            <span>Upload Wallpaper Customization Photo</span>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={(e) => handleUploadCustomizationImage('wallpaper', e)}
+                              className="hidden" 
+                            />
+                          </label>
+                        </div>
+
+                        {/* Image URL */}
+                        <div>
+                          <label className="block text-[9px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                            Or Image URL
+                          </label>
+                          <input 
+                            type="text"
+                            value={captions.customizationWallpaperImage || ''}
+                            onChange={(e) => {
+                              const updated = { ...captions, customizationWallpaperImage: e.target.value };
+                              setCaptions(updated);
+                              onUpdateConfig(updated);
+                            }}
+                            placeholder="https://..."
+                            className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                          />
+                        </div>
+
+                        {/* Text fields */}
+                        <div className="space-y-3 pt-2 border-t border-[#e2effa]">
+                          <div>
+                            <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Heading</label>
+                            <input 
+                              type="text"
+                              value={captions.customizationWallpaperTitle || 'Design Your Own Wallpaper'}
+                              onChange={(e) => {
+                                const updated = { ...captions, customizationWallpaperTitle: e.target.value };
+                                setCaptions(updated);
+                                onUpdateConfig(updated);
+                              }}
+                              className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Description</label>
+                            <textarea 
+                              rows={2}
+                              value={captions.customizationWallpaperDesc || 'Create unique wallpaper designs that reflect your personality and style perfectly.'}
+                              onChange={(e) => {
+                                const updated = { ...captions, customizationWallpaperDesc: e.target.value };
+                                setCaptions(updated);
+                                onUpdateConfig(updated);
+                              }}
+                              className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff] resize-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Universal Sync Action Banner */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-[#eaf4fd] border border-[#b8dcfa] rounded-xl gap-4">
+                    <div>
+                      <span className="font-bold text-[#0077c2] uppercase tracking-wider block text-xs">
+                        Universal Cloud Sync Ready
+                      </span>
+                      <p className="text-xs text-[#335577] mt-0.5">
+                        Click below to commit your Hero image, 3 product showcase thumbnails, and tailor-made customization images to your database.
+                      </p>
+                    </div>
+                    <button 
+                      onClick={handleSaveShowcaseSections}
+                      className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-6 py-3 text-xs font-bold tracking-widest uppercase rounded-lg shadow-md shadow-[#0099ff]/25 transition-all flex items-center space-x-2 cursor-pointer self-start sm:self-auto shrink-0"
+                    >
+                      <Save className="h-4 w-4" />
+                      <span>SAVE ALL SECTION CHANGES</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* TAB 1: CAPTIONS AND TEXT */}
               {activeTab === 'captions' && (
                 <div className="space-y-6 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
