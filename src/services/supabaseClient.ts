@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { SiteConfig, CurtainItem, WallpaperItem, BookingSubmission, DEFAULT_SITE_CONFIG, Testimonial, TESTIMONIALS_DATA, UploadedImage } from '../types';
+import { SiteConfig, CurtainItem, WallpaperItem, BookingSubmission, DEFAULT_SITE_CONFIG, Testimonial, TESTIMONIALS_DATA, UploadedImage, PortfolioItem } from '../types';
 import { BlindItem, EXTENDED_CURTAINS_DATA, EXTENDED_WALLPAPERS_DATA, EXTENDED_BLINDS_DATA } from '../data/productsData';
 
 // Storage keys for custom Supabase credentials configured via Admin Panel
@@ -172,7 +172,6 @@ export async function testSupabaseConnection(): Promise<{
     try {
       const { error } = await client.from(table).select('id').limit(1);
       if (error) {
-        // Table likely doesn't exist or RLS issue
         missingTables.push(table);
       } else {
         tablesFound.push(table);
@@ -251,7 +250,30 @@ export async function fetchUniversalSiteData(): Promise<{
       const targetRecord = records.find((r: any) => r.id === 'current_config') || records[0];
       const parsed = targetRecord.config || targetRecord.config_data || (targetRecord.heroLabel ? targetRecord : null);
       if (parsed) {
-        siteConfig = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+        const parsedObj = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+        siteConfig = {
+          ...DEFAULT_SITE_CONFIG,
+          ...parsedObj,
+          portfolioData: parsedObj.portfolioData || DEFAULT_SITE_CONFIG.portfolioData,
+          beforeAfterTitle: parsedObj.beforeAfterTitle || DEFAULT_SITE_CONFIG.beforeAfterTitle,
+          beforeAfterSubtitle: parsedObj.beforeAfterSubtitle || DEFAULT_SITE_CONFIG.beforeAfterSubtitle,
+          testimonialsSectionTitle: parsedObj.testimonialsSectionTitle || DEFAULT_SITE_CONFIG.testimonialsSectionTitle,
+          testimonialsSectionSubtitle: parsedObj.testimonialsSectionSubtitle || DEFAULT_SITE_CONFIG.testimonialsSectionSubtitle,
+          categoryShowcase: {
+            curtains: {
+              ...DEFAULT_SITE_CONFIG.categoryShowcase!.curtains,
+              ...(parsedObj.categoryShowcase?.curtains || {})
+            },
+            wallpapers: {
+              ...DEFAULT_SITE_CONFIG.categoryShowcase!.wallpapers,
+              ...(parsedObj.categoryShowcase?.wallpapers || {})
+            },
+            blinds: {
+              ...DEFAULT_SITE_CONFIG.categoryShowcase!.blinds,
+              ...(parsedObj.categoryShowcase?.blinds || {})
+            }
+          }
+        };
       }
     }
 
@@ -271,12 +293,9 @@ export async function fetchUniversalSiteData(): Promise<{
       }));
     }
 
-    // Intelligently resolve Supabase image paths: If an image was uploaded to Supabase,
-    // ensure the site pulls that exact path from Supabase database
-    if (uploadedImages.length > 0) {
-      const activeConfig: SiteConfig = {
-        ...(siteConfig || {} as any)
-      };
+    // Intelligently resolve Supabase image paths
+    if (uploadedImages.length > 0 && siteConfig) {
+      const activeConfig: SiteConfig = { ...siteConfig };
 
       // 1. Hero image from Supabase
       const heroUpload = uploadedImages.find(img => img.category === 'hero' && img.file_url);
@@ -290,9 +309,7 @@ export async function fetchUniversalSiteData(): Promise<{
         img.file_url && 
         (img.title.toLowerCase().includes('showcase') || img.title.toLowerCase().includes('thumbnail') || img.title.toLowerCase().includes('curtains'))
       );
-      if (curtainsUpload) {
-        if (!activeConfig.categoryShowcase) activeConfig.categoryShowcase = {} as any;
-        if (!activeConfig.categoryShowcase.curtains) activeConfig.categoryShowcase.curtains = {} as any;
+      if (curtainsUpload && activeConfig.categoryShowcase?.curtains) {
         if (!activeConfig.categoryShowcase.curtains.thumbnail || activeConfig.categoryShowcase.curtains.thumbnail.includes('unsplash.com')) {
           activeConfig.categoryShowcase.curtains.thumbnail = curtainsUpload.file_url;
         }
@@ -304,9 +321,7 @@ export async function fetchUniversalSiteData(): Promise<{
         img.file_url && 
         (img.title.toLowerCase().includes('showcase') || img.title.toLowerCase().includes('thumbnail') || img.title.toLowerCase().includes('wallpaper'))
       );
-      if (wallpapersUpload) {
-        if (!activeConfig.categoryShowcase) activeConfig.categoryShowcase = {} as any;
-        if (!activeConfig.categoryShowcase.wallpapers) activeConfig.categoryShowcase.wallpapers = {} as any;
+      if (wallpapersUpload && activeConfig.categoryShowcase?.wallpapers) {
         if (!activeConfig.categoryShowcase.wallpapers.thumbnail || activeConfig.categoryShowcase.wallpapers.thumbnail.includes('unsplash.com')) {
           activeConfig.categoryShowcase.wallpapers.thumbnail = wallpapersUpload.file_url;
         }
@@ -318,9 +333,7 @@ export async function fetchUniversalSiteData(): Promise<{
         img.file_url && 
         (img.title.toLowerCase().includes('showcase') || img.title.toLowerCase().includes('thumbnail') || img.title.toLowerCase().includes('blind'))
       );
-      if (blindsUpload) {
-        if (!activeConfig.categoryShowcase) activeConfig.categoryShowcase = {} as any;
-        if (!activeConfig.categoryShowcase.blinds) activeConfig.categoryShowcase.blinds = {} as any;
+      if (blindsUpload && activeConfig.categoryShowcase?.blinds) {
         if (!activeConfig.categoryShowcase.blinds.thumbnail || activeConfig.categoryShowcase.blinds.thumbnail.includes('unsplash.com')) {
           activeConfig.categoryShowcase.blinds.thumbnail = blindsUpload.file_url;
         }
@@ -768,9 +781,6 @@ export async function deleteFeedbackFromSupabase(id: string): Promise<boolean> {
  */
 const STORAGE_MEDIA_KEY = 'floatingdrapes_uploaded_images';
 
-/**
- * Reads local cached uploaded images
- */
 export function getStoredUploadedImages(): UploadedImage[] {
   if (typeof window === 'undefined') return [];
   try {
@@ -781,9 +791,6 @@ export function getStoredUploadedImages(): UploadedImage[] {
   }
 }
 
-/**
- * Saves uploaded images into local storage cache
- */
 export function saveStoredUploadedImages(images: UploadedImage[]): void {
   if (typeof window === 'undefined') return;
   try {
@@ -802,7 +809,6 @@ export async function compressImageClientSide(
   quality = 0.85
 ): Promise<{ blob: Blob; dataUrl: string }> {
   return new Promise((resolve) => {
-    // If not a raster image or is SVG, return original
     if (!file.type.startsWith('image/') || file.type.includes('svg')) {
       const reader = new FileReader();
       reader.onload = () => resolve({ blob: file, dataUrl: (reader.result as string) || '' });
@@ -858,12 +864,12 @@ export async function compressImageClientSide(
 }
 
 /**
- * Uploads an image file to Supabase (Supabase Storage bucket 'images' and saves metadata to public.uploaded_images table)
+ * Uploads an image file to Supabase Storage bucket 'images' and saves metadata to public.uploaded_images table
  */
 export async function uploadImageToSupabase(
   file: File,
   options?: {
-    category?: 'curtains' | 'wallpapers' | 'blinds' | 'hero' | 'gallery' | 'general' | 'why_choose_us' | 'customization';
+    category?: 'curtains' | 'wallpapers' | 'blinds' | 'hero' | 'gallery' | 'general' | 'why_choose_us' | 'customization' | 'portfolio';
     title?: string;
   }
 ): Promise<{
@@ -872,7 +878,6 @@ export async function uploadImageToSupabase(
   message: string;
   error?: string;
 }> {
-  // Compress image client side
   const { blob: uploadBlob, dataUrl } = await compressImageClientSide(file, 1600, 0.85);
 
   const client = getSupabaseClient();
@@ -887,7 +892,6 @@ export async function uploadImageToSupabase(
 
   if (client) {
     try {
-      // 1. Try uploading to Supabase Storage bucket 'images'
       let uploadResult = await client.storage
         .from('images')
         .upload(storagePath, uploadBlob, {
@@ -896,7 +900,6 @@ export async function uploadImageToSupabase(
           contentType: file.type || 'image/jpeg'
         });
 
-      // If bucket does not exist, attempt to auto-create public bucket 'images'
       if (uploadResult.error && uploadResult.error.message?.toLowerCase().includes('not found')) {
         try {
           await client.storage.createBucket('images', { public: true });
@@ -925,7 +928,6 @@ export async function uploadImageToSupabase(
       console.warn('Storage attempt skipped or bucket unavailable:', storageErr);
     }
 
-    // 2. Save metadata & image into Supabase PostgreSQL table 'uploaded_images'
     try {
       const record: any = {
         id,
@@ -945,7 +947,6 @@ export async function uploadImageToSupabase(
         .insert([record]);
 
       if (!dbErr) {
-        // Cache to local storage
         const currentCache = getStoredUploadedImages();
         const updated = [record as UploadedImage, ...currentCache];
         saveStoredUploadedImages(updated);
@@ -965,7 +966,7 @@ export async function uploadImageToSupabase(
     }
   }
 
-  // Fallback: save to local cache if Supabase client is offline or returned an error
+  // Fallback: save to local cache if Supabase is offline
   const fallbackRecord: UploadedImage = {
     id,
     filename: file.name,
@@ -986,8 +987,8 @@ export async function uploadImageToSupabase(
     success: true,
     data: fallbackRecord,
     message: client 
-      ? 'Image saved locally and ready. (Tip: execute the SQL schema in your Supabase SQL editor to enable the uploaded_images table and storage bucket).'
-      : 'Image saved locally. Connect your Supabase project in the Database tab to sync directly to your Supabase account!'
+      ? 'Image saved locally and ready.'
+      : 'Image saved locally.'
   };
 }
 
@@ -1044,7 +1045,6 @@ export async function fetchUploadedImagesFromSupabase(): Promise<UploadedImage[]
 export async function deleteUploadedImageFromSupabase(id: string, storagePath?: string): Promise<boolean> {
   const client = getSupabaseClient();
 
-  // Delete from local cache
   const localImages = getStoredUploadedImages();
   const updated = localImages.filter(img => img.id !== id);
   saveStoredUploadedImages(updated);
@@ -1052,10 +1052,8 @@ export async function deleteUploadedImageFromSupabase(id: string, storagePath?: 
   if (!client) return true;
 
   try {
-    // Delete record from Supabase table
     await client.from('uploaded_images').delete().eq('id', id);
 
-    // Delete file from Supabase storage if storage_path was saved
     if (storagePath) {
       await client.storage.from('images').remove([storagePath]);
     }
@@ -1163,7 +1161,6 @@ export async function seedDefaultCatalogToSupabase(customConfig?: SiteConfig): P
 
 /**
  * Universal Realtime Subscription Listener
- * Connects to Supabase Realtime WebSocket and notifies app whenever any record in any table is inserted/updated/deleted!
  */
 export function subscribeToUniversalChanges(onUpdate: (table: string, payload: any) => void) {
   const client = getSupabaseClient();
@@ -1232,10 +1229,8 @@ export function subscribeToUniversalChanges(onUpdate: (table: string, payload: a
  */
 export const SUPABASE_SQL_SCHEMA = `-- ========================================================================
 -- FLOATING DRAPES UNIVERSAL SUPABASE DATABASE SCHEMA
--- Execute this script in your Supabase SQL Editor (Dashboard -> SQL Editor -> New query)
 -- ========================================================================
 
--- 1. Site Configuration Table (Universal Theme, Hero, Fonts, Contact Info)
 CREATE TABLE IF NOT EXISTS public.site_config (
   id TEXT PRIMARY KEY,
   config JSONB NOT NULL,
@@ -1243,7 +1238,6 @@ CREATE TABLE IF NOT EXISTS public.site_config (
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 2. Curtains Product Table
 CREATE TABLE IF NOT EXISTS public.curtains (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -1255,7 +1249,6 @@ CREATE TABLE IF NOT EXISTS public.curtains (
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 3. Wallpapers Product Table
 CREATE TABLE IF NOT EXISTS public.wallpapers (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -1267,7 +1260,6 @@ CREATE TABLE IF NOT EXISTS public.wallpapers (
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 4. Blinds Product Table
 CREATE TABLE IF NOT EXISTS public.blinds (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -1279,7 +1271,6 @@ CREATE TABLE IF NOT EXISTS public.blinds (
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 5. Customer Feedback & Testimonials Table
 CREATE TABLE IF NOT EXISTS public.testimonials (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -1292,7 +1283,6 @@ CREATE TABLE IF NOT EXISTS public.testimonials (
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 6. Bookings / Consultations Table
 CREATE TABLE IF NOT EXISTS public.bookings (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -1308,7 +1298,6 @@ CREATE TABLE IF NOT EXISTS public.bookings (
   created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 7. General Inquiries & Contact Form Submissions Table
 CREATE TABLE IF NOT EXISTS public.inquiries (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -1322,7 +1311,6 @@ CREATE TABLE IF NOT EXISTS public.inquiries (
   created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 8. Uploaded Images & Media Library Table
 CREATE TABLE IF NOT EXISTS public.uploaded_images (
   id TEXT PRIMARY KEY,
   filename TEXT NOT NULL,
@@ -1337,10 +1325,6 @@ CREATE TABLE IF NOT EXISTS public.uploaded_images (
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- ========================================================================
--- ENABLE ROW LEVEL SECURITY (RLS) & PUBLIC ACCESS POLICIES
--- ========================================================================
-
 ALTER TABLE public.site_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.curtains ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wallpapers ENABLE ROW LEVEL SECURITY;
@@ -1350,63 +1334,36 @@ ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inquiries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.uploaded_images ENABLE ROW LEVEL SECURITY;
 
--- Allow public reads and full access for universal operation
 DO $$ 
 BEGIN
-  -- site_config policies
-  DROP POLICY IF EXISTS "Public Read site_config" ON public.site_config;
-  CREATE POLICY "Public Read site_config" ON public.site_config FOR ALL USING (true) WITH CHECK (true);
+  DROP POLICY IF EXISTS "Public All site_config" ON public.site_config;
+  CREATE POLICY "Public All site_config" ON public.site_config FOR ALL USING (true) WITH CHECK (true);
 
-  -- curtains policies
   DROP POLICY IF EXISTS "Public All curtains" ON public.curtains;
   CREATE POLICY "Public All curtains" ON public.curtains FOR ALL USING (true) WITH CHECK (true);
 
-  -- wallpapers policies
   DROP POLICY IF EXISTS "Public All wallpapers" ON public.wallpapers;
   CREATE POLICY "Public All wallpapers" ON public.wallpapers FOR ALL USING (true) WITH CHECK (true);
 
-  -- blinds policies
   DROP POLICY IF EXISTS "Public All blinds" ON public.blinds;
   CREATE POLICY "Public All blinds" ON public.blinds FOR ALL USING (true) WITH CHECK (true);
 
-  -- testimonials policies
   DROP POLICY IF EXISTS "Public All testimonials" ON public.testimonials;
   CREATE POLICY "Public All testimonials" ON public.testimonials FOR ALL USING (true) WITH CHECK (true);
 
-  -- bookings policies
   DROP POLICY IF EXISTS "Public All bookings" ON public.bookings;
   CREATE POLICY "Public All bookings" ON public.bookings FOR ALL USING (true) WITH CHECK (true);
 
-  -- inquiries policies
   DROP POLICY IF EXISTS "Public All inquiries" ON public.inquiries;
   CREATE POLICY "Public All inquiries" ON public.inquiries FOR ALL USING (true) WITH CHECK (true);
 
-  -- uploaded_images policies
   DROP POLICY IF EXISTS "Public All uploaded_images" ON public.uploaded_images;
   CREATE POLICY "Public All uploaded_images" ON public.uploaded_images FOR ALL USING (true) WITH CHECK (true);
 END $$;
 
--- Enable Realtime replication for instant universal sync
-DO $$
-BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.site_config;
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.curtains;
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.wallpapers;
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.blinds;
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.testimonials;
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.bookings;
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.inquiries;
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.uploaded_images;
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
-END $$;
-
--- ========================================================================
--- OPTIONAL: PUBLIC STORAGE BUCKET FOR CDN IMAGES
--- ========================================================================
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('images', 'images', true)
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET public = true;
 
 DO $$
 BEGIN
@@ -1415,6 +1372,9 @@ BEGIN
 
   DROP POLICY IF EXISTS "Public Storage Insert" ON storage.objects;
   CREATE POLICY "Public Storage Insert" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'images');
+
+  DROP POLICY IF EXISTS "Public Storage Update" ON storage.objects;
+  CREATE POLICY "Public Storage Update" ON storage.objects FOR UPDATE USING (bucket_id = 'images') WITH CHECK (bucket_id = 'images');
 
   DROP POLICY IF EXISTS "Public Storage Delete" ON storage.objects;
   CREATE POLICY "Public Storage Delete" ON storage.objects FOR DELETE USING (bucket_id = 'images');
