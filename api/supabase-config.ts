@@ -1,47 +1,80 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Set CORS headers so client calls work smoothly
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
+// Shared configuration reader compatible with both local/server and Vercel environments
+export function getStoredSupabaseConfig() {
   const url = (
     process.env.VITE_SUPABASE_URL ||
     process.env.SUPABASE_URL ||
-    ''
+    ""
   ).trim();
 
   const key = (
     process.env.VITE_SUPABASE_ANON_KEY ||
     process.env.SUPABASE_ANON_KEY ||
-    ''
+    ""
   ).trim();
 
-  if (req.method === 'GET') {
-    return res.status(200).json({
-      url,
-      key,
-      isConfigured: Boolean(url && key && url.startsWith('http'))
-    });
-  }
+  return {
+    url,
+    key,
+    isConfigured: Boolean(url && key && url.startsWith("http"))
+  };
+}
 
-  if (req.method === 'POST') {
-    // In Vercel serverless, dynamic config changes must be set via Vercel Project Settings
+// Handler for Express server in server.ts
+export function handleGetSupabaseConfig(req: any, res: any) {
+  try {
+    const config = getStoredSupabaseConfig();
+    return res.status(200).json(config);
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || "Failed to get config" });
+  }
+}
+
+// Save handler for Express server in server.ts
+export function handleSaveSupabaseConfig(req: any, res: any) {
+  try {
+    const body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
+    const { url, key } = body;
+
+    if (!url || !key) {
+      return res.status(400).json({ error: "Supabase URL and Anon Key are required" });
+    }
+
+    const trimmedUrl = String(url).trim();
+    const trimmedKey = String(key).trim();
+
+    // Update process memory
+    process.env.VITE_SUPABASE_URL = trimmedUrl;
+    process.env.VITE_SUPABASE_ANON_KEY = trimmedKey;
+    process.env.SUPABASE_URL = trimmedUrl;
+    process.env.SUPABASE_ANON_KEY = trimmedKey;
+
     return res.status(200).json({
       success: true,
-      message: 'Environment credentials read from server environment variables.',
+      message: "Supabase credentials saved in server memory",
       config: {
-        url,
-        key,
-        isConfigured: Boolean(url && key && url.startsWith('http'))
+        url: trimmedUrl,
+        key: trimmedKey,
+        isConfigured: true
       }
     });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || "Failed to persist configuration" });
+  }
+}
+
+// Default export handler for Vercel Serverless Functions
+export default async function handler(req: any, res: any) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
   }
 
-  return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method === "POST") {
+    return handleSaveSupabaseConfig(req, res);
+  }
+
+  return handleGetSupabaseConfig(req, res);
 }
