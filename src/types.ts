@@ -28,7 +28,7 @@ export interface SignatureCollection {
 
 export interface PortfolioItem {
   id: string;
-  category: 'Living Room' | 'Bedroom' | 'Dining Room' | 'Kids Room';
+  category?: 'Living Room' | 'Bedroom' | 'Dining Room' | 'Kids Room' | string;
   title: string;
   description: string;
   beforeImage: string;
@@ -196,34 +196,50 @@ export const PORTFOLIO_DATA: PortfolioItem[] = [
   {
     id: 'p1',
     category: 'Living Room',
-    title: 'Modern Living Room',
-    description: 'Fitted with gold-leaf Art Deco Wallpaper paired with double-pleated Silk Sheers to control intense midday light.',
-    beforeImage: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1200&q=80',
-    afterImage: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=80'
+    title: 'Modern Living Room Makeover',
+    description: 'Replaced outdated window drapes with custom luxury navy silk curtains, instantly elevating the room’s visual weight.',
+    beforeImage: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=600&q=80',
+    afterImage: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=600&q=80'
   },
   {
     id: 'p2',
     category: 'Bedroom',
-    title: 'Elegant Bedroom',
-    description: 'Replaced thin curtains with premium floor-to-ceiling Acoustic Velvet Blockouts and custom-textured linen wall finishes.',
-    beforeImage: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1200&q=80',
-    afterImage: 'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?auto=format&fit=crop&w=1200&q=80'
+    title: 'Exquisite Master Bedroom',
+    description: 'Upgraded plain walls with custom-textured wallpaper and layered blackout curtains to maximize luxury and sleep comfort.',
+    beforeImage: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=600&q=80',
+    afterImage: 'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?auto=format&fit=crop&w=600&q=80'
   },
   {
     id: 'p3',
     category: 'Dining Room',
-    title: 'Luxury Dining Room',
-    description: 'Bespoke biophilic wall murals and warm, earthy sateen-lined linen drapes creating an intimate dining experience.',
-    beforeImage: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1200&q=80',
-    afterImage: 'https://images.unsplash.com/photo-1617806118233-18e1db207faf?auto=format&fit=crop&w=1200&q=80'
+    title: 'Grand Dining Room Styling',
+    description: 'Integrated premium biophilic drapes paired with bespoke blinds to harness natural light control beautifully.',
+    beforeImage: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=600&q=80',
+    afterImage: 'https://images.unsplash.com/photo-1617806118233-18e1db207faf?auto=format&fit=crop&w=600&q=80'
   },
   {
     id: 'p4',
     category: 'Kids Room',
-    title: 'Kids Room Makeover',
-    description: 'Installed fully fire-retardant organic sheer linens and customized dreamy constellation wallcoverings.',
-    beforeImage: 'https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?auto=format&fit=crop&w=1200&q=80',
-    afterImage: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80'
+    title: 'Sunlit Villa Lounge',
+    description: 'Transformed harsh direct sunlight into a soft ambient glow using custom sheer linen drapes with motorized tracking.',
+    beforeImage: 'https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?auto=format&fit=crop&w=600&q=80',
+    afterImage: 'https://images.unsplash.com/photo-1616046229478-9901c5536a45?auto=format&fit=crop&w=600&q=80'
+  },
+  {
+    id: 'p5',
+    category: 'Living Room',
+    title: 'Bespoke Royal Penthouse',
+    description: 'Elevated a high-ceiling living space with floor-to-ceiling pleated velvet curtains and gold accent wall coverings.',
+    beforeImage: 'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=600&q=80',
+    afterImage: 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=600&q=80'
+  },
+  {
+    id: 'p6',
+    category: 'Bedroom',
+    title: 'Executive Office Suite',
+    description: 'Replaced basic industrial blinds with rich acoustic textured drapes for refined corporate elegance and sound damping.',
+    beforeImage: 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=600&q=80',
+    afterImage: 'https://images.unsplash.com/photo-1618219908412-a29a1bb7b86e?auto=format&fit=crop&w=600&q=80'
   }
 ];
 
@@ -253,7 +269,7 @@ export const TESTIMONIALS_DATA: Testimonial[] = [
     role: 'Interior Enthusiast',
     review: 'From measurement to installation, everything was smooth and hassle-free. The wallpaper finish is seamless. Highly recommended!',
     rating: 5,
-    image: '' // Demonstrates first-letter avatar fallback ("A")
+    image: ''
   },
   {
     id: 't4',
@@ -262,7 +278,7 @@ export const TESTIMONIALS_DATA: Testimonial[] = [
     role: 'Design Consultant',
     review: 'The craftsmanship and fabric weight exceeded all expectations. Their concierge team walked us through every sheer swatch patiently.',
     rating: 5,
-    image: '' // Demonstrates first-letter avatar fallback ("D")
+    image: ''
   }
 ];
 
@@ -322,6 +338,15 @@ export interface SiteConfig {
   whyChooseUsTitle?: string;
   whyChooseUsSubtitle?: string;
   whyChooseUsDesc?: string;
+
+  // Testimonials Section Header Controls
+  testimonialsSectionTitle?: string;
+  testimonialsSectionSubtitle?: string;
+
+  // Before & After Transformation Section Controls
+  beforeAfterTitle?: string;
+  beforeAfterSubtitle?: string;
+  portfolioData?: PortfolioItem[];
 }
 
 export const DEFAULT_SITE_CONFIG: SiteConfig = {
@@ -385,4 +410,11 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   whyChooseUsSubtitle: 'WHY CHOOSE US',
   whyChooseUsTitle: 'Quality, Service & Satisfaction You Can Trust',
   whyChooseUsDesc: 'At Floating Drapes, we are dedicated to bringing your design dreams to fruition. With premium fabrics, exquisite craftsmanship, and our highly customized approach, we ensure that every client experiences absolute comfort and class.',
+
+  testimonialsSectionTitle: 'What Our Clients Say',
+  testimonialsSectionSubtitle: 'CLIENT FEEDBACK',
+
+  beforeAfterTitle: 'See The Transformation',
+  beforeAfterSubtitle: 'BEFORE & AFTER',
+  portfolioData: PORTFOLIO_DATA
 };
