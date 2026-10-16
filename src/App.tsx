@@ -14,7 +14,7 @@ import { ContactForm } from './components/ContactForm';
 import { BookingModal } from './components/BookingModal';
 import { WhatsAppButton } from './components/WhatsAppButton';
 import { AdminPanel } from './components/AdminPanel';
-import { ThemeInjector } from './components/ThemeInjector';
+import ThemeInjector from './components/ThemeInjector';
 
 import {
   SiteConfig,
