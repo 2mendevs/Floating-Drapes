@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Sliders, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getOptimizedImageUrl } from '../utils/imageUtils';
-import { ComparisonItem, DEFAULT_COMPARISONS } from '../types';
+import { PortfolioItem, PORTFOLIO_DATA } from '../types';
 
 interface CompareCardProps {
   key?: React.Key;
@@ -63,6 +63,7 @@ function CompareCard({ beforeImage, afterImage, title, description }: CompareCar
         onTouchMove={handleTouchMove}
         onMouseMove={handleMouseMove}
       >
+        {/* AFTER IMAGE (Full width backdrop) */}
         <img
           src={getOptimizedImageUrl(afterImage, 800, 75)}
           alt="After Transformation"
@@ -75,6 +76,7 @@ function CompareCard({ beforeImage, afterImage, title, description }: CompareCar
           AFTER
         </div>
 
+        {/* BEFORE IMAGE (Clipped on top) */}
         <div 
           className="absolute inset-y-0 left-0 overflow-hidden pointer-events-none"
           style={{ width: `${sliderPos}%` }}
@@ -93,6 +95,7 @@ function CompareCard({ beforeImage, afterImage, title, description }: CompareCar
           </div>
         </div>
 
+        {/* Slider Divider line and handle */}
         <div 
           className="absolute inset-y-0 w-[2px] bg-white cursor-ew-resize flex items-center justify-center pointer-events-none"
           style={{ left: `${sliderPos}%` }}
@@ -102,6 +105,7 @@ function CompareCard({ beforeImage, afterImage, title, description }: CompareCar
           </div>
         </div>
 
+        {/* Range input transparent overlay */}
         <input 
           type="range" 
           min="0" 
@@ -113,6 +117,7 @@ function CompareCard({ beforeImage, afterImage, title, description }: CompareCar
         />
       </div>
 
+      {/* Description copy beneath */}
       <div className="p-6 text-left space-y-2 flex-grow flex flex-col justify-between">
         <div>
           <h3 className="font-serif text-[20px] font-bold text-[#021E3B] leading-tight">
@@ -128,7 +133,7 @@ function CompareCard({ beforeImage, afterImage, title, description }: CompareCar
 }
 
 interface BeforeAfterSectionProps {
-  comparisons?: ComparisonItem[];
+  comparisons?: PortfolioItem[];
   subtitle?: string;
   title?: string;
 }
@@ -140,7 +145,7 @@ export default function BeforeAfterSection({
 }: BeforeAfterSectionProps) {
   const comparisons = (propComparisons && propComparisons.length > 0) 
     ? propComparisons 
-    : DEFAULT_COMPARISONS;
+    : PORTFOLIO_DATA;
 
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -149,11 +154,11 @@ export default function BeforeAfterSection({
   };
 
   const nextSlide = () => {
-    setCurrentIndex((prev) => (prev === comparisons.length - 1 ? 0 : prev + 1));
+    setCurrentIndex((prev) => (prev === 0 ? comparisons.length - 1 : (prev + 1) % comparisons.length));
   };
 
   const getVisibleItems = () => {
-    const items = [];
+    const items: PortfolioItem[] = [];
     for (let i = 0; i < comparisons.length; i++) {
       items.push(comparisons[(currentIndex + i) % comparisons.length]);
     }
@@ -231,13 +236,15 @@ export default function BeforeAfterSection({
 
           {/* Mobile View: 1 item */}
           <div className="md:hidden">
-            <CompareCard
-              key={visibleItems[0].id}
-              beforeImage={visibleItems[0].beforeImage}
-              afterImage={visibleItems[0].afterImage}
-              title={visibleItems[0].title}
-              description={visibleItems[0].description}
-            />
+            {visibleItems[0] && (
+              <CompareCard
+                key={visibleItems[0].id}
+                beforeImage={visibleItems[0].beforeImage}
+                afterImage={visibleItems[0].afterImage}
+                title={visibleItems[0].title}
+                description={visibleItems[0].description}
+              />
+            )}
           </div>
 
           {/* Navigation Controls on Mobile */}
