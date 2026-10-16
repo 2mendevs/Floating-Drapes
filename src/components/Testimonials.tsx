@@ -6,9 +6,15 @@ import CustomerAvatar from './CustomerAvatar';
 
 interface TestimonialsProps {
   testimonials?: Testimonial[];
+  subtitle?: string;
+  title?: string;
 }
 
-export default function Testimonials({ testimonials: propTestimonials }: TestimonialsProps) {
+export default function Testimonials({ 
+  testimonials: propTestimonials,
+  subtitle = 'CLIENT FEEDBACK',
+  title = 'What Our Clients Say'
+}: TestimonialsProps) {
   const testimonials = (propTestimonials && propTestimonials.length > 0) 
     ? propTestimonials 
     : TESTIMONIALS_DATA;
@@ -42,13 +48,13 @@ export default function Testimonials({ testimonials: propTestimonials }: Testimo
     <section className="bg-zinc-50 py-10 lg:py-14 border-b border-[#EAEAEA]" id="testimonials-section">
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
         
-        {/* Header Block */}
+        {/* Header Block (Now completely dynamic) */}
         <div className="text-center max-w-2xl mx-auto mb-16 relative">
           <span className="font-sans text-[13px] font-semibold tracking-[0.25em] text-[#029BFA] uppercase mb-3 block">
-            CLIENT FEEDBACK
+            {subtitle}
           </span>
           <h2 className="font-serif text-[36px] sm:text-[42px] font-bold text-[#021E3B] leading-[1.2] uppercase">
-            What Our Clients Say
+            {title}
           </h2>
           <div className="h-[3px] w-12 bg-[#029BFA] mx-auto mt-4" />
         </div>
