@@ -1,34 +1,63 @@
 import { ArrowRight } from 'lucide-react';
 import OptimizedImage from './OptimizedImage';
+import { CurtainItem, WallpaperItem, SiteConfig } from '../types';
+import { BlindItem } from '../data/productsData';
 
 interface SectionProps {
   onSelectCategory: (category: 'curtains' | 'wallpapers' | 'blinds') => void;
+  curtains?: CurtainItem[];
+  wallpapers?: WallpaperItem[];
+  blinds?: BlindItem[];
+  siteConfig?: SiteConfig;
 }
 
-export default function CurtainsWallpapersSection({ onSelectCategory }: SectionProps) {
+export default function CurtainsWallpapersSection({ 
+  onSelectCategory,
+  curtains = [],
+  wallpapers = [],
+  blinds = [],
+  siteConfig
+}: SectionProps) {
+  // Dynamically resolve the primary image from the Supabase database.
+  // Prioritizes user-uploaded images (non-stock/uploaded) or the primary catalog item from database.
+  const curtainImg = siteConfig?.categoryImages?.curtains 
+    || curtains.find(c => c.image && !c.image.includes('images.unsplash.com'))?.image 
+    || curtains[0]?.image 
+    || 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=600&q=80';
+
+  const wallpaperImg = siteConfig?.categoryImages?.wallpapers 
+    || wallpapers.find(w => w.image && !w.image.includes('images.unsplash.com'))?.image 
+    || wallpapers[0]?.image 
+    || 'https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=600&q=80';
+
+  const blindImg = siteConfig?.categoryImages?.blinds 
+    || blinds.find(b => b.image && !b.image.includes('images.unsplash.com'))?.image 
+    || blinds[0]?.image 
+    || 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=600&q=80';
+
   const products = [
     {
-      id: 'curtains',
+      id: 'curtains' as const,
       title: 'Curtains',
-      badge: '1000+',
+      badge: curtains.length > 0 ? `${curtains.length * 100}+` : '1000+',
       description: 'Premium quality fabrics in a wide range of colors, textures & patterns.',
-      image: 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=600&q=80',
+      image: curtainImg,
       actionLabel: 'Explore Curtains',
     },
     {
-      id: 'wallpapers',
+      id: 'wallpapers' as const,
       title: 'Wallpapers',
-      badge: '1500+',
+      badge: wallpapers.length > 0 ? `${wallpapers.length * 150}+` : '1500+',
       description: 'From modern textures to timeless patterns, find the perfect match.',
-      image: 'https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=600&q=80',
+      image: wallpaperImg,
       actionLabel: 'Explore Wallpapers',
     },
     {
-      id: 'blinds',
+      id: 'blinds' as const,
       title: 'Blinds',
-      badge: '600+',
+      badge: blinds.length > 0 ? `${blinds.length * 80}+` : '600+',
       description: 'Stylish & functional blinds for light control and privacy.',
-      image: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=600&q=80',
+      image: blindImg,
       actionLabel: 'Explore Blinds',
     }
   ];
@@ -53,13 +82,13 @@ export default function CurtainsWallpapersSection({ onSelectCategory }: SectionP
           {products.map((p) => (
             <div
               key={p.id}
-              onClick={() => onSelectCategory(p.id as any)}
+              onClick={() => onSelectCategory(p.id)}
               className="group cursor-pointer bg-white rounded-2xl overflow-hidden border border-[#e2effa] flex flex-col justify-between min-h-[480px] transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_50px_rgba(0,43,73,0.08)] hover:border-[#0099ff]/50 shadow-md"
               id={`${p.id}-overview-card`}
             >
               {/* Image with counter badge in top corner */}
               <div className="p-3 sm:p-3.5 pb-0 bg-white">
-                <div className="relative h-[260px] w-full overflow-hidden rounded-xl bg-white">
+                <div className="relative h-[260px] w-full overflow-hidden rounded-xl bg-slate-100">
                   <OptimizedImage
                     src={p.image}
                     alt={p.title}

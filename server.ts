@@ -5,8 +5,12 @@ import dotenv from "dotenv";
 import { handleAdminLogin } from "./api/admin/login";
 import { handleAdminVerify } from "./api/admin/verify";
 import { handleSendEmail } from "./api/send-email";
+import { handleGetSupabaseConfig, handleSaveSupabaseConfig, getStoredSupabaseConfig } from "./api/supabase-config";
 
 dotenv.config();
+
+// Pre-load stored Supabase config into process.env on server boot
+getStoredSupabaseConfig();
 
 export function createExpressApp() {
   const app = express();
@@ -46,13 +50,18 @@ export function createExpressApp() {
     next();
   });
 
-  // Use JSON middleware to parse requests
-  app.use(express.json());
+  // Use JSON & URLencoded middleware with generous 50mb limit for media/data payloads
+  app.use(express.json({ limit: "50mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
   // Backend Admin Authentication API & Email Routes
   app.post("/api/admin/login", (req, res) => handleAdminLogin(req, res));
   app.post("/api/admin/verify", (req, res) => handleAdminVerify(req, res));
   app.post("/api/send-email", (req, res) => handleSendEmail(req, res));
+
+  // Universal Supabase Database Config Endpoints
+  app.get("/api/supabase-config", (req, res) => handleGetSupabaseConfig(req, res));
+  app.post("/api/supabase-config", (req, res) => handleSaveSupabaseConfig(req, res));
 
   return app;
 }

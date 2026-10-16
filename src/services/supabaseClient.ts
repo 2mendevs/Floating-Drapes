@@ -72,15 +72,61 @@ export function getSupabaseClient(): SupabaseClient | null {
 }
 
 /**
- * Saves Supabase credentials into persistent storage and refreshes client
+ * Universally synchronizes Supabase credentials with the backend server so ANY device/browser
+ * (laptops, mobile phones, tablets, incognito) connects to the exact same database.
+ */
+export async function initUniversalSupabase(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/supabase-config');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.url && data.key && data.url.startsWith('http')) {
+        const cleanUrl = data.url.trim();
+        const cleanKey = data.key.trim();
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(STORAGE_URL_KEY, cleanUrl);
+          localStorage.setItem(STORAGE_ANON_KEY, cleanKey);
+        }
+        currentConfiguredUrl = cleanUrl;
+        currentConfiguredKey = cleanKey;
+        activeSupabaseClient = createClient(cleanUrl, cleanKey, {
+          auth: { persistSession: true, autoRefreshToken: true },
+          realtime: { params: { eventsPerSecond: 10 } }
+        });
+        return true;
+      }
+    }
+  } catch (err) {
+    console.warn('Backend Supabase config fetch notice:', err);
+  }
+  return isSupabaseConfigured();
+}
+
+/**
+ * Saves Supabase credentials into persistent storage and refreshes client universally
  */
 export function saveSupabaseCredentials(url: string, key: string): boolean {
   try {
+    const cleanUrl = url.trim();
+    const cleanKey = key.trim();
     if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_URL_KEY, url.trim());
-      localStorage.setItem(STORAGE_ANON_KEY, key.trim());
+      localStorage.setItem(STORAGE_URL_KEY, cleanUrl);
+      localStorage.setItem(STORAGE_ANON_KEY, cleanKey);
     }
-    activeSupabaseClient = null; // Force recreate
+    currentConfiguredUrl = cleanUrl;
+    currentConfiguredKey = cleanKey;
+    activeSupabaseClient = createClient(cleanUrl, cleanKey, {
+      auth: { persistSession: true, autoRefreshToken: true },
+      realtime: { params: { eventsPerSecond: 10 } }
+    });
+
+    // Broadcast and persist universally to backend server for mobile/cross-device access
+    fetch('/api/supabase-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: cleanUrl, key: cleanKey })
+    }).catch((err) => console.warn('Server sync notice:', err));
+
     return true;
   } catch (e) {
     console.error('Failed to save Supabase credentials:', e);
@@ -97,6 +143,8 @@ export function clearStoredSupabaseCredentials(): void {
     localStorage.removeItem(STORAGE_ANON_KEY);
   }
   activeSupabaseClient = null;
+  currentConfiguredUrl = '';
+  currentConfiguredKey = '';
 }
 
 /**
@@ -313,7 +361,7 @@ export async function upsertCurtainToSupabase(item: CurtainItem): Promise<boolea
   if (!client) return false;
 
   try {
-    const { error } = await client.from('curtains').upsert({
+    const payload: any = {
       id: item.id,
       name: item.name,
       description: item.description,
@@ -321,8 +369,19 @@ export async function upsertCurtainToSupabase(item: CurtainItem): Promise<boolea
       price_class: item.priceClass,
       materials: item.materials,
       updated_at: new Date().toISOString()
-    });
-    if (error) throw error;
+    };
+    const { error } = await client.from('curtains').upsert(payload);
+    if (error) {
+      console.warn('Initial curtain upsert failed, retrying simplified payload:', error.message);
+      const fallback = {
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        image: item.image
+      };
+      const res2 = await client.from('curtains').upsert(fallback);
+      if (res2.error) throw res2.error;
+    }
     return true;
   } catch (err) {
     console.error('Failed to upsert curtain in Supabase:', err);
@@ -352,7 +411,7 @@ export async function upsertWallpaperToSupabase(item: WallpaperItem): Promise<bo
   if (!client) return false;
 
   try {
-    const { error } = await client.from('wallpapers').upsert({
+    const payload: any = {
       id: item.id,
       name: item.name,
       description: item.description,
@@ -360,8 +419,19 @@ export async function upsertWallpaperToSupabase(item: WallpaperItem): Promise<bo
       style: item.style,
       materials: item.materials,
       updated_at: new Date().toISOString()
-    });
-    if (error) throw error;
+    };
+    const { error } = await client.from('wallpapers').upsert(payload);
+    if (error) {
+      console.warn('Initial wallpaper upsert failed, retrying simplified payload:', error.message);
+      const fallback = {
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        image: item.image
+      };
+      const res2 = await client.from('wallpapers').upsert(fallback);
+      if (res2.error) throw res2.error;
+    }
     return true;
   } catch (err) {
     console.error('Failed to upsert wallpaper in Supabase:', err);
@@ -391,7 +461,7 @@ export async function upsertBlindToSupabase(item: BlindItem): Promise<boolean> {
   if (!client) return false;
 
   try {
-    const { error } = await client.from('blinds').upsert({
+    const payload: any = {
       id: item.id,
       name: item.name,
       description: item.description,
@@ -399,8 +469,19 @@ export async function upsertBlindToSupabase(item: BlindItem): Promise<boolean> {
       style: item.style,
       materials: item.materials,
       updated_at: new Date().toISOString()
-    });
-    if (error) throw error;
+    };
+    const { error } = await client.from('blinds').upsert(payload);
+    if (error) {
+      console.warn('Initial blind upsert failed, retrying simplified payload:', error.message);
+      const fallback = {
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        image: item.image
+      };
+      const res2 = await client.from('blinds').upsert(fallback);
+      if (res2.error) throw res2.error;
+    }
     return true;
   } catch (err) {
     console.error('Failed to upsert blind in Supabase:', err);
@@ -584,6 +665,70 @@ export function saveStoredUploadedImages(images: UploadedImage[]): void {
 }
 
 /**
+ * Compresses an image client-side to ensure fast uploads, minimal payload, and reliable storage
+ */
+export async function compressImageClientSide(
+  file: File,
+  maxDimension = 1600,
+  quality = 0.85
+): Promise<{ blob: Blob; dataUrl: string }> {
+  return new Promise((resolve) => {
+    // If not a raster image or is SVG, return original
+    if (!file.type.startsWith('image/') || file.type.includes('svg')) {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ blob: file, dataUrl: (reader.result as string) || '' });
+      reader.onerror = () => resolve({ blob: file, dataUrl: '' });
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        const reader = new FileReader();
+        reader.onload = () => resolve({ blob: file, dataUrl: (reader.result as string) || '' });
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      canvas.toBlob(
+        (blob) => {
+          resolve({ blob: blob || file, dataUrl });
+        },
+        'image/jpeg',
+        quality
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      const reader = new FileReader();
+      reader.onload = () => resolve({ blob: file, dataUrl: (reader.result as string) || '' });
+      reader.readAsDataURL(file);
+    };
+    img.src = objectUrl;
+  });
+}
+
+/**
  * Uploads an image file to Supabase (Supabase Storage bucket 'images' and saves metadata to public.uploaded_images table)
  */
 export async function uploadImageToSupabase(
@@ -598,13 +743,8 @@ export async function uploadImageToSupabase(
   message: string;
   error?: string;
 }> {
-  // Read file as Base64 for fast display and offline/direct DB storage fallback
-  const base64Data = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = (err) => reject(err);
-    reader.readAsDataURL(file);
-  });
+  // Compress image client side
+  const { blob: uploadBlob, dataUrl } = await compressImageClientSide(file, 1600, 0.85);
 
   const client = getSupabaseClient();
   const id = 'img_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
@@ -613,28 +753,44 @@ export async function uploadImageToSupabase(
   const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
   const storagePath = `${cleanCategory}/${Date.now()}_${sanitizedName}`;
 
-  let finalUrl = base64Data;
+  let finalUrl = dataUrl;
   let isStorageUploaded = false;
 
   if (client) {
     try {
       // 1. Try uploading to Supabase Storage bucket 'images'
-      const { data: storageUpload, error: storageErr } = await client.storage
+      let uploadResult = await client.storage
         .from('images')
-        .upload(storagePath, file, {
+        .upload(storagePath, uploadBlob, {
           cacheControl: '3600',
           upsert: true,
           contentType: file.type || 'image/jpeg'
         });
 
-      if (!storageErr && storageUpload) {
+      // If bucket does not exist, attempt to auto-create public bucket 'images'
+      if (uploadResult.error && uploadResult.error.message?.toLowerCase().includes('not found')) {
+        try {
+          await client.storage.createBucket('images', { public: true });
+          uploadResult = await client.storage
+            .from('images')
+            .upload(storagePath, uploadBlob, {
+              cacheControl: '3600',
+              upsert: true,
+              contentType: file.type || 'image/jpeg'
+            });
+        } catch {
+          // ignore bucket creation error
+        }
+      }
+
+      if (!uploadResult.error && uploadResult.data) {
         const { data: publicUrlData } = client.storage.from('images').getPublicUrl(storagePath);
         if (publicUrlData?.publicUrl) {
           finalUrl = publicUrlData.publicUrl;
           isStorageUploaded = true;
         }
-      } else if (storageErr) {
-        console.warn('Supabase storage upload noticed:', storageErr.message);
+      } else if (uploadResult.error) {
+        console.warn('Supabase storage upload notice:', uploadResult.error.message);
       }
     } catch (storageErr) {
       console.warn('Storage attempt skipped or bucket unavailable:', storageErr);
@@ -648,10 +804,10 @@ export async function uploadImageToSupabase(
         file_url: finalUrl,
         storage_path: isStorageUploaded ? storagePath : null,
         category: cleanCategory,
-        size_bytes: file.size,
+        size_bytes: uploadBlob.size || file.size,
         mime_type: file.type || 'image/jpeg',
         title: cleanTitle,
-        base64_data: base64Data.length < 500000 ? base64Data : null,
+        base64_data: dataUrl,
         created_at: new Date().toISOString()
       };
 
@@ -684,12 +840,12 @@ export async function uploadImageToSupabase(
   const fallbackRecord: UploadedImage = {
     id,
     filename: file.name,
-    file_url: base64Data,
+    file_url: dataUrl,
     category: cleanCategory,
-    size_bytes: file.size,
+    size_bytes: uploadBlob.size || file.size,
     mime_type: file.type || 'image/jpeg',
     title: cleanTitle,
-    base64_data: base64Data,
+    base64_data: dataUrl,
     created_at: new Date().toISOString()
   };
 

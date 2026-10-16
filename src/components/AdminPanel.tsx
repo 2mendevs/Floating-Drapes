@@ -6,7 +6,7 @@ import {
   Database, RefreshCw, Copy, CheckCheck, UploadCloud, DownloadCloud,
   AlertCircle, ShieldCheck, Wifi, WifiOff, Sparkles, ExternalLink,
   Star, MessageSquare, Upload, User, Image as ImageIcon, Search,
-  Filter, CheckCircle2, ArrowUpRight
+  Filter, CheckCircle2, ArrowUpRight, Camera
 } from 'lucide-react';
 import { CurtainItem, WallpaperItem, SiteConfig, BookingSubmission, Testimonial, UploadedImage } from '../types';
 import { BlindItem } from '../data/productsData';
@@ -466,63 +466,72 @@ export default function AdminPanel({
         const updated = [newProduct, ...blinds];
         setBlinds(updated);
         localStorage.setItem('floatingdrapes_blinds', JSON.stringify(updated));
+          if (isSupabaseConfigured()) {
+            await upsertBlindToSupabase(newProduct);
+          }
+        }
+
+        alert('New product added to catalog and synchronized universally!');
+      } else if (editingProduct) {
+        // Edit mode
+        let syncSuccess = false;
+        if (selectedProductCategory === 'curtains') {
+          const updatedItem: CurtainItem = {
+            ...editingProduct,
+            name: productForm.name,
+            description: productForm.description,
+            image: productForm.image,
+            priceClass: productForm.priceClass as any,
+            materials: materialsArray
+          };
+          const updated = curtains.map(p => p.id === editingProduct.id ? updatedItem : p);
+          setCurtains(updated);
+          localStorage.setItem('floatingdrapes_curtains', JSON.stringify(updated));
+          if (isSupabaseConfigured()) {
+            syncSuccess = await upsertCurtainToSupabase(updatedItem);
+          }
+        } else if (selectedProductCategory === 'wallpapers') {
+          const updatedItem: WallpaperItem = {
+            ...editingProduct,
+            name: productForm.name,
+            description: productForm.description,
+            image: productForm.image,
+            style: productForm.style as any,
+            materials: materialsArray
+          };
+          const updated = wallpapers.map(p => p.id === editingProduct.id ? updatedItem : p);
+          setWallpapers(updated);
+          localStorage.setItem('floatingdrapes_wallpapers', JSON.stringify(updated));
+          if (isSupabaseConfigured()) {
+            syncSuccess = await upsertWallpaperToSupabase(updatedItem);
+          }
+        } else {
+          const updatedItem: BlindItem = {
+            ...editingProduct,
+            name: productForm.name,
+            description: productForm.description,
+            image: productForm.image,
+            style: productForm.style as any,
+            materials: materialsArray
+          };
+          const updated = blinds.map(p => p.id === editingProduct.id ? updatedItem : p);
+          setBlinds(updated);
+          localStorage.setItem('floatingdrapes_blinds', JSON.stringify(updated));
+          if (isSupabaseConfigured()) {
+            syncSuccess = await upsertBlindToSupabase(updatedItem);
+          }
+        }
+
         if (isSupabaseConfigured()) {
-          await upsertBlindToSupabase(newProduct);
+          if (syncSuccess) {
+            alert(`"${productForm.name}" updated directly in Supabase database! Live on all devices.`);
+          } else {
+            alert(`"${productForm.name}" saved! (Note: Check Database tab to ensure table permissions are active).`);
+          }
+        } else {
+          alert(`"${productForm.name}" saved locally. (Connect Supabase in Database tab to sync to your database).`);
         }
       }
-
-      alert('New product added and broadcasted to catalog!');
-    } else if (editingProduct) {
-      // Edit mode
-      if (selectedProductCategory === 'curtains') {
-        const updatedItem: CurtainItem = {
-          ...editingProduct,
-          name: productForm.name,
-          description: productForm.description,
-          image: productForm.image,
-          priceClass: productForm.priceClass as any,
-          materials: materialsArray
-        };
-        const updated = curtains.map(p => p.id === editingProduct.id ? updatedItem : p);
-        setCurtains(updated);
-        localStorage.setItem('floatingdrapes_curtains', JSON.stringify(updated));
-        if (isSupabaseConfigured()) {
-          await upsertCurtainToSupabase(updatedItem);
-        }
-      } else if (selectedProductCategory === 'wallpapers') {
-        const updatedItem: WallpaperItem = {
-          ...editingProduct,
-          name: productForm.name,
-          description: productForm.description,
-          image: productForm.image,
-          style: productForm.style as any,
-          materials: materialsArray
-        };
-        const updated = wallpapers.map(p => p.id === editingProduct.id ? updatedItem : p);
-        setWallpapers(updated);
-        localStorage.setItem('floatingdrapes_wallpapers', JSON.stringify(updated));
-        if (isSupabaseConfigured()) {
-          await upsertWallpaperToSupabase(updatedItem);
-        }
-      } else {
-        const updatedItem: BlindItem = {
-          ...editingProduct,
-          name: productForm.name,
-          description: productForm.description,
-          image: productForm.image,
-          style: productForm.style as any,
-          materials: materialsArray
-        };
-        const updated = blinds.map(p => p.id === editingProduct.id ? updatedItem : p);
-        setBlinds(updated);
-        localStorage.setItem('floatingdrapes_blinds', JSON.stringify(updated));
-        if (isSupabaseConfigured()) {
-          await upsertBlindToSupabase(updatedItem);
-        }
-      }
-
-      alert('Product modified and synchronized universally!');
-    }
 
     // Reset Form
     setIsAddingProduct(false);
@@ -935,6 +944,58 @@ export default function AdminPanel({
       alert('Failed to upload image to Supabase.');
     } finally {
       setIsUploadingProductInline(false);
+    }
+  };
+
+  const handleQuickUploadProductPhoto = async (
+    item: any,
+    category: 'curtains' | 'wallpapers' | 'blinds',
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const res = await uploadImageToSupabase(file, {
+        category,
+        title: item.name
+      });
+
+      if (res.data?.file_url) {
+        const newUrl = res.data.file_url;
+        const updatedItem = { ...item, image: newUrl };
+
+        if (category === 'curtains') {
+          const updated = curtains.map(p => p.id === item.id ? updatedItem : p);
+          setCurtains(updated);
+          localStorage.setItem('floatingdrapes_curtains', JSON.stringify(updated));
+          if (isSupabaseConfigured()) {
+            await upsertCurtainToSupabase(updatedItem);
+          }
+        } else if (category === 'wallpapers') {
+          const updated = wallpapers.map(p => p.id === item.id ? updatedItem : p);
+          setWallpapers(updated);
+          localStorage.setItem('floatingdrapes_wallpapers', JSON.stringify(updated));
+          if (isSupabaseConfigured()) {
+            await upsertWallpaperToSupabase(updatedItem);
+          }
+        } else {
+          const updated = blinds.map(p => p.id === item.id ? updatedItem : p);
+          setBlinds(updated);
+          localStorage.setItem('floatingdrapes_blinds', JSON.stringify(updated));
+          if (isSupabaseConfigured()) {
+            await upsertBlindToSupabase(updatedItem);
+          }
+        }
+
+        const fresh = await fetchUploadedImagesFromSupabase();
+        setUploadedImages(fresh);
+
+        alert(`New photo uploaded and updated in Supabase database for "${item.name}"!`);
+      }
+    } catch (err) {
+      console.error('Quick upload error:', err);
+      alert('Failed to upload image to Supabase.');
     }
   };
 
@@ -1616,16 +1677,28 @@ export default function AdminPanel({
                               </span>
                             </td>
                             <td className="p-4 text-right space-x-1 whitespace-nowrap">
+                              <label 
+                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer align-middle"
+                                title="Upload Photo Directly to Supabase"
+                              >
+                                <Camera className="h-3.5 w-3.5" />
+                                <input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  onChange={(e) => handleQuickUploadProductPhoto(item, 'curtains', e)} 
+                                  className="hidden" 
+                                />
+                              </label>
                               <button 
                                 onClick={() => startEditProduct(item)}
-                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer"
+                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer align-middle"
                                 title="Edit Product"
                               >
                                 <Edit2 className="h-3.5 w-3.5" />
                               </button>
                               <button 
                                 onClick={() => handleDeleteProduct(item.id, 'curtains')}
-                                className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors inline-block cursor-pointer"
+                                className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors inline-block cursor-pointer align-middle"
                                 title="Delete Product"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -1652,16 +1725,28 @@ export default function AdminPanel({
                               </span>
                             </td>
                             <td className="p-4 text-right space-x-1 whitespace-nowrap">
+                              <label 
+                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer align-middle"
+                                title="Upload Photo Directly to Supabase"
+                              >
+                                <Camera className="h-3.5 w-3.5" />
+                                <input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  onChange={(e) => handleQuickUploadProductPhoto(item, 'wallpapers', e)} 
+                                  className="hidden" 
+                                />
+                              </label>
                               <button 
                                 onClick={() => startEditProduct(item)}
-                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer"
+                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer align-middle"
                                 title="Edit Product"
                               >
                                 <Edit2 className="h-3.5 w-3.5" />
                               </button>
                               <button 
                                 onClick={() => handleDeleteProduct(item.id, 'wallpapers')}
-                                className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors inline-block cursor-pointer"
+                                className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors inline-block cursor-pointer align-middle"
                                 title="Delete Product"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -1688,16 +1773,28 @@ export default function AdminPanel({
                               </span>
                             </td>
                             <td className="p-4 text-right space-x-1 whitespace-nowrap">
+                              <label 
+                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer align-middle"
+                                title="Upload Photo Directly to Supabase"
+                              >
+                                <Camera className="h-3.5 w-3.5" />
+                                <input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  onChange={(e) => handleQuickUploadProductPhoto(item, 'blinds', e)} 
+                                  className="hidden" 
+                                />
+                              </label>
                               <button 
                                 onClick={() => startEditProduct(item)}
-                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer"
+                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer align-middle"
                                 title="Edit Product"
                               >
                                 <Edit2 className="h-3.5 w-3.5" />
                               </button>
                               <button 
                                 onClick={() => handleDeleteProduct(item.id, 'blinds')}
-                                className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors inline-block cursor-pointer"
+                                className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors inline-block cursor-pointer align-middle"
                                 title="Delete Product"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />

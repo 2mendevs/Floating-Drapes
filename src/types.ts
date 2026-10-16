@@ -281,6 +281,12 @@ export interface SiteConfig {
   themePreset: 'sapphire' | 'amber' | 'emerald' | 'crimson' | 'obsidian';
   fontPreset: 'jakarta_playfair' | 'inter_cinzel' | 'outfit_bodoni';
   brandLogoUrl: string;
+  heroImageUrl?: string;
+  categoryImages?: {
+    curtains?: string;
+    wallpapers?: string;
+    blinds?: string;
+  };
 }
 
 export const DEFAULT_SITE_CONFIG: SiteConfig = {

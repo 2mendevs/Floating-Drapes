@@ -77,9 +77,9 @@ export default function Header({ activePage, setActivePage, openBookingModal, br
       }}
       id="main-sticky-header"
     >
-      <div className="mx-auto flex h-[72px] sm:h-[76px] max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8 xl:px-12">
+      <div className="mx-auto flex h-[74px] sm:h-[78px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         
-        {/* LOGO LEFT - reduced size, static, no scale animation on hover/drag */}
+        {/* LOGO LEFT - balanced proportion, static, no scale animation on hover/drag */}
         <div 
           onClick={() => {
             setActivePage('home');
@@ -92,7 +92,7 @@ export default function Header({ activePage, setActivePage, openBookingModal, br
             src={brandLogoUrl} 
             alt="Floating Drapes" 
             draggable={false}
-            className="h-[32px] sm:h-[36px] md:h-[38px] w-auto max-h-[42px] object-contain select-none"
+            className="h-[40px] sm:h-[44px] md:h-[48px] w-auto max-h-[50px] object-contain select-none"
             id="brand-logo-img"
           />
         </div>

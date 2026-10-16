@@ -86,7 +86,7 @@ export default function Hero({ onExplore, openBookingModal, siteConfig }: HeroPr
           </div>
 
           {/* RIGHT COLUMN (50%) */}
-          <div className="lg:col-span-6 relative flex justify-center lg:justify-end items-center lg:-translate-y-36 lg:mt-0 mt-6" id="hero-image-column">
+          <div className="lg:col-span-6 relative flex justify-center lg:justify-end items-center mt-6 lg:mt-0" id="hero-image-column">
             {/* Background design elements */}
             <div className="absolute -top-6 -left-6 w-24 h-24 bg-[#029BFA]/10 rounded-full blur-2xl pointer-events-none" />
             <div className="absolute -bottom-10 -right-4 w-48 h-48 bg-[#021E3B]/5 rounded-full blur-3xl pointer-events-none" />
@@ -94,7 +94,7 @@ export default function Hero({ onExplore, openBookingModal, siteConfig }: HeroPr
             {/* Main Luxury Living room with beautiful blue curtains */}
             <div className="relative w-full aspect-[4/3] sm:aspect-video lg:aspect-[4/3] overflow-hidden rounded-[24px] shadow-[0_20px_50px_rgba(2,30,59,0.15)] border border-zinc-100">
               <OptimizedImage
-                src="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=80"
+                src={siteConfig.heroImageUrl || "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=80"}
                 alt="Luxury living room styling with elite custom drapes"
                 priority={true}
                 width={1200}

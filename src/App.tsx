@@ -38,6 +38,7 @@ import {
 
 import {
   isSupabaseConfigured,
+  initUniversalSupabase,
   fetchUniversalSiteData,
   subscribeToUniversalChanges
 } from './services/supabaseClient';
@@ -131,37 +132,40 @@ export default function App() {
 
   // Universal Supabase Initialization & Realtime Synchronizer
   useEffect(() => {
-    // 1. Initial Universal Fetch from Supabase (if configured)
-    if (isSupabaseConfigured()) {
-      fetchUniversalSiteData()
-        .then((data) => {
-          if (data.siteConfig) {
-            setSiteConfig(data.siteConfig);
-            localStorage.setItem('floatingdrapes_config', JSON.stringify(data.siteConfig));
-          }
-          if (data.curtains && data.curtains.length > 0) {
-            setCurtains(data.curtains);
-            localStorage.setItem('floatingdrapes_curtains', JSON.stringify(data.curtains));
-          }
-          if (data.wallpapers && data.wallpapers.length > 0) {
-            setWallpapers(data.wallpapers);
-            localStorage.setItem('floatingdrapes_wallpapers', JSON.stringify(data.wallpapers));
-          }
-          if (data.blinds && data.blinds.length > 0) {
-            setBlinds(data.blinds);
-            localStorage.setItem('floatingdrapes_blinds', JSON.stringify(data.blinds));
-          }
-          if (data.testimonials && data.testimonials.length > 0) {
-            setTestimonials(data.testimonials);
-            localStorage.setItem('floatingdrapes_testimonials', JSON.stringify(data.testimonials));
-          }
-        })
-        .catch((err) => {
-          console.warn('Initial Supabase fetch fallback to local storage:', err);
-        });
+    let unsubscribe: (() => void) | undefined;
 
-      // 2. Subscribe to universal realtime changes across all tables
-      const unsubscribe = subscribeToUniversalChanges((table: string, payload: any) => {
+    // 1. Initial Universal Fetch from Supabase (syncs with backend server so all phones/laptops connect)
+    initUniversalSupabase().then((configured) => {
+      if (configured) {
+        fetchUniversalSiteData()
+          .then((data) => {
+            if (data.siteConfig) {
+              setSiteConfig(data.siteConfig);
+              localStorage.setItem('floatingdrapes_config', JSON.stringify(data.siteConfig));
+            }
+            if (data.curtains && data.curtains.length > 0) {
+              setCurtains(data.curtains);
+              localStorage.setItem('floatingdrapes_curtains', JSON.stringify(data.curtains));
+            }
+            if (data.wallpapers && data.wallpapers.length > 0) {
+              setWallpapers(data.wallpapers);
+              localStorage.setItem('floatingdrapes_wallpapers', JSON.stringify(data.wallpapers));
+            }
+            if (data.blinds && data.blinds.length > 0) {
+              setBlinds(data.blinds);
+              localStorage.setItem('floatingdrapes_blinds', JSON.stringify(data.blinds));
+            }
+            if (data.testimonials && data.testimonials.length > 0) {
+              setTestimonials(data.testimonials);
+              localStorage.setItem('floatingdrapes_testimonials', JSON.stringify(data.testimonials));
+            }
+          })
+          .catch((err) => {
+            console.warn('Initial Supabase fetch fallback to local storage:', err);
+          });
+
+        // 2. Subscribe to universal realtime changes across all tables
+        unsubscribe = subscribeToUniversalChanges((table: string, payload: any) => {
         console.log(`[Supabase Realtime Event] Table: ${table}, Event: ${payload?.eventType}`, payload);
         const eventType = payload?.eventType;
         const newRecord = payload?.new;
@@ -258,11 +262,12 @@ export default function App() {
           }
         }
       });
-
-      return () => {
-        if (unsubscribe) unsubscribe();
-      };
     }
+  });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   // Keyboard shortcut listener for Ctrl + M / Cmd + M
@@ -346,6 +351,10 @@ export default function App() {
                   if (cat === 'wallpapers') setActivePage('wallpapers');
                   if (cat === 'blinds') setActivePage('blinds');
                 }} 
+                curtains={curtains}
+                wallpapers={wallpapers}
+                blinds={blinds}
+                siteConfig={siteConfig}
               />
               <WhyChooseUs />
               <ProcessSection />
@@ -369,7 +378,7 @@ export default function App() {
               className="py-12 lg:py-20 bg-[#041c35] min-h-screen text-white"
               id="curtains-page"
             >
-              <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8 xl:px-12">
+              <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <BackToHomeButton onClick={() => setActivePage('home')} />
                 
                 {/* Intro Heading */}
@@ -486,7 +495,7 @@ export default function App() {
               className="py-12 lg:py-20 bg-[#041c35] min-h-screen text-white"
               id="wallpapers-page"
             >
-              <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8 xl:px-12">
+              <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <BackToHomeButton onClick={() => setActivePage('home')} />
                 
                 {/* Intro Heading */}
@@ -603,7 +612,7 @@ export default function App() {
               className="py-12 lg:py-20 bg-[#041c35] min-h-screen text-white"
               id="blinds-page"
             >
-              <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8 xl:px-12">
+              <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <BackToHomeButton onClick={() => setActivePage('home')} />
                 
                 {/* Intro Heading */}
