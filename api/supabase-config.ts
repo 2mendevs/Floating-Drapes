@@ -1,4 +1,4 @@
-// Shared configuration reader compatible with both local/server and Vercel environments
+// Shared configuration reader compatible with server.ts and Vercel functions
 export function getStoredSupabaseConfig() {
   const url = (
     process.env.VITE_SUPABASE_URL ||
@@ -29,7 +29,7 @@ export function handleGetSupabaseConfig(req: any, res: any) {
   }
 }
 
-// Save handler for Express server in server.ts
+// Handler for saving config in server.ts
 export function handleSaveSupabaseConfig(req: any, res: any) {
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
@@ -42,7 +42,6 @@ export function handleSaveSupabaseConfig(req: any, res: any) {
     const trimmedUrl = String(url).trim();
     const trimmedKey = String(key).trim();
 
-    // Update process memory
     process.env.VITE_SUPABASE_URL = trimmedUrl;
     process.env.VITE_SUPABASE_ANON_KEY = trimmedKey;
     process.env.SUPABASE_URL = trimmedUrl;
@@ -50,7 +49,7 @@ export function handleSaveSupabaseConfig(req: any, res: any) {
 
     return res.status(200).json({
       success: true,
-      message: "Supabase credentials saved in server memory",
+      message: "Supabase credentials updated successfully",
       config: {
         url: trimmedUrl,
         key: trimmedKey,
@@ -58,11 +57,11 @@ export function handleSaveSupabaseConfig(req: any, res: any) {
       }
     });
   } catch (err: any) {
-    return res.status(500).json({ error: err?.message || "Failed to persist configuration" });
+    return res.status(500).json({ error: err?.message || "Failed to update configuration" });
   }
 }
 
-// Default export handler for Vercel Serverless Functions
+// Default export required for Vercel Serverless Function routing
 export default async function handler(req: any, res: any) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
