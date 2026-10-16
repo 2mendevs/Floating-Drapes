@@ -5,9 +5,10 @@ import {
   Layers, FolderOpen, Eye, Inbox, FileText, Link, HelpCircle,
   Database, RefreshCw, Copy, CheckCheck, UploadCloud, DownloadCloud,
   AlertCircle, ShieldCheck, Wifi, WifiOff, Sparkles, ExternalLink,
-  Star, MessageSquare, Upload, User, Image as ImageIcon, Search
+  Star, MessageSquare, Upload, User, Image as ImageIcon, Search,
+  Filter, CheckCircle2, ArrowUpRight
 } from 'lucide-react';
-import { CurtainItem, WallpaperItem, SiteConfig, BookingSubmission, Testimonial } from '../types';
+import { CurtainItem, WallpaperItem, SiteConfig, BookingSubmission, Testimonial, UploadedImage } from '../types';
 import { BlindItem } from '../data/productsData';
 import { motion, AnimatePresence } from 'motion/react';
 import CustomerAvatar from './CustomerAvatar';
@@ -31,6 +32,10 @@ import {
   deleteBookingFromSupabase,
   deleteInquiryFromSupabase,
   seedDefaultCatalogToSupabase,
+  uploadImageToSupabase,
+  fetchUploadedImagesFromSupabase,
+  deleteUploadedImageFromSupabase,
+  getStoredUploadedImages,
   SUPABASE_SQL_SCHEMA
 } from '../services/supabaseClient';
 
@@ -72,7 +77,23 @@ export default function AdminPanel({
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
 
   // Active control panel tab
-  const [activeTab, setActiveTab] = useState<'captions' | 'theme' | 'products' | 'feedback' | 'inquiries' | 'database'>('captions');
+  const [activeTab, setActiveTab] = useState<'captions' | 'theme' | 'products' | 'media' | 'feedback' | 'inquiries' | 'database'>('captions');
+
+  // Media Library & Image Uploading states
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+  const [isLoadingMedia, setIsLoadingMedia] = useState(false);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [uploadSuccessMsg, setUploadSuccessMsg] = useState('');
+  const [uploadErrorMsg, setUploadErrorMsg] = useState('');
+  const [mediaCategoryFilter, setMediaCategoryFilter] = useState<string>('all');
+  const [mediaSearchQuery, setMediaSearchQuery] = useState('');
+  const [copiedMediaId, setCopiedMediaId] = useState<string | null>(null);
+  const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null);
+  const [uploadCategory, setUploadCategory] = useState<'curtains' | 'wallpapers' | 'blinds' | 'hero' | 'gallery' | 'general'>('general');
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [previewModalImage, setPreviewModalImage] = useState<UploadedImage | null>(null);
+  const [isUploadingProductInline, setIsUploadingProductInline] = useState(false);
 
   // Captions form state
   const [captions, setCaptions] = useState<SiteConfig>({ ...siteConfig });
@@ -219,6 +240,13 @@ export default function AdminPanel({
         console.error(e);
       }
     }
+
+    // Load uploaded media images from Supabase or local cache
+    fetchUploadedImagesFromSupabase().then(images => {
+      if (images) {
+        setUploadedImages(images);
+      }
+    });
 
     // If Supabase is configured, fetch live records for inquiries
     if (isSupabaseConfigured()) {
@@ -560,23 +588,35 @@ export default function AdminPanel({
     });
   };
 
-  const handleFeedbackImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFeedbackImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      alert('Please select an image smaller than 2MB for faster loading.');
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Please select an image smaller than 10MB.');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      if (base64) {
-        setFeedbackForm(prev => ({ ...prev, image: base64 }));
+    try {
+      const res = await uploadImageToSupabase(file, {
+        category: 'gallery',
+        title: `Customer - ${feedbackForm.name || 'Client'}`
+      });
+      if (res.data?.file_url) {
+        setFeedbackForm(prev => ({ ...prev, image: res.data!.file_url }));
+        const fresh = await fetchUploadedImagesFromSupabase();
+        setUploadedImages(fresh);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        if (base64) {
+          setFeedbackForm(prev => ({ ...prev, image: base64 }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleRemoveFeedbackPhoto = () => {
@@ -787,6 +827,117 @@ export default function AdminPanel({
     setTimeout(() => setSqlCopied(false), 3000);
   };
 
+  // Media Library Handlers
+  const handleLoadMedia = async () => {
+    setIsLoadingMedia(true);
+    try {
+      const images = await fetchUploadedImagesFromSupabase();
+      setUploadedImages(images);
+    } catch (err) {
+      console.error('Failed to load media:', err);
+    } finally {
+      setIsLoadingMedia(false);
+    }
+  };
+
+  const handleExecuteUpload = async (fileToUpload?: File) => {
+    const file = fileToUpload || selectedUploadFile;
+    if (!file) {
+      setUploadErrorMsg('Please select an image file to upload.');
+      return;
+    }
+
+    if (file.size > 25 * 1024 * 1024) {
+      setUploadErrorMsg('File size exceeds 25MB limit. Please choose a smaller image.');
+      return;
+    }
+
+    setIsUploadingMedia(true);
+    setUploadErrorMsg('');
+    setUploadSuccessMsg('');
+
+    try {
+      const res = await uploadImageToSupabase(file, {
+        category: uploadCategory,
+        title: uploadTitle.trim() || undefined
+      });
+
+      if (res.success && res.data) {
+        setUploadSuccessMsg(res.message);
+        setSelectedUploadFile(null);
+        setUploadTitle('');
+        const freshList = await fetchUploadedImagesFromSupabase();
+        setUploadedImages(freshList);
+        setTimeout(() => setUploadSuccessMsg(''), 6000);
+      } else {
+        setUploadErrorMsg(res.error || 'Failed to upload image.');
+      }
+    } catch (err: any) {
+      setUploadErrorMsg(err?.message || 'An error occurred during image upload.');
+    } finally {
+      setIsUploadingMedia(false);
+    }
+  };
+
+  const handleDeleteMedia = async (image: UploadedImage) => {
+    if (!window.confirm(`Delete image "${image.title || image.filename}" from your Supabase database and storage?`)) return;
+
+    const success = await deleteUploadedImageFromSupabase(image.id, image.storage_path);
+    if (success) {
+      setUploadedImages(prev => prev.filter(img => img.id !== image.id));
+      if (previewModalImage?.id === image.id) {
+        setPreviewModalImage(null);
+      }
+    } else {
+      alert('Failed to delete image from Supabase.');
+    }
+  };
+
+  const handleCopyUrl = (url: string, id: string) => {
+    navigator.clipboard.writeText(url);
+    setCopiedMediaId(id);
+    setTimeout(() => setCopiedMediaId(null), 2500);
+  };
+
+  const handleApplyToProduct = (imageUrl: string, category: 'curtains' | 'wallpapers' | 'blinds') => {
+    setSelectedProductCategory(category);
+    setProductForm({
+      id: `${category.charAt(0)}${Date.now()}`,
+      name: `New ${category.slice(0, -1).charAt(0).toUpperCase() + category.slice(0, -1).slice(1)} Item`,
+      description: '',
+      image: imageUrl,
+      priceClass: 'Premium',
+      style: 'Classic',
+      materials: ''
+    });
+    setIsAddingProduct(true);
+    setActiveTab('products');
+  };
+
+  const handleProductInlineUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingProductInline(true);
+    try {
+      const res = await uploadImageToSupabase(file, {
+        category: selectedProductCategory,
+        title: `${selectedProductCategory} item`
+      });
+
+      if (res.data?.file_url) {
+        setProductForm(prev => ({ ...prev, image: res.data!.file_url }));
+        const fresh = await fetchUploadedImagesFromSupabase();
+        setUploadedImages(fresh);
+      }
+    } catch (err) {
+      console.error('Inline upload error:', err);
+      alert('Failed to upload image to Supabase.');
+    } finally {
+      setIsUploadingProductInline(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -926,6 +1077,17 @@ export default function AdminPanel({
                 >
                   <ShoppingBag className="h-4 w-4" />
                   <span>Products Catalog</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('media');
+                    handleLoadMedia();
+                  }}
+                  className={`w-full text-left px-4 py-3 text-xs font-bold tracking-widest uppercase flex items-center space-x-3 transition-all cursor-pointer rounded-lg ${activeTab === 'media' ? 'bg-[#0099ff] text-white shadow-md shadow-[#0099ff]/30' : 'hover:bg-[#002b49] text-[#88ccff] hover:text-white'}`}
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  <span className="flex-1">Media & Uploads</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#002b49] text-[#88ccff] border border-[#003866] font-mono font-bold">{uploadedImages.length}</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('feedback')}
@@ -1297,15 +1459,39 @@ export default function AdminPanel({
                           </div>
 
                           <div>
-                            <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Image Link (Custom CDN or Unsplash URL) *</label>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider">
+                                Image Link (CDN URL or Direct Supabase Upload) *
+                              </label>
+                              <label className="inline-flex items-center space-x-1.5 px-2.5 py-1 bg-[#e3f2fd] hover:bg-[#d0e8f9] text-[#006699] border border-[#90cdf4] text-[10px] font-bold tracking-wider uppercase rounded-md cursor-pointer transition-colors shadow-2xs">
+                                <UploadCloud className="h-3 w-3 text-[#0099ff]" />
+                                <span>{isUploadingProductInline ? 'Uploading to Supabase...' : 'Upload to Supabase'}</span>
+                                <input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  disabled={isUploadingProductInline}
+                                  onChange={handleProductInlineUpload} 
+                                  className="hidden" 
+                                />
+                              </label>
+                            </div>
                             <input
                               type="text"
                               required
                               value={productForm.image}
                               onChange={(e) => setProductForm({ ...productForm, image: e.target.value })}
                               className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
-                              placeholder="e.g. https://images.unsplash.com/photo-..."
+                              placeholder="Paste URL or click 'Upload to Supabase' above"
                             />
+                            {productForm.image && (
+                              <div className="mt-2 flex items-center space-x-2.5 bg-[#f8fbfe] border border-[#c5def2] p-2 rounded-lg">
+                                <img src={productForm.image} alt="Preview" className="h-10 w-10 object-cover rounded-md border border-[#c5def2] bg-white" />
+                                <div className="text-[10px] truncate">
+                                  <span className="font-semibold text-[#002b49] block truncate">Active Image Selected</span>
+                                  <span className="text-[#335577] truncate block max-w-[280px]">{productForm.image}</span>
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           {selectedProductCategory === 'curtains' ? (
@@ -1521,6 +1707,442 @@ export default function AdminPanel({
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: MEDIA LIBRARY & SUPABASE IMAGE UPLOADS */}
+              {activeTab === 'media' && (
+                <div className="space-y-8 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
+                  {/* HEADER BANNER */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-5 border-b border-[#d8eaf7] gap-4">
+                    <div>
+                      <h3 className="font-serif text-2xl font-bold flex items-center space-x-2.5 text-[#002b49]">
+                        <ImageIcon className="h-6 w-6 text-[#0099ff]" />
+                        <span>Supabase Media &amp; Image Upload Center</span>
+                        <span className="text-xs px-2.5 py-0.5 bg-[#e3f2fd] text-[#0077c2] border border-[#90cdf4] font-sans font-bold rounded-md">
+                          {uploadedImages.length} Files in Database
+                        </span>
+                      </h3>
+                      <p className="font-sans text-xs text-[#335577] mt-1">
+                        Upload photography, fabrics, wallpapers, and room visualizers directly into your Supabase account. Files are saved in Supabase Storage with metadata recorded in the <code className="bg-[#e3f2fd] text-[#006699] px-1.5 py-0.5 rounded font-mono text-[11px]">public.uploaded_images</code> database table.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center space-x-3 shrink-0">
+                      <button
+                        onClick={handleLoadMedia}
+                        disabled={isLoadingMedia}
+                        className="px-4 py-2 bg-white hover:bg-[#e3f2fd] text-[#006699] border border-[#c5def2] rounded-lg text-xs font-bold tracking-wider uppercase transition-colors flex items-center space-x-2 cursor-pointer shadow-2xs"
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${isLoadingMedia ? 'animate-spin text-[#0099ff]' : ''}`} />
+                        <span>Refresh Media</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* SUPABASE STATUS INDICATOR STRIP */}
+                  <div className={`p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+                    supabaseStatus === 'connected' 
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
+                      : 'bg-amber-50 border-amber-200 text-amber-900'
+                  }`}>
+                    <div className="flex items-center space-x-2.5">
+                      {supabaseStatus === 'connected' ? (
+                        <>
+                          <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className="text-xs font-bold tracking-wide">
+                            Connected to Supabase Project: Uploads save directly to your Supabase Storage bucket &amp; database table!
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                          <span className="text-xs font-medium">
+                            Supabase database is currently unlinked or testing. Connect your Supabase credentials in the <strong>Database</strong> tab to persist images in your cloud account. Local fallback caching is active.
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    {supabaseStatus !== 'connected' && (
+                      <button
+                        onClick={() => setActiveTab('database')}
+                        className="text-[11px] font-bold text-[#0077c2] underline hover:text-[#005588] shrink-0"
+                      >
+                        Go to Database Setup &rarr;
+                      </button>
+                    )}
+                  </div>
+
+                  {/* UPLOAD STUDIO CARD */}
+                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 shadow-sm">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-[#006699] mb-4 flex items-center space-x-2">
+                      <UploadCloud className="h-4 w-4 text-[#0099ff]" />
+                      <span>Upload New Image File to Supabase</span>
+                    </h4>
+
+                    {/* Drag & Drop Zone */}
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDraggingOver(true);
+                      }}
+                      onDragLeave={() => setIsDraggingOver(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDraggingOver(false);
+                        const files = e.dataTransfer.files;
+                        if (files && files[0]) {
+                          setSelectedUploadFile(files[0]);
+                          if (!uploadTitle) {
+                            setUploadTitle(files[0].name.replace(/\.[^/.]+$/, ''));
+                          }
+                        }
+                      }}
+                      className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all ${
+                        isDraggingOver 
+                          ? 'border-[#0099ff] bg-[#e3f2fd]/60 scale-[1.005]' 
+                          : 'border-[#c5def2] bg-[#f8fbfe] hover:bg-[#eef7fc]'
+                      }`}
+                    >
+                      <input
+                        type="file"
+                        id="supabase-media-file-input"
+                        accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setSelectedUploadFile(file);
+                            if (!uploadTitle) {
+                              setUploadTitle(file.name.replace(/\.[^/.]+$/, ''));
+                            }
+                          }
+                        }}
+                      />
+
+                      <div className="flex flex-col items-center justify-center space-y-3">
+                        <div className="h-14 w-14 rounded-full bg-[#e3f2fd] flex items-center justify-center text-[#0099ff] shadow-inner">
+                          <UploadCloud className="h-7 w-7" />
+                        </div>
+                        <div>
+                          <p className="font-serif text-base font-bold text-[#002b49]">
+                            {selectedUploadFile ? selectedUploadFile.name : 'Drag & Drop your image file here'}
+                          </p>
+                          <p className="font-sans text-xs text-[#52779a] mt-0.5">
+                            {selectedUploadFile 
+                              ? `Size: ${(selectedUploadFile.size / (1024 * 1024)).toFixed(2)} MB • Type: ${selectedUploadFile.type || 'image'}` 
+                              : 'Supports JPG, PNG, WebP, GIF, SVG up to 25MB'}
+                          </p>
+                        </div>
+
+                        <label
+                          htmlFor="supabase-media-file-input"
+                          className="px-5 py-2.5 bg-[#0099ff] hover:bg-[#0088ee] text-white text-xs font-bold tracking-wider uppercase rounded-lg cursor-pointer shadow-md shadow-[#0099ff]/25 transition-all inline-flex items-center space-x-2"
+                        >
+                          <FolderOpen className="h-3.5 w-3.5" />
+                          <span>{selectedUploadFile ? 'Select Different File' : 'Browse Local Files'}</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Metadata & Confirmation Strip */}
+                    {selectedUploadFile && (
+                      <div className="mt-5 p-4 bg-[#f8fbfe] border border-[#c5def2] rounded-xl space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-bold tracking-wider uppercase text-[#006699] mb-1">
+                              Image Title / Label (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={uploadTitle}
+                              onChange={(e) => setUploadTitle(e.target.value)}
+                              placeholder="e.g. Belgian Charcoal Velvet Swatch"
+                              className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold tracking-wider uppercase text-[#006699] mb-1">
+                              Target Category / Placement
+                            </label>
+                            <select
+                              value={uploadCategory}
+                              onChange={(e) => setUploadCategory(e.target.value as any)}
+                              className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                            >
+                              <option value="curtains">Curtains Product Catalog</option>
+                              <option value="wallpapers">Wallpapers Product Catalog</option>
+                              <option value="blinds">Blinds Product Catalog</option>
+                              <option value="hero">Homepage Hero &amp; Banners</option>
+                              <option value="gallery">Showcase &amp; Testimonials</option>
+                              <option value="general">General Media</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-[#e2effa]">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedUploadFile(null);
+                              setUploadTitle('');
+                            }}
+                            className="px-4 py-2 border border-[#c5def2] hover:bg-white text-[#52779a] hover:text-[#002b49] text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={isUploadingMedia}
+                            onClick={() => handleExecuteUpload()}
+                            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold tracking-widest uppercase rounded-lg shadow-md shadow-emerald-600/25 transition-all flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+                          >
+                            {isUploadingMedia ? (
+                              <>
+                                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                <span>UPLOADING TO SUPABASE...</span>
+                              </>
+                            ) : (
+                              <>
+                                <UploadCloud className="h-4 w-4" />
+                                <span>SAVE FILE TO SUPABASE ACCOUNT</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Messages */}
+                    {uploadSuccessMsg && (
+                      <div className="mt-4 p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl flex items-start space-x-3 text-xs leading-relaxed">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <span className="font-bold block">Upload Confirmed!</span>
+                          <p>{uploadSuccessMsg}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {uploadErrorMsg && (
+                      <div className="mt-4 p-4 bg-red-50 border border-red-200 text-red-900 rounded-xl flex items-start space-x-3 text-xs leading-relaxed">
+                        <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <span className="font-bold block">Upload Error</span>
+                          <p>{uploadErrorMsg}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* MEDIA GALLERY SECTION */}
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                      <div className="flex items-center space-x-2">
+                        <h4 className="text-xs font-bold uppercase tracking-widest text-[#006699]">
+                          Uploaded Database Assets ({uploadedImages.length})
+                        </h4>
+                      </div>
+
+                      {/* Filter & Search Bar */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Search */}
+                        <div className="relative">
+                          <Search className="h-3.5 w-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <input
+                            type="text"
+                            value={mediaSearchQuery}
+                            onChange={(e) => setMediaSearchQuery(e.target.value)}
+                            placeholder="Filter by title or filename..."
+                            className="bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] pl-9 pr-3 py-1.5 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors w-48 sm:w-60"
+                          />
+                        </div>
+
+                        {/* Category Dropdown */}
+                        <select
+                          value={mediaCategoryFilter}
+                          onChange={(e) => setMediaCategoryFilter(e.target.value)}
+                          className="bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-1.5 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                        >
+                          <option value="all">All Categories</option>
+                          <option value="curtains">Curtains</option>
+                          <option value="wallpapers">Wallpapers</option>
+                          <option value="blinds">Blinds</option>
+                          <option value="hero">Hero &amp; Banners</option>
+                          <option value="gallery">Showcase &amp; Reviews</option>
+                          <option value="general">General</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Filtered Media Grid */}
+                    {(() => {
+                      const filtered = uploadedImages.filter(img => {
+                        const matchesCategory = mediaCategoryFilter === 'all' || img.category === mediaCategoryFilter;
+                        const q = mediaSearchQuery.toLowerCase().trim();
+                        const matchesSearch = !q || 
+                          (img.title && img.title.toLowerCase().includes(q)) || 
+                          img.filename.toLowerCase().includes(q);
+                        return matchesCategory && matchesSearch;
+                      });
+
+                      if (isLoadingMedia) {
+                        return (
+                          <div className="py-16 text-center bg-white border border-[#c5def2] rounded-xl space-y-3">
+                            <RefreshCw className="h-7 w-7 text-[#0099ff] animate-spin mx-auto" />
+                            <p className="text-xs text-[#52779a]">Querying uploaded files from Supabase...</p>
+                          </div>
+                        );
+                      }
+
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="py-16 text-center bg-white border border-[#c5def2] rounded-xl space-y-3 shadow-sm">
+                            <ImageIcon className="h-10 w-10 text-slate-300 mx-auto" />
+                            <p className="font-serif text-base font-bold text-[#002b49]">No media files found</p>
+                            <p className="text-xs text-[#52779a] max-w-sm mx-auto">
+                              {mediaSearchQuery || mediaCategoryFilter !== 'all'
+                                ? 'No uploaded images match your current filter criteria.'
+                                : 'Upload your first photography file using the drag-and-drop zone above to store it in Supabase.'}
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                          {filtered.map((image) => {
+                            const isCopied = copiedMediaId === image.id;
+                            const sizeKb = image.size_bytes ? (image.size_bytes / 1024).toFixed(0) + ' KB' : '';
+                            const dateFormatted = image.created_at ? new Date(image.created_at).toLocaleDateString() : '';
+
+                            return (
+                              <div
+                                key={image.id}
+                                className="bg-white border border-[#c5def2] hover:border-[#0099ff] rounded-xl overflow-hidden flex flex-col justify-between transition-all duration-300 hover:shadow-lg group"
+                              >
+                                {/* Thumbnail Image with Preview Trigger */}
+                                <div className="relative aspect-4/3 bg-slate-100 overflow-hidden cursor-pointer" onClick={() => setPreviewModalImage(image)}>
+                                  <img
+                                    src={image.file_url}
+                                    alt={image.title || image.filename}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                                  />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2 text-white">
+                                    <span className="text-[11px] font-bold tracking-wider uppercase bg-black/60 px-2.5 py-1 rounded backdrop-blur-xs flex items-center space-x-1">
+                                      <Eye className="h-3 w-3" />
+                                      <span>Preview</span>
+                                    </span>
+                                  </div>
+
+                                  {/* Category pill on top corner */}
+                                  <span className="absolute top-2 left-2 text-[9px] font-bold tracking-wider uppercase px-2 py-0.5 rounded shadow-sm bg-white/95 text-[#006699] border border-[#c5def2]">
+                                    {image.category || 'general'}
+                                  </span>
+                                </div>
+
+                                {/* Content Details */}
+                                <div className="p-3.5 flex flex-col justify-between flex-1 space-y-3">
+                                  <div>
+                                    <h5 className="font-semibold text-xs text-[#002b49] truncate" title={image.title || image.filename}>
+                                      {image.title || image.filename}
+                                    </h5>
+                                    <div className="flex items-center justify-between text-[10px] text-[#52779a] mt-1">
+                                      <span>{sizeKb || 'Image'}</span>
+                                      <span>{dateFormatted}</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Quick Action Buttons */}
+                                  <div className="space-y-1.5 pt-2 border-t border-[#e2effa]">
+                                    {/* Copy URL */}
+                                    <button
+                                      onClick={() => handleCopyUrl(image.file_url, image.id)}
+                                      className={`w-full py-1.5 px-2.5 text-[10px] font-bold tracking-wider uppercase rounded-md flex items-center justify-center space-x-1.5 transition-colors cursor-pointer ${
+                                        isCopied 
+                                          ? 'bg-emerald-600 text-white' 
+                                          : 'bg-[#e3f2fd] hover:bg-[#d0e8f9] text-[#006699] border border-[#90cdf4]'
+                                      }`}
+                                    >
+                                      {isCopied ? (
+                                        <>
+                                          <Check className="h-3 w-3" />
+                                          <span>COPIED URL!</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Copy className="h-3 w-3" />
+                                          <span>COPY SUPABASE URL</span>
+                                        </>
+                                      )}
+                                    </button>
+
+                                    {/* Use In Product Catalog Dropdown Buttons */}
+                                    <div className="grid grid-cols-3 gap-1 pt-1">
+                                      <button
+                                        onClick={() => handleApplyToProduct(image.file_url, 'curtains')}
+                                        className="py-1 px-1 bg-white hover:bg-[#e3f2fd] text-[#006699] border border-[#c5def2] text-[9px] font-semibold rounded truncate transition-colors cursor-pointer"
+                                        title="Create new curtain product with this image"
+                                      >
+                                        + Curtain
+                                      </button>
+                                      <button
+                                        onClick={() => handleApplyToProduct(image.file_url, 'wallpapers')}
+                                        className="py-1 px-1 bg-white hover:bg-[#e3f2fd] text-[#006699] border border-[#c5def2] text-[9px] font-semibold rounded truncate transition-colors cursor-pointer"
+                                        title="Create new wallpaper product with this image"
+                                      >
+                                        + Wallpaper
+                                      </button>
+                                      <button
+                                        onClick={() => handleApplyToProduct(image.file_url, 'blinds')}
+                                        className="py-1 px-1 bg-white hover:bg-[#e3f2fd] text-[#006699] border border-[#c5def2] text-[9px] font-semibold rounded truncate transition-colors cursor-pointer"
+                                        title="Create new blind product with this image"
+                                      >
+                                        + Blind
+                                      </button>
+                                    </div>
+
+                                    {/* Delete Button */}
+                                    <div className="flex justify-end pt-1">
+                                      <button
+                                        onClick={() => handleDeleteMedia(image)}
+                                        className="text-[10px] text-slate-400 hover:text-red-600 flex items-center space-x-1 transition-colors cursor-pointer"
+                                        title="Delete from Supabase"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                        <span>Delete</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* SUPABASE SQL SCHEMA HELPER ACCORDION */}
+                  <div className="bg-[#eef7fc] border border-[#c5def2] rounded-xl p-5 text-xs text-[#002b49] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2 font-bold text-[#006699] uppercase tracking-wider">
+                        <Database className="h-4 w-4" />
+                        <span>Supabase Storage &amp; Database Configuration Guide</span>
+                      </div>
+                      <button
+                        onClick={handleCopySql}
+                        className="text-[11px] font-bold text-[#0077c2] bg-white border border-[#c5def2] hover:bg-[#e3f2fd] px-3 py-1 rounded-md transition-colors cursor-pointer flex items-center space-x-1"
+                      >
+                        <Copy className="h-3 w-3" />
+                        <span>{sqlCopied ? 'SQL Copied!' : 'Copy SQL Schema'}</span>
+                      </button>
+                    </div>
+                    <p className="text-[#335577] leading-relaxed">
+                      Images uploaded here are saved into the Supabase PostgreSQL table <code className="bg-white px-1 py-0.5 rounded border border-[#c5def2] font-mono">public.uploaded_images</code> and public CDN bucket <code className="bg-white px-1 py-0.5 rounded border border-[#c5def2] font-mono">images</code>. If you just connected a fresh Supabase project, execute the full schema in your Supabase SQL Editor to enable all tables and storage permissions.
+                    </p>
                   </div>
                 </div>
               )}
@@ -2209,7 +2831,7 @@ export default function AdminPanel({
                         <strong>How to run:</strong> Open your <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-[#0099ff] underline inline-flex items-center space-x-1 font-semibold"><span>Supabase Dashboard</span> <ExternalLink className="h-3 w-3 inline" /></a> &gt; <strong>SQL Editor</strong> &gt; <strong>New query</strong> &gt; Paste this script &gt; Click <strong>Run</strong>.
                       </p>
                       <p className="text-[11px] text-[#335577]">
-                        This script creates <code>site_config</code>, <code>curtains</code>, <code>wallpapers</code>, <code>blinds</code>, <code>bookings</code>, and <code>inquiries</code> tables with Row Level Security (RLS) and enables Realtime replication for instant universal updates.
+                        This script creates <code>site_config</code>, <code>curtains</code>, <code>wallpapers</code>, <code>blinds</code>, <code>testimonials</code>, <code>bookings</code>, <code>inquiries</code>, and <code>uploaded_images</code> tables with Row Level Security (RLS), public storage bucket policies, and Realtime replication for instant universal updates.
                       </p>
                     </div>
 
@@ -2229,6 +2851,64 @@ export default function AdminPanel({
         )}
 
       </div>
+
+      {/* FULL SCREEN MEDIA LIGHTBOX PREVIEW MODAL */}
+      <AnimatePresence>
+        {previewModalImage && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" onClick={() => setPreviewModalImage(null)}>
+            <div 
+              className="relative max-w-4xl w-full bg-[#00172e] border border-[#003866] rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-[#003366] bg-[#001f3f]">
+                <div className="flex items-center space-x-2 text-white">
+                  <ImageIcon className="h-5 w-5 text-[#0099ff]" />
+                  <span className="font-semibold text-sm truncate">{previewModalImage.title || previewModalImage.filename}</span>
+                </div>
+                <button 
+                  onClick={() => setPreviewModalImage(null)}
+                  className="p-1.5 hover:bg-[#002b49] text-slate-300 hover:text-white rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="p-6 flex flex-col items-center justify-center bg-black/40 max-h-[70vh] overflow-hidden">
+                <img 
+                  src={previewModalImage.file_url} 
+                  alt={previewModalImage.title || previewModalImage.filename}
+                  className="max-h-[60vh] max-w-full object-contain rounded-lg shadow-xl"
+                />
+              </div>
+
+              <div className="p-5 border-t border-[#003366] bg-[#00172e] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
+                <div className="space-y-0.5 text-slate-300">
+                  <p><strong>Category:</strong> <span className="uppercase text-[#0099ff]">{previewModalImage.category || 'general'}</span></p>
+                  <p><strong>Direct CDN URL:</strong> <span className="font-mono text-[11px] text-slate-400 truncate max-w-md inline-block align-bottom">{previewModalImage.file_url}</span></p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleCopyUrl(previewModalImage.file_url, previewModalImage.id)}
+                    className="px-4 py-2 bg-[#0099ff] hover:bg-[#0088ee] text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors flex items-center space-x-1.5 cursor-pointer"
+                  >
+                    {copiedMediaId === previewModalImage.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    <span>{copiedMediaId === previewModalImage.id ? 'COPIED!' : 'COPY URL'}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleDeleteMedia(previewModalImage);
+                    }}
+                    className="px-4 py-2 bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/30 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors flex items-center space-x-1.5 cursor-pointer"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>DELETE</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

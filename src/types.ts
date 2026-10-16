@@ -60,6 +60,19 @@ export interface BookingSubmission {
   timestamp: string;
 }
 
+export interface UploadedImage {
+  id: string;
+  filename: string;
+  file_url: string;
+  storage_path?: string;
+  category?: 'curtains' | 'wallpapers' | 'blinds' | 'hero' | 'gallery' | 'general';
+  size_bytes?: number;
+  mime_type?: string;
+  title?: string;
+  base64_data?: string;
+  created_at: string;
+}
+
 // PREMIUM CURATED DATASETS
 export const CURTAINS_DATA: CurtainItem[] = [
   {

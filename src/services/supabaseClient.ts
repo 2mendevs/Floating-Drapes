@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { SiteConfig, CurtainItem, WallpaperItem, BookingSubmission, DEFAULT_SITE_CONFIG, Testimonial, TESTIMONIALS_DATA } from '../types';
+import { SiteConfig, CurtainItem, WallpaperItem, BookingSubmission, DEFAULT_SITE_CONFIG, Testimonial, TESTIMONIALS_DATA, UploadedImage } from '../types';
 import { BlindItem, EXTENDED_CURTAINS_DATA, EXTENDED_WALLPAPERS_DATA, EXTENDED_BLINDS_DATA } from '../data/productsData';
 
 // Storage keys for custom Supabase credentials configured via Admin Panel
@@ -116,7 +116,7 @@ export async function testSupabaseConnection(): Promise<{
     };
   }
 
-  const expectedTables = ['site_config', 'curtains', 'wallpapers', 'blinds', 'bookings', 'inquiries'];
+  const expectedTables = ['site_config', 'curtains', 'wallpapers', 'blinds', 'testimonials', 'bookings', 'inquiries', 'uploaded_images'];
   const tablesFound: string[] = [];
   const missingTables: string[] = [];
 
@@ -554,6 +554,235 @@ export async function deleteFeedbackFromSupabase(id: string): Promise<boolean> {
 }
 
 /**
+ * Local cache key for uploaded images
+ */
+const STORAGE_MEDIA_KEY = 'floatingdrapes_uploaded_images';
+
+/**
+ * Reads local cached uploaded images
+ */
+export function getStoredUploadedImages(): UploadedImage[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_MEDIA_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Saves uploaded images into local storage cache
+ */
+export function saveStoredUploadedImages(images: UploadedImage[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_MEDIA_KEY, JSON.stringify(images));
+  } catch (e) {
+    console.warn('Failed to cache images in localStorage:', e);
+  }
+}
+
+/**
+ * Uploads an image file to Supabase (Supabase Storage bucket 'images' and saves metadata to public.uploaded_images table)
+ */
+export async function uploadImageToSupabase(
+  file: File,
+  options?: {
+    category?: 'curtains' | 'wallpapers' | 'blinds' | 'hero' | 'gallery' | 'general';
+    title?: string;
+  }
+): Promise<{
+  success: boolean;
+  data?: UploadedImage;
+  message: string;
+  error?: string;
+}> {
+  // Read file as Base64 for fast display and offline/direct DB storage fallback
+  const base64Data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+
+  const client = getSupabaseClient();
+  const id = 'img_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+  const cleanCategory = options?.category || 'general';
+  const cleanTitle = options?.title?.trim() || file.name.replace(/\.[^/.]+$/, '');
+  const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const storagePath = `${cleanCategory}/${Date.now()}_${sanitizedName}`;
+
+  let finalUrl = base64Data;
+  let isStorageUploaded = false;
+
+  if (client) {
+    try {
+      // 1. Try uploading to Supabase Storage bucket 'images'
+      const { data: storageUpload, error: storageErr } = await client.storage
+        .from('images')
+        .upload(storagePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: file.type || 'image/jpeg'
+        });
+
+      if (!storageErr && storageUpload) {
+        const { data: publicUrlData } = client.storage.from('images').getPublicUrl(storagePath);
+        if (publicUrlData?.publicUrl) {
+          finalUrl = publicUrlData.publicUrl;
+          isStorageUploaded = true;
+        }
+      } else if (storageErr) {
+        console.warn('Supabase storage upload noticed:', storageErr.message);
+      }
+    } catch (storageErr) {
+      console.warn('Storage attempt skipped or bucket unavailable:', storageErr);
+    }
+
+    // 2. Save metadata & image into Supabase PostgreSQL table 'uploaded_images'
+    try {
+      const record: any = {
+        id,
+        filename: file.name,
+        file_url: finalUrl,
+        storage_path: isStorageUploaded ? storagePath : null,
+        category: cleanCategory,
+        size_bytes: file.size,
+        mime_type: file.type || 'image/jpeg',
+        title: cleanTitle,
+        base64_data: base64Data.length < 500000 ? base64Data : null,
+        created_at: new Date().toISOString()
+      };
+
+      const { error: dbErr } = await client
+        .from('uploaded_images')
+        .insert([record]);
+
+      if (!dbErr) {
+        // Cache to local storage
+        const currentCache = getStoredUploadedImages();
+        const updated = [record as UploadedImage, ...currentCache];
+        saveStoredUploadedImages(updated);
+
+        return {
+          success: true,
+          data: record as UploadedImage,
+          message: isStorageUploaded 
+            ? 'Image successfully uploaded to Supabase Storage and registered in database!'
+            : 'Image saved directly to your Supabase uploaded_images database table!'
+        };
+      } else {
+        console.warn('Supabase DB table insertion noticed:', dbErr.message);
+      }
+    } catch (dbErr: any) {
+      console.warn('Supabase database insert error:', dbErr);
+    }
+  }
+
+  // Fallback: save to local cache if Supabase client is offline or returned an error
+  const fallbackRecord: UploadedImage = {
+    id,
+    filename: file.name,
+    file_url: base64Data,
+    category: cleanCategory,
+    size_bytes: file.size,
+    mime_type: file.type || 'image/jpeg',
+    title: cleanTitle,
+    base64_data: base64Data,
+    created_at: new Date().toISOString()
+  };
+
+  const currentCache = getStoredUploadedImages();
+  const updated = [fallbackRecord, ...currentCache];
+  saveStoredUploadedImages(updated);
+
+  return {
+    success: true,
+    data: fallbackRecord,
+    message: client 
+      ? 'Image saved locally and ready. (Tip: execute the SQL schema in your Supabase SQL editor to enable the uploaded_images table and storage bucket).'
+      : 'Image saved locally. Connect your Supabase project in the Database tab to sync directly to your Supabase account!'
+  };
+}
+
+/**
+ * Fetches all uploaded images from Supabase database table 'uploaded_images'
+ */
+export async function fetchUploadedImagesFromSupabase(): Promise<UploadedImage[]> {
+  const client = getSupabaseClient();
+  const localImages = getStoredUploadedImages();
+
+  if (!client) {
+    return localImages;
+  }
+
+  try {
+    const { data, error } = await client
+      .from('uploaded_images')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('Could not query uploaded_images table from Supabase:', error.message);
+      return localImages;
+    }
+
+    if (data && data.length > 0) {
+      const formatted: UploadedImage[] = data.map((item: any) => ({
+        id: item.id,
+        filename: item.filename || 'image.jpg',
+        file_url: item.file_url || item.base64_data || '',
+        storage_path: item.storage_path || undefined,
+        category: item.category || 'general',
+        size_bytes: item.size_bytes || 0,
+        mime_type: item.mime_type || 'image/jpeg',
+        title: item.title || item.filename,
+        base64_data: item.base64_data,
+        created_at: item.created_at || new Date().toISOString()
+      }));
+
+      saveStoredUploadedImages(formatted);
+      return formatted;
+    }
+
+    return localImages;
+  } catch (err) {
+    console.warn('Error fetching uploaded images:', err);
+    return localImages;
+  }
+}
+
+/**
+ * Deletes an uploaded image from Supabase database and storage
+ */
+export async function deleteUploadedImageFromSupabase(id: string, storagePath?: string): Promise<boolean> {
+  const client = getSupabaseClient();
+
+  // Delete from local cache
+  const localImages = getStoredUploadedImages();
+  const updated = localImages.filter(img => img.id !== id);
+  saveStoredUploadedImages(updated);
+
+  if (!client) return true;
+
+  try {
+    // Delete record from Supabase table
+    await client.from('uploaded_images').delete().eq('id', id);
+
+    // Delete file from Supabase storage if storage_path was saved
+    if (storagePath) {
+      await client.storage.from('images').remove([storagePath]);
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Failed to delete uploaded image from Supabase:', err);
+    return false;
+  }
+}
+
+/**
  * One-Click Seed Catalog: Uploads current comprehensive catalog into Supabase
  */
 export async function seedDefaultCatalogToSupabase(customConfig?: SiteConfig): Promise<{
@@ -803,6 +1032,21 @@ CREATE TABLE IF NOT EXISTS public.inquiries (
   created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 8. Uploaded Images & Media Library Table
+CREATE TABLE IF NOT EXISTS public.uploaded_images (
+  id TEXT PRIMARY KEY,
+  filename TEXT NOT NULL,
+  file_url TEXT NOT NULL,
+  storage_path TEXT,
+  category TEXT DEFAULT 'general',
+  size_bytes BIGINT DEFAULT 0,
+  mime_type TEXT,
+  title TEXT,
+  base64_data TEXT,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- ========================================================================
 -- ENABLE ROW LEVEL SECURITY (RLS) & PUBLIC ACCESS POLICIES
 -- ========================================================================
@@ -814,6 +1058,7 @@ ALTER TABLE public.blinds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.testimonials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inquiries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.uploaded_images ENABLE ROW LEVEL SECURITY;
 
 -- Allow public reads and full access for universal operation
 DO $$ 
@@ -845,6 +1090,10 @@ BEGIN
   -- inquiries policies
   DROP POLICY IF EXISTS "Public All inquiries" ON public.inquiries;
   CREATE POLICY "Public All inquiries" ON public.inquiries FOR ALL USING (true) WITH CHECK (true);
+
+  -- uploaded_images policies
+  DROP POLICY IF EXISTS "Public All uploaded_images" ON public.uploaded_images;
+  CREATE POLICY "Public All uploaded_images" ON public.uploaded_images FOR ALL USING (true) WITH CHECK (true);
 END $$;
 
 -- Enable Realtime replication for instant universal sync
@@ -857,7 +1106,29 @@ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.testimonials;
   ALTER PUBLICATION supabase_realtime ADD TABLE public.bookings;
   ALTER PUBLICATION supabase_realtime ADD TABLE public.inquiries;
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.uploaded_images;
 EXCEPTION
   WHEN duplicate_object THEN NULL;
+END $$;
+
+-- ========================================================================
+-- OPTIONAL: PUBLIC STORAGE BUCKET FOR CDN IMAGES
+-- ========================================================================
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('images', 'images', true)
+ON CONFLICT (id) DO NOTHING;
+
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Public Storage Access" ON storage.objects;
+  CREATE POLICY "Public Storage Access" ON storage.objects FOR SELECT USING (bucket_id = 'images');
+
+  DROP POLICY IF EXISTS "Public Storage Insert" ON storage.objects;
+  CREATE POLICY "Public Storage Insert" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'images');
+
+  DROP POLICY IF EXISTS "Public Storage Delete" ON storage.objects;
+  CREATE POLICY "Public Storage Delete" ON storage.objects FOR DELETE USING (bucket_id = 'images');
+EXCEPTION
+  WHEN undefined_table THEN NULL;
 END $$;
 `;
