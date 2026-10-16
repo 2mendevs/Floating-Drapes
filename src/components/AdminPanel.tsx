@@ -6,9 +6,19 @@ import {
   Database, RefreshCw, Copy, CheckCheck, UploadCloud, DownloadCloud,
   AlertCircle, ShieldCheck, Wifi, WifiOff, Sparkles, ExternalLink,
   Star, MessageSquare, Upload, User, Image as ImageIcon, Search,
-  Filter, CheckCircle2, ArrowUpRight, Camera
+  Filter, CheckCircle2, ArrowUpRight, Camera, Sliders
 } from 'lucide-react';
-import { CurtainItem, WallpaperItem, SiteConfig, BookingSubmission, Testimonial, UploadedImage, DEFAULT_SITE_CONFIG } from '../types';
+import { 
+  CurtainItem, 
+  WallpaperItem, 
+  SiteConfig, 
+  BookingSubmission, 
+  Testimonial, 
+  UploadedImage, 
+  DEFAULT_SITE_CONFIG, 
+  PortfolioItem, 
+  PORTFOLIO_DATA 
+} from '../types';
 import { BlindItem } from '../data/productsData';
 import { motion, AnimatePresence } from 'motion/react';
 import CustomerAvatar from './CustomerAvatar';
@@ -81,7 +91,7 @@ export default function AdminPanel({
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Active control panel tab
-  const [activeTab, setActiveTab] = useState<'sections' | 'captions' | 'theme' | 'products' | 'media' | 'feedback' | 'inquiries' | 'database'>('sections');
+  const [activeTab, setActiveTab] = useState<'sections' | 'captions' | 'theme' | 'products' | 'media' | 'feedback' | 'beforeAfter' | 'inquiries' | 'database'>('sections');
 
   // Media Library & Image Uploading states
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
@@ -134,6 +144,22 @@ export default function AdminPanel({
     image: ''
   });
 
+  // BEFORE & AFTER MASTER CONTROLLER STATES
+  const [portfolioList, setPortfolioList] = useState<PortfolioItem[]>(siteConfig.portfolioData || PORTFOLIO_DATA);
+  const [editingPortfolioItem, setEditingPortfolioItem] = useState<PortfolioItem | null>(null);
+  const [isAddingPortfolioItem, setIsAddingPortfolioItem] = useState(false);
+  const [portfolioForm, setPortfolioForm] = useState<PortfolioItem>({
+    id: '',
+    category: 'Living Room',
+    title: '',
+    description: '',
+    beforeImage: '',
+    afterImage: ''
+  });
+  const [isUploadingBeforeImage, setIsUploadingBeforeImage] = useState(false);
+  const [isUploadingAfterImage, setIsUploadingAfterImage] = useState(false);
+  const [beforeAfterSuccessMsg, setBeforeAfterSuccessMsg] = useState('');
+
   // Submitted private bookings state & contact inquiries state
   const [bookings, setBookings] = useState<BookingSubmission[]>([]);
   const [inquiries, setInquiries] = useState<any[]>([]);
@@ -180,7 +206,7 @@ export default function AdminPanel({
   // Verify server session token or active Supabase session on mount/open
   useEffect(() => {
     const token = sessionStorage.getItem('fd_admin_token');
-    
+
     // Check if Supabase client already has an active session
     const supabase = getSupabaseClient();
     if (supabase) {
@@ -249,7 +275,11 @@ export default function AdminPanel({
         }
       }
     });
-    
+
+    if (siteConfig.portfolioData && siteConfig.portfolioData.length > 0) {
+      setPortfolioList(siteConfig.portfolioData);
+    }
+
     // Load stored credentials
     const creds = getSupabaseCredentials();
     setSupabaseUrl(creds.url);
@@ -310,6 +340,9 @@ export default function AdminPanel({
         }
         if (data.testimonials && data.testimonials.length > 0) {
           setTestimonials(data.testimonials);
+        }
+        if (data.siteConfig?.portfolioData && data.siteConfig.portfolioData.length > 0) {
+          setPortfolioList(data.siteConfig.portfolioData);
         }
       });
     }
@@ -960,6 +993,149 @@ export default function AdminPanel({
     }
   };
 
+  // ----------------------------------------------------
+  // BEFORE & AFTER MASTER CONTROLLER HANDLERS
+  // ----------------------------------------------------
+  const handleStartAddPortfolioItem = () => {
+    setEditingPortfolioItem(null);
+    setIsAddingPortfolioItem(true);
+    setPortfolioForm({
+      id: `p_${Date.now()}`,
+      category: 'Living Room',
+      title: '',
+      description: '',
+      beforeImage: '',
+      afterImage: ''
+    });
+  };
+
+  const handleStartEditPortfolioItem = (item: PortfolioItem) => {
+    setIsAddingPortfolioItem(false);
+    setEditingPortfolioItem(item);
+    setPortfolioForm({
+      id: item.id,
+      category: item.category || 'Living Room',
+      title: item.title,
+      description: item.description,
+      beforeImage: item.beforeImage,
+      afterImage: item.afterImage
+    });
+  };
+
+  const handleUploadCompareImage = async (type: 'before' | 'after', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 20 * 1024 * 1024) {
+      alert('Please select an image smaller than 20MB.');
+      return;
+    }
+
+    if (type === 'before') setIsUploadingBeforeImage(true);
+    if (type === 'after') setIsUploadingAfterImage(true);
+
+    try {
+      const res = await uploadImageToSupabase(file, {
+        category: 'gallery',
+        title: `${portfolioForm.title || 'Transformation'} - ${type.toUpperCase()}`
+      });
+
+      if (res.data?.file_url) {
+        setPortfolioForm(prev => ({
+          ...prev,
+          [type === 'before' ? 'beforeImage' : 'afterImage']: res.data!.file_url
+        }));
+        const fresh = await fetchUploadedImagesFromSupabase();
+        setUploadedImages(fresh);
+        alert(`${type.toUpperCase()} image uploaded directly to Supabase Storage!`);
+      }
+    } catch (err: any) {
+      alert(`Error uploading ${type} image: ${err?.message || 'Failed'}`);
+    } finally {
+      if (type === 'before') setIsUploadingBeforeImage(false);
+      if (type === 'after') setIsUploadingAfterImage(false);
+    }
+  };
+
+  const handleSavePortfolioSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!portfolioForm.title.trim() || !portfolioForm.beforeImage || !portfolioForm.afterImage) {
+      alert('Please fill in transformation title, before image, and after image.');
+      return;
+    }
+
+    let updatedList: PortfolioItem[];
+    if (isAddingPortfolioItem) {
+      updatedList = [portfolioForm, ...portfolioList];
+    } else {
+      updatedList = portfolioList.map(c => c.id === portfolioForm.id ? portfolioForm : c);
+    }
+
+    setPortfolioList(updatedList);
+
+    const updatedConfig: SiteConfig = {
+      ...captions,
+      portfolioData: updatedList
+    };
+
+    setCaptions(updatedConfig);
+    onUpdateConfig(updatedConfig);
+    localStorage.setItem('floatingdrapes_config', JSON.stringify(updatedConfig));
+
+    if (isSupabaseConfigured()) {
+      await syncSiteConfigToSupabase(updatedConfig);
+      setBeforeAfterSuccessMsg(isAddingPortfolioItem ? 'New transformation card created & synced to Supabase!' : 'Transformation card updated & synced to Supabase!');
+      setTimeout(() => setBeforeAfterSuccessMsg(''), 4000);
+      alert('Before & After comparison card saved and synchronized in Supabase database!');
+    } else {
+      alert('Saved locally! Connect Supabase in Database tab to sync universally.');
+    }
+
+    setIsAddingPortfolioItem(false);
+    setEditingPortfolioItem(null);
+  };
+
+  const handleDeletePortfolioItem = async (id: string, title: string) => {
+    if (!window.confirm(`Delete transformation "${title}" from Before & After section?`)) return;
+
+    const updatedList = portfolioList.filter(c => c.id !== id);
+    setPortfolioList(updatedList);
+
+    const updatedConfig: SiteConfig = {
+      ...captions,
+      portfolioData: updatedList
+    };
+
+    setCaptions(updatedConfig);
+    onUpdateConfig(updatedConfig);
+    localStorage.setItem('floatingdrapes_config', JSON.stringify(updatedConfig));
+
+    if (isSupabaseConfigured()) {
+      await syncSiteConfigToSupabase(updatedConfig);
+    }
+
+    if (editingPortfolioItem?.id === id) {
+      setEditingPortfolioItem(null);
+      setIsAddingPortfolioItem(false);
+    }
+  };
+
+  const handleSaveBeforeAfterHeaders = async () => {
+    onUpdateConfig(captions);
+    localStorage.setItem('floatingdrapes_config', JSON.stringify(captions));
+
+    if (isSupabaseConfigured()) {
+      const ok = await syncSiteConfigToSupabase(captions);
+      if (ok) {
+        alert('Before & After section headers saved and synced to Supabase database!');
+      } else {
+        alert('Saved locally. Check Database settings.');
+      }
+    } else {
+      alert('Headers saved locally. Connect Supabase to sync.');
+    }
+  };
+
   const handleDeleteBooking = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this consultation log?')) return;
     const updated = bookings.filter(b => b.id !== id);
@@ -1051,6 +1227,9 @@ export default function AdminPanel({
         onUpdateConfig(data.siteConfig);
         setCaptions(data.siteConfig);
         localStorage.setItem('floatingdrapes_config', JSON.stringify(data.siteConfig));
+        if (data.siteConfig.portfolioData) {
+          setPortfolioList(data.siteConfig.portfolioData);
+        }
         updatedCount++;
       }
       if (data.curtains && data.curtains.length > 0) {
@@ -1263,12 +1442,12 @@ export default function AdminPanel({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-hidden text-white" id="admin-panel-overlay">
       <div className="relative w-full max-w-6xl h-[90vh] bg-[#00172e] border border-[#003866] shadow-[0_20px_60px_rgba(0,153,255,0.25)] flex flex-col rounded-2xl overflow-hidden" id="admin-panel-container">
-        
+
         {/* TOP HEADER WITH HIGH-VISIBILITY LOGOUT BUTTON */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#003366] bg-[#001f3f]">
           <div className="flex items-center space-x-3">
             <span className="font-sans text-[11px] font-bold tracking-[0.3em] text-[#0099ff] uppercase">FLOATING DRAPES SYSTEM ENGINE</span>
-            
+
             {/* Database indicating light */}
             <div 
               className="flex items-center justify-center p-1.5 bg-[#00172e] border border-[#003866] rounded-full shadow-inner"
@@ -1321,7 +1500,7 @@ export default function AdminPanel({
               <div className="w-14 h-14 bg-[#e3f2fd] border border-[#90cdf4] rounded-full flex items-center justify-center text-[#0099ff] mx-auto mb-5 shadow-sm">
                 <Lock className="h-6 w-6" />
               </div>
-              
+
               <h2 className="font-serif text-2xl text-center font-bold text-[#002b49] mb-1.5">Enter Master Credentials</h2>
               <p className="font-sans text-xs text-[#335577] text-center mb-6 leading-relaxed">
                 Floating Drapes control panel. Enter your admin user credentials to access the dashboard.
@@ -1378,8 +1557,8 @@ export default function AdminPanel({
         ) : (
           /* AUTHENTICATED PANEL LAYOUT */
           <div className="flex-1 flex overflow-hidden">
-            
-            {/* SIDE BAR BUTTONS */}
+
+            {/* SIDEBAR BUTTONS */}
             <div className="w-64 border-r border-[#003366] bg-[#00172e] flex flex-col justify-between shrink-0 overflow-y-auto">
               <div className="p-4 space-y-1.5">
                 <button
@@ -1429,6 +1608,17 @@ export default function AdminPanel({
                   <span className="flex-1">Feedback Master</span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#002b49] text-[#88ccff] border border-[#003866] font-mono font-bold">{testimonials.length}</span>
                 </button>
+
+                {/* BEFORE & AFTER MASTER CONTROL TAB BUTTON */}
+                <button
+                  onClick={() => setActiveTab('beforeAfter')}
+                  className={`w-full text-left px-4 py-3 text-xs font-bold tracking-widest uppercase flex items-center space-x-3 transition-all cursor-pointer rounded-lg ${activeTab === 'beforeAfter' ? 'bg-[#0099ff] text-white shadow-md shadow-[#0099ff]/30' : 'hover:bg-[#002b49] text-[#88ccff] hover:text-white'}`}
+                >
+                  <Sliders className="h-4 w-4" />
+                  <span className="flex-1">Before &amp; After</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#002b49] text-[#88ccff] border border-[#003866] font-mono font-bold">{portfolioList.length}</span>
+                </button>
+
                 <button
                   onClick={() => setActiveTab('inquiries')}
                   className={`w-full text-left px-4 py-3 text-xs font-bold tracking-widest uppercase flex items-center space-x-3 transition-all cursor-pointer rounded-lg ${activeTab === 'inquiries' ? 'bg-[#0099ff] text-white shadow-md shadow-[#0099ff]/30' : 'hover:bg-[#002b49] text-[#88ccff] hover:text-white'}`}
@@ -1466,7 +1656,7 @@ export default function AdminPanel({
 
             {/* MAIN CONTENT AREA */}
             <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-[#001428]">
-              
+
               {/* TAB 0: HOMEPAGE & SECTIONS (HERO IMAGE, 3 SHOWCASE PRODUCTS, TAILOR-MADE CUSTOMIZATION) */}
               {activeTab === 'sections' && (
                 <div className="space-y-8 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
@@ -2451,7 +2641,7 @@ export default function AdminPanel({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4 bg-white border border-[#c5def2] rounded-xl p-5 shadow-sm">
                       <h4 className="text-[11px] font-bold tracking-widest text-[#0099ff] uppercase border-b border-[#e2effa] pb-2 mb-3">Hero Section Banners</h4>
-                      
+
                       <div>
                         <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Top Accent Tagline</label>
                         <input
@@ -2527,7 +2717,7 @@ export default function AdminPanel({
 
                     <div className="space-y-4 bg-white border border-[#c5def2] rounded-xl p-5 shadow-sm">
                       <h4 className="text-[11px] font-bold tracking-widest text-[#0099ff] uppercase border-b border-[#e2effa] pb-2 mb-3">About Us Narrative</h4>
-                      
+
                       <div>
                         <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Top Eyebrow Title</label>
                         <input
@@ -2654,7 +2844,7 @@ export default function AdminPanel({
                         <p className="font-sans text-[11px] text-[#335577] leading-relaxed">
                           Provide any relative path or online image link to immediately replace the header and footer brand emblems.
                         </p>
-                        
+
                         <div className="flex space-x-2">
                           <input
                             type="text"
@@ -3883,6 +4073,303 @@ export default function AdminPanel({
                 </div>
               )}
 
+              {/* -------------------------------------------------------------------------------- */}
+              {/* TAB: BEFORE & AFTER MASTER CONTROLLER                                           */}
+              {/* -------------------------------------------------------------------------------- */}
+              {activeTab === 'beforeAfter' && (
+                <div className="space-y-8 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
+                  {/* HEADER BANNER */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-5 border-b border-[#d8eaf7] gap-4">
+                    <div>
+                      <h3 className="font-serif text-2xl font-bold flex items-center space-x-2.5 text-[#002b49]">
+                        <Sliders className="h-6 w-6 text-[#0099ff]" />
+                        <span>Before &amp; After Master Controller</span>
+                        <span className="text-xs px-2.5 py-0.5 bg-[#e3f2fd] text-[#0077c2] border border-[#90cdf4] font-sans font-bold rounded-md">
+                          {portfolioList.length} Transformations
+                        </span>
+                      </h3>
+                      <p className="font-sans text-xs text-[#335577] mt-1">
+                        Upload custom Before &amp; After transformation photos, edit descriptions, and update section titles. All images are processed through Supabase Storage and stored directly in your Supabase database.
+                      </p>
+                    </div>
+
+                    {!isAddingPortfolioItem && !editingPortfolioItem && (
+                      <button
+                        onClick={handleStartAddPortfolioItem}
+                        className="px-5 py-2.5 bg-[#0099ff] text-white hover:bg-[#0088ee] text-xs font-bold tracking-wider uppercase flex items-center justify-center space-x-2 transition-all cursor-pointer shrink-0 shadow-md shadow-[#0099ff]/25 rounded-lg"
+                      >
+                        <Plus className="h-4 w-4" />
+                        <span>Add Transformation Card</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* SECTION HEADINGS EDIT BLOCK */}
+                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-[#e2effa] pb-3">
+                      <div>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-[#006699]">
+                          Storefront Before &amp; After Section Headers
+                        </h4>
+                        <p className="text-[11px] text-[#335577] mt-0.5">
+                          Change what appears in the header block above the transformation slider cards.
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleSaveBeforeAfterHeaders}
+                        className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg shadow transition-all flex items-center space-x-1.5 cursor-pointer"
+                      >
+                        <Save className="h-3.5 w-3.5" />
+                        <span>Save Section Headings</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                      <div>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                          Eyebrow Subtitle (Small blue banner)
+                        </label>
+                        <input
+                          type="text"
+                          value={captions.beforeAfterSubtitle || 'BEFORE & AFTER'}
+                          onChange={(e) => setCaptions({ ...captions, beforeAfterSubtitle: e.target.value })}
+                          className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
+                          placeholder="BEFORE & AFTER"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                          Main Section Heading
+                        </label>
+                        <input
+                          type="text"
+                          value={captions.beforeAfterTitle || 'See The Transformation'}
+                          onChange={(e) => setCaptions({ ...captions, beforeAfterTitle: e.target.value })}
+                          className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
+                          placeholder="See The Transformation"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SUCCESS NOTIFICATION */}
+                  {beforeAfterSuccessMsg && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-lg flex items-center space-x-2 shadow-sm">
+                      <CheckCheck className="h-4 w-4 shrink-0 text-emerald-600" />
+                      <span>{beforeAfterSuccessMsg}</span>
+                    </div>
+                  )}
+
+                  {/* ADD / EDIT PORTFOLIO TRANSFORMATION FORM */}
+                  {(isAddingPortfolioItem || editingPortfolioItem) && (
+                    <div className="bg-white border border-[#c5def2] rounded-xl p-6 space-y-6 shadow-md relative">
+                      <div className="flex items-center justify-between border-b border-[#e2effa] pb-3">
+                        <div className="flex items-center space-x-2">
+                          <span className="px-2.5 py-0.5 text-[9px] font-bold tracking-widest uppercase bg-[#0099ff] text-white rounded-md">
+                            {isAddingPortfolioItem ? 'Create New' : 'Editing Card'}
+                          </span>
+                          <h4 className="font-serif text-lg font-bold text-[#002b49]">
+                            {isAddingPortfolioItem ? 'Add New Comparison Transformation' : `Editing: ${portfolioForm.title}`}
+                          </h4>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingPortfolioItem(false);
+                            setEditingPortfolioItem(null);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-[#002b49] rounded-lg hover:bg-slate-100 cursor-pointer transition-colors"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <form onSubmit={handleSavePortfolioSubmit} className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-bold tracking-wider uppercase text-[#006699] mb-1.5">
+                              Transformation Title *
+                            </label>
+                            <input
+                              type="text"
+                              value={portfolioForm.title}
+                              onChange={(e) => setPortfolioForm(prev => ({ ...prev, title: e.target.value }))}
+                              placeholder="e.g. Modern Living Room Makeover"
+                              required
+                              className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] px-3.5 py-2 text-xs text-[#002b49] outline-none rounded-lg focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold tracking-wider uppercase text-[#006699] mb-1.5">
+                              Room Category
+                            </label>
+                            <select
+                              value={portfolioForm.category || 'Living Room'}
+                              onChange={(e) => setPortfolioForm(prev => ({ ...prev, category: e.target.value }))}
+                              className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] px-3.5 py-2 text-xs text-[#002b49] outline-none rounded-lg focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                            >
+                              <option value="Living Room">Living Room</option>
+                              <option value="Bedroom">Bedroom</option>
+                              <option value="Dining Room">Dining Room</option>
+                              <option value="Kids Room">Kids Room</option>
+                              <option value="Office">Executive Office</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold tracking-wider uppercase text-[#006699] mb-1.5">
+                              Description Copy *
+                            </label>
+                            <input
+                              type="text"
+                              value={portfolioForm.description}
+                              onChange={(e) => setPortfolioForm(prev => ({ ...prev, description: e.target.value }))}
+                              placeholder="e.g. Replaced outdated curtains with luxury silk drapes..."
+                              required
+                              className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] px-3.5 py-2 text-xs text-[#002b49] outline-none rounded-lg focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                            />
+                          </div>
+                        </div>
+
+                        {/* PHOTO UPLOADS: BEFORE & AFTER PIPELINE */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* BEFORE IMAGE */}
+                          <div className="p-4 bg-[#f8fbfe] border border-[#c5def2] rounded-xl space-y-3">
+                            <span className="text-xs font-bold text-[#002b49] uppercase tracking-wider block">
+                              1. "BEFORE" Photo (Supabase Storage)
+                            </span>
+                            {portfolioForm.beforeImage && (
+                              <div className="relative aspect-[4/3] rounded-lg overflow-hidden border border-[#c5def2] bg-white">
+                                <img src={portfolioForm.beforeImage} alt="Before preview" className="w-full h-full object-cover" />
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <label className="cursor-pointer bg-[#0099ff] hover:bg-[#0088ee] text-white px-3 py-2 text-xs font-bold uppercase rounded-lg flex items-center space-x-1.5 shadow transition-all">
+                                <Camera className="h-3.5 w-3.5" />
+                                <span>{isUploadingBeforeImage ? 'Uploading...' : 'Upload Before Image'}</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  disabled={isUploadingBeforeImage}
+                                  onChange={(e) => handleUploadCompareImage('before', e)}
+                                  className="hidden"
+                                />
+                              </label>
+                              <input
+                                type="text"
+                                value={portfolioForm.beforeImage}
+                                onChange={(e) => setPortfolioForm(prev => ({ ...prev, beforeImage: e.target.value }))}
+                                placeholder="or enter direct URL..."
+                                className="flex-1 bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                              />
+                            </div>
+                          </div>
+
+                          {/* AFTER IMAGE */}
+                          <div className="p-4 bg-[#f8fbfe] border border-[#c5def2] rounded-xl space-y-3">
+                            <span className="text-xs font-bold text-[#002b49] uppercase tracking-wider block">
+                              2. "AFTER" Photo (Supabase Storage)
+                            </span>
+                            {portfolioForm.afterImage && (
+                              <div className="relative aspect-[4/3] rounded-lg overflow-hidden border border-[#c5def2] bg-white">
+                                <img src={portfolioForm.afterImage} alt="After preview" className="w-full h-full object-cover" />
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <label className="cursor-pointer bg-[#0099ff] hover:bg-[#0088ee] text-white px-3 py-2 text-xs font-bold uppercase rounded-lg flex items-center space-x-1.5 shadow transition-all">
+                                <Camera className="h-3.5 w-3.5" />
+                                <span>{isUploadingAfterImage ? 'Uploading...' : 'Upload After Image'}</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  disabled={isUploadingAfterImage}
+                                  onChange={(e) => handleUploadCompareImage('after', e)}
+                                  className="hidden"
+                                />
+                              </label>
+                              <input
+                                type="text"
+                                value={portfolioForm.afterImage}
+                                onChange={(e) => setPortfolioForm(prev => ({ ...prev, afterImage: e.target.value }))}
+                                placeholder="or enter direct URL..."
+                                className="flex-1 bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* FORM ACTIONS */}
+                        <div className="flex items-center justify-end space-x-3 pt-4 border-t border-[#e2effa]">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingPortfolioItem(false);
+                              setEditingPortfolioItem(null);
+                            }}
+                            className="px-5 py-2.5 border border-[#c5def2] hover:bg-[#e3f2fd] text-[#002b49] text-xs font-bold tracking-wider uppercase rounded-lg transition-colors cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-6 py-2.5 bg-[#0099ff] text-white hover:bg-[#0088ee] text-xs font-bold tracking-wider uppercase flex items-center space-x-2 transition-all cursor-pointer font-sans shadow-md shadow-[#0099ff]/25 rounded-lg"
+                          >
+                            <Save className="h-4 w-4" />
+                            <span>{isAddingPortfolioItem ? 'Publish Transformation Card' : 'Save Transformation Changes'}</span>
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  )}
+
+                  {/* TRANSFORMATIONS CARDS LIST */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {portfolioList.map((item) => (
+                      <div key={item.id} className="bg-white border border-[#c5def2] rounded-xl overflow-hidden shadow-sm flex flex-col justify-between">
+                        <div className="grid grid-cols-2 gap-1 p-2 bg-slate-50 border-b border-[#e2effa]">
+                          <div className="relative aspect-[4/3] rounded overflow-hidden bg-slate-100">
+                            <img src={item.beforeImage} alt="Before" className="w-full h-full object-cover" />
+                            <span className="absolute bottom-1 left-1 bg-[#021E3B] text-white text-[8px] font-bold px-1.5 py-0.5 rounded">BEFORE</span>
+                          </div>
+                          <div className="relative aspect-[4/3] rounded overflow-hidden bg-slate-100">
+                            <img src={item.afterImage} alt="After" className="w-full h-full object-cover" />
+                            <span className="absolute bottom-1 right-1 bg-[#029BFA] text-white text-[8px] font-bold px-1.5 py-0.5 rounded">AFTER</span>
+                          </div>
+                        </div>
+
+                        <div className="p-4 space-y-2 flex-grow flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-serif text-sm font-bold text-[#002b49] truncate">{item.title}</h4>
+                              <span className="text-[9px] font-semibold text-[#0077c2] bg-[#e3f2fd] px-1.5 py-0.5 rounded">{item.category}</span>
+                            </div>
+                            <p className="font-sans text-xs text-[#335577] line-clamp-2 mt-1">{item.description}</p>
+                          </div>
+
+                          <div className="flex items-center justify-end space-x-2 pt-3 border-t border-[#e2effa]">
+                            <button
+                              onClick={() => handleStartEditPortfolioItem(item)}
+                              className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors cursor-pointer"
+                              title="Edit Transformation"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeletePortfolioItem(item.id, item.title)}
+                              className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors cursor-pointer"
+                              title="Delete Transformation"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* TAB 4: INQUIRIES & CONSULTATIONS */}
               {activeTab === 'inquiries' && (
                 <div className="space-y-8 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
@@ -3927,7 +4414,7 @@ export default function AdminPanel({
                                 <span className="block text-xs text-[#335577]">{booking.phone}</span>
                                 {booking.email && <span className="block text-xs text-[#0099ff] underline">{booking.email}</span>}
                               </div>
-                              
+
                               <div className="md:col-span-1 space-y-1">
                                 <span className="block text-[10px] font-bold tracking-widest text-[#006699] uppercase">CONSULT PARAMETERS</span>
                                 <span className="block text-xs font-semibold text-[#002b49]">Project: {booking.projectType}</span>
@@ -3987,7 +4474,7 @@ export default function AdminPanel({
                                 <span className="block text-xs text-[#335577]">{inq.phone}</span>
                                 {inq.email && <span className="block text-xs text-[#0099ff] underline">{inq.email}</span>}
                               </div>
-                              
+
                               <div className="md:col-span-1 space-y-1">
                                 <span className="block text-[10px] font-bold tracking-widest text-[#006699] uppercase">CATEGORY & LOCATION</span>
                                 <span className="block text-xs font-semibold text-[#002b49]">{inq.project_type || inq.projectType}</span>
