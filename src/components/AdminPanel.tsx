@@ -1,48 +1,43 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SiteConfig, CurtainItem, WallpaperItem, BookingSubmission, UploadedImage, Testimonial } from '../types';
+import { 
+  X, LogIn, LogOut, Lock, Mail, Heading, Palette, Type, 
+  ShoppingBag, Trash2, Edit2, Plus, Save, Check, 
+  Layers, FolderOpen, Eye, Inbox, FileText, Link, HelpCircle,
+  Database, RefreshCw, Copy, CheckCheck, UploadCloud, DownloadCloud,
+  AlertCircle, ShieldCheck, Wifi, WifiOff, Sparkles, ExternalLink,
+  Star, MessageSquare, Upload, User, Image as ImageIcon, Search,
+  Filter, CheckCircle2, ArrowUpRight, Camera
+} from 'lucide-react';
+import { CurtainItem, WallpaperItem, SiteConfig, BookingSubmission, Testimonial, UploadedImage, DEFAULT_SITE_CONFIG } from '../types';
 import { BlindItem } from '../data/productsData';
-import {
-  isSupabaseConfigured,
+import { motion, AnimatePresence } from 'motion/react';
+import CustomerAvatar from './CustomerAvatar';
+import { 
   getSupabaseCredentials,
+  getSupabaseClient,
   saveSupabaseCredentials,
+  clearStoredSupabaseCredentials,
+  isSupabaseConfigured,
   testSupabaseConnection,
-  seedDefaultCatalogToSupabase,
-  uploadImageToSupabase,
   fetchUniversalSiteData,
+  syncSiteConfigToSupabase,
   upsertCurtainToSupabase,
   deleteCurtainFromSupabase,
   upsertWallpaperToSupabase,
   deleteWallpaperFromSupabase,
   upsertBlindToSupabase,
   deleteBlindFromSupabase,
-  syncSiteConfigToSupabase,
-  deleteBookingFromSupabase,
-  deleteInquiryFromSupabase,
   upsertFeedbackToSupabase,
   deleteFeedbackFromSupabase,
+  deleteBookingFromSupabase,
+  deleteInquiryFromSupabase,
+  seedDefaultCatalogToSupabase,
+  uploadImageToSupabase,
+  fetchUploadedImagesFromSupabase,
   deleteUploadedImageFromSupabase,
+  getStoredUploadedImages,
   SUPABASE_SQL_SCHEMA
 } from '../services/supabaseClient';
-import {
-  X,
-  Lock,
-  LogOut,
-  Database,
-  Upload,
-  CheckCircle,
-  AlertCircle,
-  RefreshCw,
-  Copy,
-  Layers,
-  Settings,
-  Image as ImageIcon,
-  Calendar,
-  MessageSquare,
-  Plus,
-  Trash2,
-  ShieldCheck,
-  Eye
-} from 'lucide-react';
 
 interface AdminPanelProps {
   isOpen: boolean;
@@ -50,84 +45,126 @@ interface AdminPanelProps {
   siteConfig: SiteConfig;
   onUpdateConfig: (config: SiteConfig) => void;
   curtains: CurtainItem[];
+  setCurtains: React.Dispatch<React.SetStateAction<CurtainItem[]>>;
   wallpapers: WallpaperItem[];
+  setWallpapers: React.Dispatch<React.SetStateAction<WallpaperItem[]>>;
   blinds: BlindItem[];
-  onRefreshData?: () => void;
+  setBlinds: React.Dispatch<React.SetStateAction<BlindItem[]>>;
+  testimonials: Testimonial[];
+  setTestimonials: React.Dispatch<React.SetStateAction<Testimonial[]>>;
 }
 
-export const AdminPanel: React.FC<AdminPanelProps> = ({
+export default function AdminPanel({
   isOpen,
   onClose,
   siteConfig,
   onUpdateConfig,
   curtains,
+  setCurtains,
   wallpapers,
+  setWallpapers,
   blinds,
-  onRefreshData
-}) => {
+  setBlinds,
+  testimonials,
+  setTestimonials
+}: AdminPanelProps) {
+  // Authentication states
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [password, setPassword] = useState<string>('');
-  const [authError, setAuthError] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'database' | 'media' | 'content' | 'bookings'>('database');
+  const [isVerifyingSession, setIsVerifyingSession] = useState<boolean>(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
 
-  // Supabase Connection States
-  const [supabaseUrl, setSupabaseUrl] = useState<string>('');
-  const [supabaseKey, setSupabaseKey] = useState<string>('');
-  const [connectionStatus, setConnectionStatus] = useState<{
-    tested: boolean;
-    success: boolean;
-    message: string;
-    tablesFound?: string[];
-    missingTables?: string[];
-  }>({ tested: false, success: false, message: '' });
-  const [isTesting, setIsTesting] = useState(false);
-  const [isSeeding, setIsSeeding] = useState(false);
-  const [seedMessage, setSeedMessage] = useState('');
-  const [copiedSchema, setCopiedSchema] = useState(false);
-
-  // Media upload state
-  const [uploadCategory, setUploadCategory] = useState<'hero' | 'curtains' | 'wallpapers' | 'blinds' | 'why_choose_us' | 'customization' | 'general'>('general');
-  const [uploadTitle, setUploadTitle] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadMessage, setUploadMessage] = useState('');
-  const [mediaList, setMediaList] = useState<UploadedImage[]>([]);
-
-  // ----------------------------------------------------
-  // AUTO-LOGOUT ON INACTIVITY (15 MINUTES)
-  // ----------------------------------------------------
-  const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
+  // Inactivity auto-logout timer ref (15 minutes limit)
+  const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleLogout = () => {
-    localStorage.removeItem('floatingdrapes_admin_auth');
-    setIsAuthenticated(false);
-    setPassword('');
-    setAuthError('');
+  // Active control panel tab
+  const [activeTab, setActiveTab] = useState<'sections' | 'captions' | 'theme' | 'products' | 'media' | 'feedback' | 'inquiries' | 'database'>('sections');
+
+  // Media Library & Image Uploading states
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+  const [isLoadingMedia, setIsLoadingMedia] = useState(false);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [uploadSuccessMsg, setUploadSuccessMsg] = useState('');
+  const [uploadErrorMsg, setUploadErrorMsg] = useState('');
+  const [mediaCategoryFilter, setMediaCategoryFilter] = useState<string>('all');
+  const [mediaSearchQuery, setMediaSearchQuery] = useState('');
+  const [copiedMediaId, setCopiedMediaId] = useState<string | null>(null);
+  const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null);
+  const [uploadCategory, setUploadCategory] = useState<'curtains' | 'wallpapers' | 'blinds' | 'hero' | 'gallery' | 'general'>('general');
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [previewModalImage, setPreviewModalImage] = useState<UploadedImage | null>(null);
+  const [isUploadingProductInline, setIsUploadingProductInline] = useState(false);
+
+  // Captions form state
+  const [captions, setCaptions] = useState<SiteConfig>({ ...siteConfig });
+
+  // Product tab states
+  const [selectedProductCategory, setSelectedProductCategory] = useState<'curtains' | 'wallpapers' | 'blinds'>('curtains');
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
+
+  // New product form states
+  const [productForm, setProductForm] = useState({
+    id: '',
+    name: '',
+    description: '',
+    image: '',
+    priceClass: 'Premium', // curtains
+    style: 'Classic', // wallpapers / blinds
+    materials: ''
+  });
+
+  // Feedback Master Controller states
+  const [editingFeedback, setEditingFeedback] = useState<Testimonial | null>(null);
+  const [isAddingFeedback, setIsAddingFeedback] = useState(false);
+  const [feedbackSearch, setFeedbackSearch] = useState('');
+  const [feedbackSuccessMsg, setFeedbackSuccessMsg] = useState('');
+  const [feedbackForm, setFeedbackForm] = useState<Testimonial>({
+    id: '',
+    name: '',
+    location: '',
+    role: '',
+    review: '',
+    rating: 5,
+    image: ''
+  });
+
+  // Submitted private bookings state & contact inquiries state
+  const [bookings, setBookings] = useState<BookingSubmission[]>([]);
+  const [inquiries, setInquiries] = useState<any[]>([]);
+
+  // Supabase connection and configuration states
+  const [supabaseUrl, setSupabaseUrl] = useState('');
+  const [supabaseKey, setSupabaseKey] = useState('');
+  const [isSupabaseFromEnv, setIsSupabaseFromEnv] = useState(false);
+  const [supabaseStatus, setSupabaseStatus] = useState<'connected' | 'disconnected' | 'testing' | 'unconfigured'>('unconfigured');
+  const [supabaseStatusMessage, setSupabaseStatusMessage] = useState('');
+  const [isSeedingDatabase, setIsSeedingDatabase] = useState(false);
+  const [isPullingData, setIsPullingData] = useState(false);
+  const [sqlCopied, setSqlCopied] = useState(false);
+
+  // Reset inactivity timer on user actions
+  const resetInactivityTimer = () => {
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
     }
-  };
-
-  const resetInactivityTimer = () => {
-    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
     if (isAuthenticated) {
       inactivityTimerRef.current = setTimeout(() => {
         handleLogout();
-      }, INACTIVITY_LIMIT_MS);
+        alert('You have been logged out of the Admin Panel due to 15 minutes of inactivity.');
+      }, INACTIVITY_TIMEOUT_MS);
     }
   };
 
-  useEffect(() => {
-    const isSavedAuth = localStorage.getItem('floatingdrapes_admin_auth') === 'true';
-    if (isSavedAuth) {
-      setIsAuthenticated(true);
-    }
-  }, []);
-
+  // Activity listeners for automatic logout
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
     const handleActivity = () => resetInactivityTimer();
 
     activityEvents.forEach((evt) => window.addEventListener(evt, handleActivity));
@@ -139,431 +176,3645 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     };
   }, [isAuthenticated]);
 
+  // Verify server session token or active Supabase session on mount/open
   useEffect(() => {
-    if (isOpen) {
-      const creds = getSupabaseCredentials();
-      setSupabaseUrl(creds.url);
-      setSupabaseKey(creds.key);
-      loadMedia();
+    const token = sessionStorage.getItem('fd_admin_token');
+    
+    // Check if Supabase client already has an active session
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      supabase.auth.getSession().then(({ data }) => {
+        if (data?.session?.user) {
+          setIsAuthenticated(true);
+          sessionStorage.setItem('fd_admin_user_email', data.session.user.email || '');
+          setIsVerifyingSession(false);
+          return;
+        }
+      }).catch((e) => console.warn('Supabase getSession error:', e));
     }
+
+    if (!token) {
+      setIsAuthenticated(false);
+      setIsVerifyingSession(false);
+      return;
+    }
+
+    // If token is a Supabase session token
+    if (token.startsWith('sb.')) {
+      setIsAuthenticated(true);
+      setIsVerifyingSession(false);
+      return;
+    }
+
+    fetch('/api/admin/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.valid) {
+          setIsAuthenticated(true);
+        } else {
+          sessionStorage.removeItem('fd_admin_token');
+          setIsAuthenticated(false);
+        }
+      })
+      .catch(() => {
+        setIsAuthenticated(false);
+      })
+      .finally(() => {
+        setIsVerifyingSession(false);
+      });
   }, [isOpen]);
 
-  const loadMedia = async () => {
-    try {
-      const data = await fetchUniversalSiteData();
-      if (data.uploadedImages) {
-        setMediaList(data.uploadedImages);
+  // Load Supabase credentials & initial data on mount/open
+  useEffect(() => {
+    setCaptions({
+      ...DEFAULT_SITE_CONFIG,
+      ...siteConfig,
+      categoryShowcase: {
+        curtains: {
+          ...DEFAULT_SITE_CONFIG.categoryShowcase!.curtains,
+          ...(siteConfig?.categoryShowcase?.curtains || {})
+        },
+        wallpapers: {
+          ...DEFAULT_SITE_CONFIG.categoryShowcase!.wallpapers,
+          ...(siteConfig?.categoryShowcase?.wallpapers || {})
+        },
+        blinds: {
+          ...DEFAULT_SITE_CONFIG.categoryShowcase!.blinds,
+          ...(siteConfig?.categoryShowcase?.blinds || {})
+        }
       }
-    } catch (e) {
-      console.warn('Could not fetch media:', e);
+    });
+    
+    // Load stored credentials
+    const creds = getSupabaseCredentials();
+    setSupabaseUrl(creds.url);
+    setSupabaseKey(creds.key);
+    setIsSupabaseFromEnv(creds.isFromEnv);
+
+    if (creds.url && creds.key) {
+      setSupabaseStatus('testing');
+      testSupabaseConnection().then(res => {
+        if (res.success) {
+          setSupabaseStatus('connected');
+          setSupabaseStatusMessage(res.message);
+        } else {
+          setSupabaseStatus('disconnected');
+          setSupabaseStatusMessage(res.message);
+        }
+      });
+    } else {
+      setSupabaseStatus('unconfigured');
+      setSupabaseStatusMessage('Supabase credentials have not been configured yet.');
+    }
+
+    // Load local storage bookings as fallback
+    const storedBookings = localStorage.getItem('floatingdrapes_bookings');
+    if (storedBookings) {
+      try {
+        setBookings(JSON.parse(storedBookings));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // Load local storage contact inquiries as fallback
+    const storedContacts = localStorage.getItem('floatingdrapes_contacts');
+    if (storedContacts) {
+      try {
+        setInquiries(JSON.parse(storedContacts));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // Load uploaded media images from Supabase or local cache
+    fetchUploadedImagesFromSupabase().then(images => {
+      if (images) {
+        setUploadedImages(images);
+      }
+    });
+
+    // If Supabase is configured, fetch live records for inquiries
+    if (isSupabaseConfigured()) {
+      fetchUniversalSiteData().then(data => {
+        if (data.bookings && data.bookings.length > 0) {
+          setBookings(data.bookings);
+        }
+        if (data.inquiries && data.inquiries.length > 0) {
+          setInquiries(data.inquiries);
+        }
+      });
+    }
+  }, [siteConfig, isOpen]);
+
+  // Database connection indicating light helper
+  const renderIndicatorLight = (size: 'sm' | 'md' = 'sm') => {
+    const isGreen = supabaseStatus === 'connected';
+    const isYellow = supabaseStatus === 'testing';
+    const dotSize = size === 'sm' ? 'h-2.5 w-2.5' : 'h-3.5 w-3.5';
+    const pingSize = size === 'sm' ? 'h-3 w-3' : 'h-4 w-4';
+
+    return (
+      <div 
+        className="relative inline-flex items-center justify-center cursor-default"
+        title={isGreen ? 'Database: Connected (Green)' : isYellow ? 'Database: Trying to connect / checking (Yellow)' : 'Database: Disconnected (Red)'}
+      >
+        {isGreen && (
+          <>
+            <span className={`animate-ping absolute inline-flex ${pingSize} rounded-full bg-emerald-400 opacity-75`} />
+            <span className={`relative inline-flex rounded-full ${dotSize} bg-emerald-500 shadow-[0_0_10px_#10b981]`} />
+          </>
+        )}
+        {isYellow && (
+          <>
+            <span className={`animate-ping absolute inline-flex ${pingSize} rounded-full bg-amber-400 opacity-75`} />
+            <span className={`relative inline-flex rounded-full ${dotSize} bg-amber-400 shadow-[0_0_10px_#f59e0b]`} />
+          </>
+        )}
+        {!isGreen && !isYellow && (
+          <span className={`relative inline-flex rounded-full ${dotSize} bg-rose-500 shadow-[0_0_8px_#f43f5e]`} />
+        )}
+      </div>
+    );
+  };
+
+  // Handle Login via Supabase Auth or Backend API
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    setIsSubmittingLogin(true);
+
+    const cleanEmail = email.trim();
+
+    try {
+      // 1. Direct Supabase Auth Verification First (if client is active)
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        try {
+          const { data: sbData, error: sbError } = await supabase.auth.signInWithPassword({
+            email: cleanEmail,
+            password: password,
+          });
+
+          if (!sbError && sbData?.user) {
+            const timestamp = Date.now();
+            sessionStorage.setItem('fd_admin_token', `sb.${timestamp}.${sbData.user.id}`);
+            sessionStorage.setItem('fd_admin_user_email', sbData.user.email || cleanEmail);
+            setIsAuthenticated(true);
+            setAuthError('');
+            setPassword('');
+            setIsSubmittingLogin(false);
+            resetInactivityTimer();
+            return;
+          }
+        } catch (supabaseLoginErr: any) {
+          console.warn('Supabase client login attempt:', supabaseLoginErr?.message);
+        }
+      }
+
+      // 2. Fallback to Server Login Endpoint
+      const creds = getSupabaseCredentials();
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: cleanEmail, 
+          password,
+          customSupabaseUrl: creds.url,
+          customSupabaseKey: creds.key
+        })
+      });
+
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(`API endpoint unavailable (Status: ${res.status}).`);
+      }
+
+      const data = await res.json();
+
+      if (res.ok && data.success && data.token) {
+        sessionStorage.setItem('fd_admin_token', data.token);
+        if (data.user?.email) {
+          sessionStorage.setItem('fd_admin_user_email', data.user.email);
+        }
+        setIsAuthenticated(true);
+        setAuthError('');
+        setPassword('');
+        resetInactivityTimer();
+      } else {
+        setAuthError(data.error || 'Invalid credentials. User not found in Supabase Auth or server.');
+      }
+    } catch (err: any) {
+      setAuthError(err?.message || 'Authentication error. Please check your credentials.');
+    } finally {
+      setIsSubmittingLogin(false);
     }
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password === 'admin123' || password === 'admin') {
-      setIsAuthenticated(true);
-      localStorage.setItem('floatingdrapes_admin_auth', 'true');
-      setAuthError('');
+  // Handle Logout
+  const handleLogout = async () => {
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+    }
+    try {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
+    } catch (e) {
+      console.warn('Sign out:', e);
+    }
+    setIsAuthenticated(false);
+    sessionStorage.removeItem('fd_admin_token');
+    sessionStorage.removeItem('fd_admin_user_email');
+    localStorage.removeItem('floatingdrapes_admin_auth');
+  };
+
+  // Save Site Captions & sync to Supabase universally
+  const handleSaveCaptions = async () => {
+    onUpdateConfig(captions);
+    localStorage.setItem('floatingdrapes_config', JSON.stringify(captions));
+
+    if (isSupabaseConfigured()) {
+      const success = await syncSiteConfigToSupabase(captions);
+      if (success) {
+        alert('Captions and site configuration saved universally to Supabase!');
+      } else {
+        alert('Saved locally. Note: Supabase database sync encountered an issue. Check connection settings in the Database tab.');
+      }
     } else {
-      setAuthError('Invalid administrator password');
+      alert('Captions saved locally! (Connect Supabase in the Database tab to sync universally).');
+    }
+  };
+
+  // Save Theme & Fonts & sync to Supabase universally
+  const handleSaveTheme = async (themePreset: 'sapphire' | 'amber' | 'emerald' | 'crimson' | 'obsidian', fontPreset: 'jakarta_playfair' | 'inter_cinzel' | 'outfit_bodoni') => {
+    const updated = {
+      ...captions,
+      themePreset,
+      fontPreset
+    };
+    setCaptions(updated);
+    onUpdateConfig(updated);
+    localStorage.setItem('floatingdrapes_config', JSON.stringify(updated));
+
+    if (isSupabaseConfigured()) {
+      await syncSiteConfigToSupabase(updated);
+    }
+  };
+
+  // Update Brand Logo Link & sync to Supabase universally
+  const handleSaveLogo = async (logoUrl: string) => {
+    const updated = {
+      ...captions,
+      brandLogoUrl: logoUrl
+    };
+    setCaptions(updated);
+    onUpdateConfig(updated);
+    localStorage.setItem('floatingdrapes_config', JSON.stringify(updated));
+
+    if (isSupabaseConfigured()) {
+      await syncSiteConfigToSupabase(updated);
+      alert('Brand logo link updated and synchronized universally in Supabase!');
+    } else {
+      alert('Brand logo link updated successfully!');
+    }
+  };
+
+  // Save all Showcase & Page Sections universally
+  const handleSaveShowcaseSections = async () => {
+    onUpdateConfig(captions);
+    localStorage.setItem('floatingdrapes_config', JSON.stringify(captions));
+
+    if (isSupabaseConfigured()) {
+      const success = await syncSiteConfigToSupabase(captions);
+      if (success) {
+        alert('All Homepage & Section changes (Hero Image, 3 Showcase Thumbnails, Why Choose Us, Customization) saved and synced universally to Supabase!');
+      } else {
+        alert('Saved locally. Note: Supabase database sync encountered an issue. Check connection in the Database tab.');
+      }
+    } else {
+      alert('Homepage & Section changes saved locally! (Connect Supabase to sync universally).');
+    }
+  };
+
+  // Upload Homepage Hero Image
+  const handleUploadHeroImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const res = await uploadImageToSupabase(file, {
+        category: 'hero',
+        title: 'Homepage Hero Luxury Living Room'
+      });
+
+      if (res.data?.file_url) {
+        const newUrl = res.data.file_url;
+        const updated: SiteConfig = {
+          ...captions,
+          heroImageUrl: newUrl
+        };
+        setCaptions(updated);
+        onUpdateConfig(updated);
+        localStorage.setItem('floatingdrapes_config', JSON.stringify(updated));
+        if (isSupabaseConfigured()) {
+          await syncSiteConfigToSupabase(updated);
+        }
+        const fresh = await fetchUploadedImagesFromSupabase();
+        setUploadedImages(fresh);
+        alert('Homepage Hero photo uploaded and synced universally to Supabase!');
+      }
+    } catch (err: any) {
+      alert('Error uploading hero image: ' + (err?.message || 'Upload failed'));
+    }
+  };
+
+  // Upload Dedicated Showcase Thumbnail
+  const handleUploadShowcaseThumbnail = async (
+    category: 'curtains' | 'wallpapers' | 'blinds',
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const res = await uploadImageToSupabase(file, {
+        category: category,
+        title: `${category} showcase card thumbnail`
+      });
+
+      if (res.data?.file_url) {
+        const newUrl = res.data.file_url;
+        const baseShowcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+        const currentItem = baseShowcase[category] || DEFAULT_SITE_CONFIG.categoryShowcase![category];
+
+        const updated: SiteConfig = {
+          ...captions,
+          categoryShowcase: {
+            ...baseShowcase,
+            [category]: {
+              ...currentItem,
+              thumbnail: newUrl
+            }
+          },
+          categoryImages: {
+            ...(captions.categoryImages || {}),
+            [category]: newUrl
+          }
+        };
+
+        setCaptions(updated);
+        onUpdateConfig(updated);
+        localStorage.setItem('floatingdrapes_config', JSON.stringify(updated));
+        if (isSupabaseConfigured()) {
+          await syncSiteConfigToSupabase(updated);
+        }
+        const fresh = await fetchUploadedImagesFromSupabase();
+        setUploadedImages(fresh);
+        alert(`${category.toUpperCase()} dedicated thumbnail updated and synced universally to Supabase!`);
+      }
+    } catch (err: any) {
+      alert('Error uploading thumbnail: ' + (err?.message || 'Upload failed'));
+    }
+  };
+
+  // Upload Tailor-Made Customization Image
+  const handleUploadCustomizationImage = async (
+    type: 'curtains' | 'wallpaper',
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const res = await uploadImageToSupabase(file, {
+        category: type === 'curtains' ? 'curtains' : 'wallpapers',
+        title: `Tailor-Made Customization ${type}`
+      });
+
+      if (res.data?.file_url) {
+        const newUrl = res.data.file_url;
+        const updated: SiteConfig = {
+          ...captions,
+          [type === 'curtains' ? 'customizationCurtainsImage' : 'customizationWallpaperImage']: newUrl
+        };
+
+        setCaptions(updated);
+        onUpdateConfig(updated);
+        localStorage.setItem('floatingdrapes_config', JSON.stringify(updated));
+        if (isSupabaseConfigured()) {
+          await syncSiteConfigToSupabase(updated);
+        }
+        const fresh = await fetchUploadedImagesFromSupabase();
+        setUploadedImages(fresh);
+        alert(`Tailor-Made ${type.toUpperCase()} customization image updated and synced universally to Supabase!`);
+      }
+    } catch (err: any) {
+      alert('Error uploading customization photo: ' + (err?.message || 'Upload failed'));
+    }
+  };
+
+  // Upload Why Choose Us Section Image
+  const handleUploadWhyChooseUsImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const res = await uploadImageToSupabase(file, {
+        category: 'why_choose_us',
+        title: 'Why Choose Us Luxury Drapes Feature'
+      });
+
+      if (res.data?.file_url) {
+        const newUrl = res.data.file_url;
+        const updated: SiteConfig = {
+          ...captions,
+          whyChooseUsImageUrl: newUrl
+        };
+
+        setCaptions(updated);
+        onUpdateConfig(updated);
+        localStorage.setItem('floatingdrapes_config', JSON.stringify(updated));
+        if (isSupabaseConfigured()) {
+          await syncSiteConfigToSupabase(updated);
+        }
+        const fresh = await fetchUploadedImagesFromSupabase();
+        setUploadedImages(fresh);
+        alert('Why Choose Us showcase photo uploaded and synced universally to Supabase!');
+      }
+    } catch (err: any) {
+      alert('Error uploading Why Choose Us photo: ' + (err?.message || 'Upload failed'));
+    }
+  };
+
+  // Delete Product from local state and Supabase
+  const handleDeleteProduct = async (id: string, category: 'curtains' | 'wallpapers' | 'blinds') => {
+    if (!window.confirm('Are you absolutely sure you want to delete this product?')) return;
+
+    if (category === 'curtains') {
+      const updated = curtains.filter(p => p.id !== id);
+      setCurtains(updated);
+      localStorage.setItem('floatingdrapes_curtains', JSON.stringify(updated));
+      if (isSupabaseConfigured()) {
+        await deleteCurtainFromSupabase(id);
+      }
+    } else if (category === 'wallpapers') {
+      const updated = wallpapers.filter(p => p.id !== id);
+      setWallpapers(updated);
+      localStorage.setItem('floatingdrapes_wallpapers', JSON.stringify(updated));
+      if (isSupabaseConfigured()) {
+        await deleteWallpaperFromSupabase(id);
+      }
+    } else {
+      const updated = blinds.filter(p => p.id !== id);
+      setBlinds(updated);
+      localStorage.setItem('floatingdrapes_blinds', JSON.stringify(updated));
+      if (isSupabaseConfigured()) {
+        await deleteBlindFromSupabase(id);
+      }
+    }
+  };
+
+  // Save / Edit Product & sync to Supabase
+  const handleProductSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const materialsArray = productForm.materials
+      ? productForm.materials.split(',').map(m => m.trim()).filter(m => m !== '')
+      : [];
+
+    if (isAddingProduct) {
+      const newId = selectedProductCategory[0] + '-' + Date.now();
+      const newProduct: any = {
+        id: newId,
+        name: productForm.name,
+        description: productForm.description,
+        image: productForm.image || 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=600&q=80',
+        materials: materialsArray
+      };
+
+      if (selectedProductCategory === 'curtains') {
+        newProduct.priceClass = productForm.priceClass;
+        const updated = [newProduct, ...curtains];
+        setCurtains(updated);
+        localStorage.setItem('floatingdrapes_curtains', JSON.stringify(updated));
+        if (isSupabaseConfigured()) {
+          await upsertCurtainToSupabase(newProduct);
+        }
+      } else if (selectedProductCategory === 'wallpapers') {
+        newProduct.style = productForm.style;
+        const updated = [newProduct, ...wallpapers];
+        setWallpapers(updated);
+        localStorage.setItem('floatingdrapes_wallpapers', JSON.stringify(updated));
+        if (isSupabaseConfigured()) {
+          await upsertWallpaperToSupabase(newProduct);
+        }
+      } else {
+        newProduct.style = productForm.style;
+        const updated = [newProduct, ...blinds];
+        setBlinds(updated);
+        localStorage.setItem('floatingdrapes_blinds', JSON.stringify(updated));
+        if (isSupabaseConfigured()) {
+          await upsertBlindToSupabase(newProduct);
+        }
+      }
+
+      alert('New product added to catalog and synchronized universally!');
+    } else if (editingProduct) {
+      let syncSuccess = false;
+      if (selectedProductCategory === 'curtains') {
+        const updatedItem: CurtainItem = {
+          ...editingProduct,
+          name: productForm.name,
+          description: productForm.description,
+          image: productForm.image,
+          priceClass: productForm.priceClass as any,
+          materials: materialsArray
+        };
+        const updated = curtains.map(p => p.id === editingProduct.id ? updatedItem : p);
+        setCurtains(updated);
+        localStorage.setItem('floatingdrapes_curtains', JSON.stringify(updated));
+        if (isSupabaseConfigured()) {
+          syncSuccess = await upsertCurtainToSupabase(updatedItem);
+        }
+      } else if (selectedProductCategory === 'wallpapers') {
+        const updatedItem: WallpaperItem = {
+          ...editingProduct,
+          name: productForm.name,
+          description: productForm.description,
+          image: productForm.image,
+          style: productForm.style as any,
+          materials: materialsArray
+        };
+        const updated = wallpapers.map(p => p.id === editingProduct.id ? updatedItem : p);
+        setWallpapers(updated);
+        localStorage.setItem('floatingdrapes_wallpapers', JSON.stringify(updated));
+        if (isSupabaseConfigured()) {
+          syncSuccess = await upsertWallpaperToSupabase(updatedItem);
+        }
+      } else {
+        const updatedItem: BlindItem = {
+          ...editingProduct,
+          name: productForm.name,
+          description: productForm.description,
+          image: productForm.image,
+          style: productForm.style as any,
+          materials: materialsArray
+        };
+        const updated = blinds.map(p => p.id === editingProduct.id ? updatedItem : p);
+        setBlinds(updated);
+        localStorage.setItem('floatingdrapes_blinds', JSON.stringify(updated));
+        if (isSupabaseConfigured()) {
+          syncSuccess = await upsertBlindToSupabase(updatedItem);
+        }
+      }
+
+      if (isSupabaseConfigured()) {
+        if (syncSuccess) {
+          alert(`"${productForm.name}" updated directly in Supabase database! Live on all devices.`);
+        } else {
+          alert(`"${productForm.name}" saved! (Note: Check Database tab to ensure table permissions are active).`);
+        }
+      } else {
+        alert(`"${productForm.name}" saved locally. (Connect Supabase in Database tab to sync to your database).`);
+      }
+    }
+
+    setIsAddingProduct(false);
+    setEditingProduct(null);
+  };
+
+  const startEditProduct = (prod: any) => {
+    setEditingProduct(prod);
+    setIsAddingProduct(false);
+    setProductForm({
+      id: prod.id,
+      name: prod.name,
+      description: prod.description,
+      image: prod.image,
+      priceClass: prod.priceClass || 'Premium',
+      style: prod.style || 'Classic',
+      materials: prod.materials ? (Array.isArray(prod.materials) ? prod.materials.join(', ') : String(prod.materials)) : ''
+    });
+  };
+
+  const startAddProduct = () => {
+    setIsAddingProduct(true);
+    setEditingProduct(null);
+    setProductForm({
+      id: '',
+      name: '',
+      description: '',
+      image: '',
+      priceClass: 'Premium',
+      style: selectedProductCategory === 'wallpapers' ? 'Classic' : 'Roman',
+      materials: ''
+    });
+  };
+
+  // Feedback Master Controller Handlers
+  const handleStartAddFeedback = () => {
+    setEditingFeedback(null);
+    setIsAddingFeedback(true);
+    setFeedbackForm({
+      id: `t_${Date.now()}`,
+      name: '',
+      location: 'Coimbatore',
+      role: '',
+      review: '',
+      rating: 5,
+      image: ''
+    });
+  };
+
+  const handleStartEditFeedback = (item: Testimonial) => {
+    setIsAddingFeedback(false);
+    setEditingFeedback(item);
+    setFeedbackForm({
+      id: item.id,
+      name: item.name,
+      location: item.location || '',
+      role: item.role || '',
+      review: item.review,
+      rating: item.rating || 5,
+      image: item.image || ''
+    });
+  };
+
+  const handleFeedbackImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Please select an image smaller than 10MB.');
+      return;
+    }
+
+    try {
+      const res = await uploadImageToSupabase(file, {
+        category: 'gallery',
+        title: `Customer - ${feedbackForm.name || 'Client'}`
+      });
+      if (res.data?.file_url) {
+        setFeedbackForm(prev => ({ ...prev, image: res.data!.file_url }));
+        const fresh = await fetchUploadedImagesFromSupabase();
+        setUploadedImages(fresh);
+      }
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        if (base64) {
+          setFeedbackForm(prev => ({ ...prev, image: base64 }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveFeedbackPhoto = () => {
+    setFeedbackForm(prev => ({ ...prev, image: '' }));
+  };
+
+  const handleFeedbackSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedbackForm.name.trim() || !feedbackForm.review.trim()) {
+      alert('Please fill in both the customer name and review text.');
+      return;
+    }
+
+    const itemToSave: Testimonial = {
+      id: feedbackForm.id || `t_${Date.now()}`,
+      name: feedbackForm.name.trim(),
+      location: feedbackForm.location?.trim() || 'Coimbatore',
+      role: feedbackForm.role?.trim() || '',
+      review: feedbackForm.review.trim(),
+      rating: Number(feedbackForm.rating) || 5,
+      image: feedbackForm.image?.trim() || ''
+    };
+
+    let updatedList: Testimonial[];
+    if (isAddingFeedback) {
+      updatedList = [itemToSave, ...testimonials];
+    } else {
+      updatedList = testimonials.map(t => t.id === itemToSave.id ? itemToSave : t);
+    }
+
+    setTestimonials(updatedList);
+    localStorage.setItem('floatingdrapes_testimonials', JSON.stringify(updatedList));
+
+    if (isSupabaseConfigured()) {
+      await upsertFeedbackToSupabase(itemToSave);
+    }
+
+    setFeedbackSuccessMsg(isAddingFeedback ? 'New feedback added successfully!' : 'Feedback entry updated successfully!');
+    setTimeout(() => setFeedbackSuccessMsg(''), 4000);
+
+    setIsAddingFeedback(false);
+    setEditingFeedback(null);
+  };
+
+  const handleDeleteFeedback = async (id: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete the feedback from "${name}"?`)) return;
+
+    const updatedList = testimonials.filter(t => t.id !== id);
+    setTestimonials(updatedList);
+    localStorage.setItem('floatingdrapes_testimonials', JSON.stringify(updatedList));
+
+    if (isSupabaseConfigured()) {
+      await deleteFeedbackFromSupabase(id);
+    }
+
+    if (editingFeedback?.id === id) {
+      setEditingFeedback(null);
+      setIsAddingFeedback(false);
+    }
+  };
+
+  const handleDeleteBooking = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this consultation log?')) return;
+    const updated = bookings.filter(b => b.id !== id);
+    setBookings(updated);
+    localStorage.setItem('floatingdrapes_bookings', JSON.stringify(updated));
+    if (isSupabaseConfigured()) {
+      await deleteBookingFromSupabase(id);
+    }
+  };
+
+  const handleDeleteInquiry = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this contact inquiry?')) return;
+    const updated = inquiries.filter(i => i.id !== id);
+    setInquiries(updated);
+    localStorage.setItem('floatingdrapes_contacts', JSON.stringify(updated));
+    if (isSupabaseConfigured()) {
+      await deleteInquiryFromSupabase(id);
+    }
+  };
+
+  // Supabase Credentials handlers
+  const handleSaveSupabaseConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabaseUrl || !supabaseKey) {
+      alert('Please provide both your Supabase Project URL and Anon API Key.');
+      return;
+    }
+
+    setSupabaseStatus('testing');
+    saveSupabaseCredentials(supabaseUrl, supabaseKey);
+
+    const testRes = await testSupabaseConnection();
+    if (testRes.success) {
+      setSupabaseStatus('connected');
+      setSupabaseStatusMessage(testRes.message);
+      alert('Supabase connected successfully! Realtime synchronization is active.');
+      handlePullFromSupabase();
+    } else {
+      setSupabaseStatus('disconnected');
+      setSupabaseStatusMessage(testRes.message);
+      alert(testRes.message);
     }
   };
 
   const handleTestConnection = async () => {
-    setIsTesting(true);
-    setConnectionStatus({ tested: false, success: false, message: '' });
-    try {
-      const res = await testSupabaseConnection();
-      setConnectionStatus({
-        tested: true,
-        success: res.success,
-        message: res.message,
-        tablesFound: res.tablesFound,
-        missingTables: res.missingTables
-      });
-    } catch (err: any) {
-      setConnectionStatus({
-        tested: true,
-        success: false,
-        message: err?.message || 'Failed to connect to Supabase.'
-      });
-    } finally {
-      setIsTesting(false);
+    setSupabaseStatus('testing');
+    const res = await testSupabaseConnection();
+    if (res.success) {
+      setSupabaseStatus('connected');
+      setSupabaseStatusMessage(res.message);
+      alert('Connection Verified! ' + res.message);
+    } else {
+      setSupabaseStatus('disconnected');
+      setSupabaseStatusMessage(res.message);
+      alert('Connection Failed: ' + res.message);
     }
   };
 
-  const handleSaveCredentials = () => {
-    if (!supabaseUrl.trim() || !supabaseKey.trim()) {
-      alert('Please provide both Project URL and Anon API Key');
+  const handleSeedSupabase = async () => {
+    if (!isSupabaseConfigured()) {
+      alert('Please connect your Supabase database first.');
       return;
     }
-    saveSupabaseCredentials(supabaseUrl, supabaseKey);
-    alert('Credentials saved! Testing connection now...');
-    handleTestConnection();
-  };
 
-  const handleSeedDatabase = async () => {
-    if (!confirm('This will seed the default catalogs, configuration, and sample testimonials into your Supabase database. Continue?')) {
+    if (!window.confirm('This will upload all 50+ rich curtain, wallpaper, and blinds products and site settings to your Supabase tables. Continue?')) {
       return;
     }
-    setIsSeeding(true);
-    setSeedMessage('');
+
+    setIsSeedingDatabase(true);
     try {
       const res = await seedDefaultCatalogToSupabase(siteConfig);
-      setSeedMessage(res.message);
-      if (onRefreshData) onRefreshData();
-    } catch (err: any) {
-      setSeedMessage('Error seeding database: ' + err.message);
+      alert(res.message);
     } finally {
-      setIsSeeding(false);
+      setIsSeedingDatabase(false);
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handlePullFromSupabase = async () => {
+    if (!isSupabaseConfigured()) {
+      alert('Please connect your Supabase database first.');
+      return;
+    }
 
-    setIsUploading(true);
-    setUploadMessage('');
+    setIsPullingData(true);
+    try {
+      const data = await fetchUniversalSiteData();
+      let updatedCount = 0;
+
+      if (data.siteConfig) {
+        onUpdateConfig(data.siteConfig);
+        setCaptions(data.siteConfig);
+        localStorage.setItem('floatingdrapes_config', JSON.stringify(data.siteConfig));
+        updatedCount++;
+      }
+      if (data.curtains && data.curtains.length > 0) {
+        setCurtains(data.curtains);
+        localStorage.setItem('floatingdrapes_curtains', JSON.stringify(data.curtains));
+        updatedCount++;
+      }
+      if (data.wallpapers && data.wallpapers.length > 0) {
+        setWallpapers(data.wallpapers);
+        localStorage.setItem('floatingdrapes_wallpapers', JSON.stringify(data.wallpapers));
+        updatedCount++;
+      }
+      if (data.blinds && data.blinds.length > 0) {
+        setBlinds(data.blinds);
+        localStorage.setItem('floatingdrapes_blinds', JSON.stringify(data.blinds));
+        updatedCount++;
+      }
+      if (data.testimonials && data.testimonials.length > 0) {
+        setTestimonials(data.testimonials);
+        localStorage.setItem('floatingdrapes_testimonials', JSON.stringify(data.testimonials));
+        updatedCount++;
+      }
+      if (data.bookings) {
+        setBookings(data.bookings);
+        localStorage.setItem('floatingdrapes_bookings', JSON.stringify(data.bookings));
+      }
+      if (data.inquiries) {
+        setInquiries(data.inquiries);
+        localStorage.setItem('floatingdrapes_contacts', JSON.stringify(data.inquiries));
+      }
+
+      alert(`Successfully refreshed universal state from Supabase! (${updatedCount} dataset collections synchronized).`);
+    } catch (e: any) {
+      alert(`Error pulling from Supabase: ${e?.message || 'Failed'}`);
+    } finally {
+      setIsPullingData(false);
+    }
+  };
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(SUPABASE_SQL_SCHEMA);
+    setSqlCopied(true);
+    setTimeout(() => setSqlCopied(false), 3000);
+  };
+
+  // Media Library Handlers
+  const handleLoadMedia = async () => {
+    setIsLoadingMedia(true);
+    try {
+      const images = await fetchUploadedImagesFromSupabase();
+      setUploadedImages(images);
+    } catch (err) {
+      console.error('Failed to load media:', err);
+    } finally {
+      setIsLoadingMedia(false);
+    }
+  };
+
+  const handleExecuteUpload = async (fileToUpload?: File) => {
+    const file = fileToUpload || selectedUploadFile;
+    if (!file) {
+      setUploadErrorMsg('Please select an image file to upload.');
+      return;
+    }
+
+    if (file.size > 25 * 1024 * 1024) {
+      setUploadErrorMsg('File size exceeds 25MB limit. Please choose a smaller image.');
+      return;
+    }
+
+    setIsUploadingMedia(true);
+    setUploadErrorMsg('');
+    setUploadSuccessMsg('');
+
     try {
       const res = await uploadImageToSupabase(file, {
         category: uploadCategory,
-        title: uploadTitle || file.name
+        title: uploadTitle.trim() || undefined
       });
-      setUploadMessage(res.message);
+
       if (res.success && res.data) {
-        setMediaList((prev) => [res.data!, ...prev]);
+        setUploadSuccessMsg(res.message);
+        setSelectedUploadFile(null);
         setUploadTitle('');
-        if (onRefreshData) onRefreshData();
+        const freshList = await fetchUploadedImagesFromSupabase();
+        setUploadedImages(freshList);
+        setTimeout(() => setUploadSuccessMsg(''), 6000);
+      } else {
+        setUploadErrorMsg(res.error || 'Failed to upload image.');
       }
     } catch (err: any) {
-      setUploadMessage('Upload failed: ' + err.message);
+      setUploadErrorMsg(err?.message || 'An error occurred during image upload.');
     } finally {
-      setIsUploading(false);
-      e.target.value = '';
+      setIsUploadingMedia(false);
     }
   };
 
-  const handleDeleteMedia = async (item: UploadedImage) => {
-    if (!confirm(`Delete image "${item.title || item.filename}"?`)) return;
-    await deleteUploadedImageFromSupabase(item.id, item.storage_path);
-    setMediaList((prev) => prev.filter((m) => m.id !== item.id));
-    if (onRefreshData) onRefreshData();
+  const handleDeleteMedia = async (image: UploadedImage) => {
+    if (!window.confirm(`Delete image "${image.title || image.filename}" from your Supabase database and storage?`)) return;
+
+    const success = await deleteUploadedImageFromSupabase(image.id, image.storage_path);
+    if (success) {
+      setUploadedImages(prev => prev.filter(img => img.id !== image.id));
+      if (previewModalImage?.id === image.id) {
+        setPreviewModalImage(null);
+      }
+    } else {
+      alert('Failed to delete image from Supabase.');
+    }
   };
 
-  const copySqlSchema = () => {
-    navigator.clipboard.writeText(SUPABASE_SQL_SCHEMA);
-    setCopiedSchema(true);
-    setTimeout(() => setCopiedSchema(false), 2500);
+  const handleCopyUrl = (url: string, id: string) => {
+    navigator.clipboard.writeText(url);
+    setCopiedMediaId(id);
+    setTimeout(() => setCopiedMediaId(null), 2500);
+  };
+
+  const handleApplyToProduct = (imageUrl: string, category: 'curtains' | 'wallpapers' | 'blinds') => {
+    setSelectedProductCategory(category);
+    setProductForm({
+      id: `${category.charAt(0)}${Date.now()}`,
+      name: `New ${category.slice(0, -1).charAt(0).toUpperCase() + category.slice(0, -1).slice(1)} Item`,
+      description: '',
+      image: imageUrl,
+      priceClass: 'Premium',
+      style: 'Classic',
+      materials: ''
+    });
+    setIsAddingProduct(true);
+    setActiveTab('products');
+  };
+
+  const handleProductInlineUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingProductInline(true);
+    try {
+      const res = await uploadImageToSupabase(file, {
+        category: selectedProductCategory,
+        title: `${selectedProductCategory} item`
+      });
+
+      if (res.data?.file_url) {
+        setProductForm(prev => ({ ...prev, image: res.data!.file_url }));
+        const fresh = await fetchUploadedImagesFromSupabase();
+        setUploadedImages(fresh);
+      }
+    } catch (err) {
+      console.error('Inline upload error:', err);
+      alert('Failed to upload image to Supabase.');
+    } finally {
+      setIsUploadingProductInline(false);
+    }
+  };
+
+  const handleQuickUploadProductPhoto = async (
+    item: any,
+    category: 'curtains' | 'wallpapers' | 'blinds',
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const res = await uploadImageToSupabase(file, {
+        category,
+        title: item.name
+      });
+
+      if (res.data?.file_url) {
+        const newUrl = res.data.file_url;
+        const updatedItem = { ...item, image: newUrl };
+
+        if (category === 'curtains') {
+          const updated = curtains.map(p => p.id === item.id ? updatedItem : p);
+          setCurtains(updated);
+          localStorage.setItem('floatingdrapes_curtains', JSON.stringify(updated));
+          if (isSupabaseConfigured()) {
+            await upsertCurtainToSupabase(updatedItem);
+          }
+        } else if (category === 'wallpapers') {
+          const updated = wallpapers.map(p => p.id === item.id ? updatedItem : p);
+          setWallpapers(updated);
+          localStorage.setItem('floatingdrapes_wallpapers', JSON.stringify(updated));
+          if (isSupabaseConfigured()) {
+            await upsertWallpaperToSupabase(updatedItem);
+          }
+        } else {
+          const updated = blinds.map(p => p.id === item.id ? updatedItem : p);
+          setBlinds(updated);
+          localStorage.setItem('floatingdrapes_blinds', JSON.stringify(updated));
+          if (isSupabaseConfigured()) {
+            await upsertBlindToSupabase(updatedItem);
+          }
+        }
+
+        const fresh = await fetchUploadedImagesFromSupabase();
+        setUploadedImages(fresh);
+
+        alert(`New photo uploaded and updated in Supabase database for "${item.name}"!`);
+      }
+    } catch (err) {
+      console.error('Quick upload error:', err);
+      alert('Failed to upload image to Supabase.');
+    }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Top Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-stone-900 text-white">
-          <div className="flex items-center gap-3">
-            <ShieldCheck className="w-6 h-6 text-amber-400" />
-            <div>
-              <h2 className="text-lg font-bold tracking-wide">Floating Drapes Admin</h2>
-              <p className="text-xs text-stone-400">Database synchronization & site asset control</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-hidden text-white" id="admin-panel-overlay">
+      <div className="relative w-full max-w-6xl h-[90vh] bg-[#00172e] border border-[#003866] shadow-[0_20px_60px_rgba(0,153,255,0.25)] flex flex-col rounded-2xl overflow-hidden" id="admin-panel-container">
+        
+        {/* TOP HEADER WITH HIGH-VISIBILITY LOGOUT BUTTON */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#003366] bg-[#001f3f]">
+          <div className="flex items-center space-x-3">
+            <span className="font-sans text-[11px] font-bold tracking-[0.3em] text-[#0099ff] uppercase">FLOATING DRAPES SYSTEM ENGINE</span>
+            
+            {/* Database indicating light */}
+            <div 
+              className="flex items-center justify-center p-1.5 bg-[#00172e] border border-[#003866] rounded-full shadow-inner"
+              title={supabaseStatus === 'connected' ? 'Database: Connected (Green)' : supabaseStatus === 'testing' ? 'Database: Trying to connect (Yellow)' : 'Database: Disconnected (Red)'}
+            >
+              {renderIndicatorLight('sm')}
             </div>
+
+            {isAuthenticated && (
+              <span className="hidden sm:inline-block bg-[#0099ff]/15 text-[#0099ff] px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border border-[#0099ff]/30 rounded">
+                MASTER CONTROL
+              </span>
+            )}
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* LOGOUT BUTTON */}
+          <div className="flex items-center space-x-3">
+            {/* PROMINENT LOGOUT BUTTON - ALWAYS VISIBLE WHEN AUTHENTICATED */}
             {isAuthenticated && (
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-300 bg-red-950/60 hover:bg-red-900 border border-red-700/60 rounded-lg transition-colors cursor-pointer"
-                title="Log out of Admin Panel"
+                className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold uppercase tracking-wider shadow-md shadow-red-900/40 border border-red-500 transition-all cursor-pointer"
+                title="End master session and lock Admin Panel"
               >
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
+                <LogOut className="h-3.5 w-3.5" />
+                <span>LOGOUT</span>
               </button>
             )}
 
-            <button
-              onClick={onClose}
-              className="p-1.5 text-stone-400 hover:text-white rounded-lg hover:bg-stone-800 transition"
-              aria-label="Close"
+            <button 
+              onClick={onClose} 
+              className="p-1.5 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              title="Exit System Panel"
             >
-              <X className="w-5 h-5" />
+              <X className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        {/* Auth Gate */}
+        {/* NOT AUTHENTICATED - SHOW LOGIN MODAL */}
         {!isAuthenticated ? (
-          <div className="p-8 flex flex-col items-center justify-center text-center my-auto">
-            <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 mb-4 border border-amber-200">
-              <Lock className="w-7 h-7" />
-            </div>
-            <h3 className="text-xl font-bold text-stone-800 mb-1">Administrator Access Required</h3>
-            <p className="text-sm text-stone-500 mb-6 max-w-sm">
-              Please enter your administrative password to access Supabase configurations and site assets.
-            </p>
-
-            <form onSubmit={handleLoginSubmit} className="w-full max-w-xs space-y-3">
-              <input
-                type="password"
-                placeholder="Enter password..."
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2.5 text-sm border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
-                autoFocus
-              />
-              {authError && <p className="text-xs text-red-500 font-medium">{authError}</p>}
-              <button
-                type="submit"
-                className="w-full py-2.5 bg-stone-900 text-white text-sm font-semibold rounded-xl hover:bg-stone-800 transition shadow"
+          <div className="flex-1 flex flex-col items-center justify-center px-4 max-w-md mx-auto py-12">
+            <div className="w-full bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-8 shadow-2xl text-[#002b49] relative">
+              <div 
+                className="absolute top-5 right-5 p-2 bg-white border border-[#c5def2] rounded-full shadow-sm flex items-center justify-center"
+                title={supabaseStatus === 'connected' ? 'Database: Connected (Green)' : supabaseStatus === 'testing' ? 'Database: Trying to connect (Yellow)' : 'Database: Disconnected (Red)'}
               >
-                Unlock Admin Controls
-              </button>
-            </form>
+                {renderIndicatorLight('md')}
+              </div>
+
+              <div className="w-14 h-14 bg-[#e3f2fd] border border-[#90cdf4] rounded-full flex items-center justify-center text-[#0099ff] mx-auto mb-5 shadow-sm">
+                <Lock className="h-6 w-6" />
+              </div>
+              
+              <h2 className="font-serif text-2xl text-center font-bold text-[#002b49] mb-1.5">Enter Master Credentials</h2>
+              <p className="font-sans text-xs text-[#335577] text-center mb-6 leading-relaxed">
+                Floating Drapes control panel. Enter your admin user credentials to access the dashboard.
+              </p>
+
+              <form onSubmit={handleLogin} className="w-full space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold tracking-wider text-[#006699] uppercase mb-1.5">Admin Email ID</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-3 h-4 w-4 text-[#88a3bc]" />
+                    <input
+                      type="text"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Enter your admin user email"
+                      className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] px-11 py-2.5 text-xs text-[#002b49] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold tracking-wider text-[#006699] uppercase mb-1.5">Authorization Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-3 h-4 w-4 text-[#88a3bc]" />
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] px-11 py-2.5 text-xs text-[#002b49] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                    />
+                  </div>
+                </div>
+
+                {authError && (
+                  <div className="text-red-700 text-[11px] font-medium leading-relaxed bg-red-50 border border-red-200 p-3 rounded-lg">
+                    {authError}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingLogin}
+                  className="w-full bg-[#0099ff] hover:bg-[#0088ee] text-white py-3 text-xs font-bold tracking-widest uppercase transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer rounded-lg shadow-md shadow-[#0099ff]/25"
+                >
+                  <LogIn className="h-3.5 w-3.5" />
+                  <span>{isSubmittingLogin ? 'VERIFYING WITH DATABASE...' : 'AUTHORIZE AND SIGN IN'}</span>
+                </button>
+              </form>
+            </div>
           </div>
         ) : (
-          <div className="flex flex-col flex-1 overflow-hidden">
-            {/* Tabs */}
-            <div className="flex border-b border-stone-200 bg-stone-50 px-6 gap-2 pt-2">
-              <button
-                onClick={() => setActiveTab('database')}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-t-xl transition border-t border-x ${
-                  activeTab === 'database'
-                    ? 'bg-white border-stone-200 text-stone-900 border-b-white'
-                    : 'border-transparent text-stone-500 hover:text-stone-800'
-                }`}
-              >
-                <Database className="w-4 h-4" />
-                <span>Supabase Sync</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('media')}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-t-xl transition border-t border-x ${
-                  activeTab === 'media'
-                    ? 'bg-white border-stone-200 text-stone-900 border-b-white'
-                    : 'border-transparent text-stone-500 hover:text-stone-800'
-                }`}
-              >
-                <ImageIcon className="w-4 h-4" />
-                <span>Media & Uploads</span>
-              </button>
+          /* AUTHENTICATED PANEL LAYOUT */
+          <div className="flex-1 flex overflow-hidden">
+            
+            {/* SIDE BAR BUTTONS */}
+            <div className="w-64 border-r border-[#003366] bg-[#00172e] flex flex-col justify-between shrink-0 overflow-y-auto">
+              <div className="p-4 space-y-1.5">
+                <button
+                  onClick={() => setActiveTab('sections')}
+                  className={`w-full text-left px-4 py-3 text-xs font-bold tracking-widest uppercase flex items-center space-x-3 transition-all cursor-pointer rounded-lg ${activeTab === 'sections' ? 'bg-[#0099ff] text-white shadow-md shadow-[#0099ff]/30' : 'hover:bg-[#002b49] text-[#88ccff] hover:text-white'}`}
+                >
+                  <Layers className="h-4 w-4" />
+                  <span>Homepage & Sections</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('captions')}
+                  className={`w-full text-left px-4 py-3 text-xs font-bold tracking-widest uppercase flex items-center space-x-3 transition-all cursor-pointer rounded-lg ${activeTab === 'captions' ? 'bg-[#0099ff] text-white shadow-md shadow-[#0099ff]/30' : 'hover:bg-[#002b49] text-[#88ccff] hover:text-white'}`}
+                >
+                  <Heading className="h-4 w-4" />
+                  <span>Captions & Text</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('theme')}
+                  className={`w-full text-left px-4 py-3 text-xs font-bold tracking-widest uppercase flex items-center space-x-3 transition-all cursor-pointer rounded-lg ${activeTab === 'theme' ? 'bg-[#0099ff] text-white shadow-md shadow-[#0099ff]/30' : 'hover:bg-[#002b49] text-[#88ccff] hover:text-white'}`}
+                >
+                  <Palette className="h-4 w-4" />
+                  <span>Theme & Brand</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('products')}
+                  className={`w-full text-left px-4 py-3 text-xs font-bold tracking-widest uppercase flex items-center space-x-3 transition-all cursor-pointer rounded-lg ${activeTab === 'products' ? 'bg-[#0099ff] text-white shadow-md shadow-[#0099ff]/30' : 'hover:bg-[#002b49] text-[#88ccff] hover:text-white'}`}
+                >
+                  <ShoppingBag className="h-4 w-4" />
+                  <span>Products Catalog</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('media');
+                    handleLoadMedia();
+                  }}
+                  className={`w-full text-left px-4 py-3 text-xs font-bold tracking-widest uppercase flex items-center space-x-3 transition-all cursor-pointer rounded-lg ${activeTab === 'media' ? 'bg-[#0099ff] text-white shadow-md shadow-[#0099ff]/30' : 'hover:bg-[#002b49] text-[#88ccff] hover:text-white'}`}
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  <span className="flex-1">Media & Uploads</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#002b49] text-[#88ccff] border border-[#003866] font-mono font-bold">{uploadedImages.length}</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('feedback')}
+                  className={`w-full text-left px-4 py-3 text-xs font-bold tracking-widest uppercase flex items-center space-x-3 transition-all cursor-pointer rounded-lg ${activeTab === 'feedback' ? 'bg-[#0099ff] text-white shadow-md shadow-[#0099ff]/30' : 'hover:bg-[#002b49] text-[#88ccff] hover:text-white'}`}
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  <span className="flex-1">Feedback Master</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#002b49] text-[#88ccff] border border-[#003866] font-mono font-bold">{testimonials.length}</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('inquiries')}
+                  className={`w-full text-left px-4 py-3 text-xs font-bold tracking-widest uppercase flex items-center space-x-3 transition-all cursor-pointer rounded-lg ${activeTab === 'inquiries' ? 'bg-[#0099ff] text-white shadow-md shadow-[#0099ff]/30' : 'hover:bg-[#002b49] text-[#88ccff] hover:text-white'}`}
+                >
+                  <Inbox className="h-4 w-4" />
+                  <span>Inquiries ({bookings.length + inquiries.length})</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('database')}
+                  className={`w-full text-left px-4 py-3 text-xs font-bold tracking-widest uppercase flex items-center space-x-3 transition-all cursor-pointer rounded-lg ${activeTab === 'database' ? 'bg-[#0099ff] text-white shadow-md shadow-[#0099ff]/30' : 'hover:bg-[#002b49] text-[#88ccff] hover:text-white'}`}
+                >
+                  <Database className="h-4 w-4" />
+                  <span className="flex-1">Supabase Database</span>
+                  {supabaseStatus === 'connected' && <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />}
+                </button>
+              </div>
+
+              {/* SIDEBAR LOGOUT FOOTER */}
+              <div className="p-4 border-t border-[#003366] bg-[#001326] space-y-2">
+                {sessionStorage.getItem('fd_admin_user_email') && (
+                  <div className="px-3 py-2 bg-[#002244] border border-[#003866] text-[10px] text-[#88ccff] rounded-lg truncate">
+                    <span className="block text-[8px] uppercase tracking-wider text-[#0099ff] font-bold">Logged In User</span>
+                    <span className="truncate text-white font-medium">{sessionStorage.getItem('fd_admin_user_email')}</span>
+                  </div>
+                )}
+                <button 
+                  onClick={handleLogout}
+                  className="w-full bg-red-600 hover:bg-red-500 text-white py-2.5 px-3 text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer rounded-lg flex items-center justify-center space-x-2 shadow-md shadow-red-900/30"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>LOGOUT NOW</span>
+                </button>
+              </div>
             </div>
 
-            {/* Tab Contents */}
-            <div className="p-6 overflow-y-auto space-y-6 flex-1">
-              {activeTab === 'database' && (
-                <div className="space-y-6">
-                  {/* Status Banner */}
-                  <div className="p-4 rounded-xl border border-stone-200 bg-stone-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* MAIN CONTENT AREA */}
+            <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-[#001428]">
+              
+              {/* TAB 0: HOMEPAGE & SECTIONS */}
+              {activeTab === 'sections' && (
+                <div className="space-y-8 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
+                  {/* Top Bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#d8eaf7] pb-5 gap-4">
                     <div>
-                      <h4 className="font-bold text-stone-800 flex items-center gap-2">
-                        <span>Connection Status</span>
-                        {isSupabaseConfigured() ? (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-medium flex items-center gap-1">
-                            <CheckCircle className="w-3 h-3" /> Configured
-                          </span>
-                        ) : (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium flex items-center gap-1">
-                            <AlertCircle className="w-3 h-3" /> Pending Credentials
-                          </span>
-                        )}
-                      </h4>
-                      <p className="text-xs text-stone-500 mt-1">
-                        Connect your live Supabase database to synchronize bookings, images, and collections across all visitors.
+                      <h3 className="font-serif text-2xl font-bold text-[#002b49]">Homepage & Section Visuals</h3>
+                      <p className="font-sans text-xs text-[#335577] mt-1">
+                        Dedicated upload & string editor for Homepage Hero, the 3 Showcase Products ("Elegance In Every Detail"), and Tailor-Made Customization.
                       </p>
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleTestConnection}
-                        disabled={isTesting}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-stone-900 text-white rounded-lg text-xs font-semibold hover:bg-stone-800 transition disabled:opacity-50"
-                      >
-                        <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
-                        <span>{isTesting ? 'Testing...' : 'Test Connection'}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {connectionStatus.tested && (
-                    <div
-                      className={`p-4 rounded-xl border text-sm ${
-                        connectionStatus.success
-                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                          : 'bg-red-50 border-red-200 text-red-800'
-                      }`}
+                    <button 
+                      onClick={handleSaveShowcaseSections}
+                      className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-5 py-2.5 text-xs font-bold tracking-widest uppercase rounded-lg shadow-md shadow-[#0099ff]/25 transition-all flex items-center space-x-2 cursor-pointer self-start sm:self-auto"
                     >
-                      <p className="font-medium">{connectionStatus.message}</p>
-                      {connectionStatus.missingTables && connectionStatus.missingTables.length > 0 && (
-                        <p className="text-xs mt-1">
-                          Missing tables: {connectionStatus.missingTables.join(', ')}. Please run the SQL schema below in your Supabase SQL Editor.
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Supabase Keys Input */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
-                        Supabase Project URL
-                      </label>
-                      <input
-                        type="text"
-                        value={supabaseUrl}
-                        onChange={(e) => setSupabaseUrl(e.target.value)}
-                        placeholder="https://xyzcompany.supabase.co"
-                        className="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
-                        Supabase Anon API Key
-                      </label>
-                      <input
-                        type="password"
-                        value={supabaseKey}
-                        onChange={(e) => setSupabaseKey(e.target.value)}
-                        placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                        className="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-3">
-                    <button
-                      onClick={handleSaveCredentials}
-                      className="px-4 py-2 bg-amber-600 text-white rounded-lg text-xs font-semibold hover:bg-amber-700 transition"
-                    >
-                      Save Credentials
+                      <Save className="h-3.5 w-3.5" />
+                      <span>SAVE & SYNC TO SUPABASE</span>
                     </button>
                   </div>
 
-                  {/* Seeding Section */}
-                  <div className="p-4 rounded-xl border border-stone-200 bg-amber-50/50 space-y-2">
-                    <div className="flex items-center justify-between">
+                  {/* 1. HOMEPAGE HERO IMAGE SESSION */}
+                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 shadow-sm space-y-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#e2effa] pb-3 gap-2">
                       <div>
-                        <h5 className="text-sm font-bold text-stone-800">Seed Default Catalog Data</h5>
-                        <p className="text-xs text-stone-600">
-                          Uploads initial curtains, wallpapers, blinds, and site configuration directly to your Supabase tables.
-                        </p>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-[12px] font-bold tracking-widest text-[#0099ff] uppercase">1. HOMEPAGE HERO IMAGE</span>
+                          <span className="bg-sky-50 text-[#0077c2] text-[10px] font-semibold px-2 py-0.5 rounded border border-[#b8dcfa]">Main Living Room Banner</span>
+                        </div>
+                        <p className="text-xs text-[#335577] mt-0.5">Upload a custom luxury room image to display on the top hero banner of the website.</p>
                       </div>
-                      <button
-                        onClick={handleSeedDatabase}
-                        disabled={isSeeding}
-                        className="px-4 py-2 bg-stone-900 text-white rounded-lg text-xs font-semibold hover:bg-stone-800 transition disabled:opacity-50"
-                      >
-                        {isSeeding ? 'Seeding...' : 'One-Click Seed Catalog'}
-                      </button>
                     </div>
-                    {seedMessage && <p className="text-xs font-medium text-stone-700 mt-2">{seedMessage}</p>}
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                      <div className="lg:col-span-5">
+                        <div className="relative aspect-[4/3] rounded-xl overflow-hidden border-2 border-[#b8dcfa] bg-slate-100 shadow-md group">
+                          <img 
+                            src={captions.heroImageUrl || DEFAULT_SITE_CONFIG.heroImageUrl || "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=80"} 
+                            alt="Hero display preview"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="text-white text-xs font-bold uppercase tracking-wider bg-black/60 px-3 py-1.5 rounded-full border border-white/20">
+                              Active Hero Visual
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="lg:col-span-7 space-y-4">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <label className="cursor-pointer bg-[#0099ff] hover:bg-[#0088ee] text-white px-5 py-3 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center space-x-2 shadow-md shadow-[#0099ff]/25 transition-all">
+                            <Camera className="h-4 w-4" />
+                            <span>Upload Hero Photo</span>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={handleUploadHeroImage} 
+                              className="hidden" 
+                            />
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = { ...captions, heroImageUrl: DEFAULT_SITE_CONFIG.heroImageUrl };
+                              setCaptions(updated);
+                              onUpdateConfig(updated);
+                            }}
+                            className="text-xs font-semibold text-[#006699] hover:text-[#002b49] px-3 py-2 rounded-lg border border-[#c5def2] hover:bg-slate-50 transition-colors cursor-pointer"
+                          >
+                            Reset to Default Image
+                          </button>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                            Or Enter Direct Image URL
+                          </label>
+                          <input 
+                            type="text"
+                            value={captions.heroImageUrl || ''}
+                            onChange={(e) => {
+                              const updated = { ...captions, heroImageUrl: e.target.value };
+                              setCaptions(updated);
+                              onUpdateConfig(updated);
+                            }}
+                            placeholder="https://..."
+                            className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                          />
+                        </div>
+
+                        <div className="text-[11px] text-[#557799] bg-[#f0f7fc] p-3 rounded-lg border border-[#d2e5f5] leading-relaxed">
+                          💡 <strong>Universal Sync Note:</strong> When you upload or change the hero image here, it saves universally to Supabase. Every device (mobile, laptop, tablet) displays this image immediately.
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* SQL Schema Copy */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-stone-700 uppercase">Database SQL Setup Script</span>
-                      <button
-                        onClick={copySqlSchema}
-                        className="flex items-center gap-1 text-xs font-semibold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 px-2.5 py-1 rounded"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>{copiedSchema ? 'Copied!' : 'Copy SQL Schema'}</span>
-                      </button>
+                  {/* 2. THREE PRODUCTS SHOWCASE */}
+                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 shadow-sm space-y-6">
+                    <div className="border-b border-[#e2effa] pb-3">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[12px] font-bold tracking-widest text-[#0099ff] uppercase">
+                          2. ELEGANCE IN EVERY DETAIL - 3 PRODUCTS SHOWCASE CARDS
+                        </span>
+                        <span className="bg-emerald-50 text-emerald-700 text-[10px] font-semibold px-2 py-0.5 rounded border border-emerald-200">
+                          Independent Thumbnails & Strings
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#335577] mt-0.5">
+                        These 3 cards are separate from catalog products. Upload a distinct thumbnail and edit strings for Curtains, Wallpapers, and Blinds independently!
+                      </p>
                     </div>
-                    <pre className="p-3 bg-stone-900 text-stone-200 text-xs rounded-xl overflow-x-auto max-h-40 font-mono">
-                      {SUPABASE_SQL_SCHEMA}
-                    </pre>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#f8fbfe] p-4 rounded-xl border border-[#d2e5f5]">
+                      <div>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                          Section Eyebrow Label
+                        </label>
+                        <input 
+                          type="text"
+                          value={captions.showcaseSectionSubtitle || 'OUR PRODUCTS'}
+                          onChange={(e) => setCaptions({ ...captions, showcaseSectionSubtitle: e.target.value })}
+                          className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                          Main Section Heading
+                        </label>
+                        <input 
+                          type="text"
+                          value={captions.showcaseSectionTitle || 'Elegance In Every Detail'}
+                          onChange={(e) => setCaptions({ ...captions, showcaseSectionTitle: e.target.value })}
+                          className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {/* CURTAINS */}
+                      {(() => {
+                        const base = captions.categoryShowcase?.curtains || DEFAULT_SITE_CONFIG.categoryShowcase!.curtains;
+                        return (
+                          <div className="border border-[#c5def2] rounded-xl p-4 bg-[#fbfdff] space-y-4 flex flex-col justify-between shadow-sm">
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between border-b border-[#e2effa] pb-2">
+                                <span className="font-serif text-sm font-bold text-[#002b49]">Product 1: Curtains</span>
+                                <span className="text-[10px] bg-blue-100 text-[#006699] font-bold px-2 py-0.5 rounded">Card #1</span>
+                              </div>
+                              <div className="relative h-44 w-full rounded-lg overflow-hidden border border-[#b8dcfa] bg-slate-100">
+                                <img 
+                                  src={base.thumbnail || 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=600&q=80'} 
+                                  alt="Curtains thumbnail"
+                                  className="w-full h-full object-cover"
+                                />
+                                <div className="absolute top-2 right-2 bg-[#0099ff] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
+                                  {base.badge || '1000+'}
+                                </div>
+                              </div>
+                              <div>
+                                <label className="cursor-pointer w-full bg-[#0099ff] hover:bg-[#0088ee] text-white py-2 px-3 text-xs font-bold uppercase rounded-lg flex items-center justify-center space-x-2 shadow transition-all">
+                                  <Camera className="h-3.5 w-3.5" />
+                                  <span>Upload Curtains Thumbnail</span>
+                                  <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    onChange={(e) => handleUploadShowcaseThumbnail('curtains', e)}
+                                    className="hidden" 
+                                  />
+                                </label>
+                              </div>
+                              <div>
+                                <label className="block text-[9px] text-[#006699] font-bold uppercase tracking-wider mb-1">Thumbnail Image URL</label>
+                                <input 
+                                  type="text"
+                                  value={base.thumbnail || ''}
+                                  onChange={(e) => {
+                                    const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                    const updated = {
+                                      ...captions,
+                                      categoryShowcase: {
+                                        ...showcase,
+                                        curtains: { ...base, thumbnail: e.target.value }
+                                      }
+                                    };
+                                    setCaptions(updated);
+                                    onUpdateConfig(updated);
+                                  }}
+                                  placeholder="https://..."
+                                  className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                />
+                              </div>
+                              <div className="space-y-2 pt-2 border-t border-[#e2effa]">
+                                <span className="text-[10px] font-bold text-[#006699] uppercase tracking-wider block">Strings Edit Session</span>
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Title</label>
+                                  <input 
+                                    type="text"
+                                    value={base.title || 'Curtains'}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          curtains: { ...base, title: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Designs Counter Badge</label>
+                                  <input 
+                                    type="text"
+                                    value={base.badge || '1000+'}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          curtains: { ...base, badge: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Description Text</label>
+                                  <textarea 
+                                    rows={2}
+                                    value={base.description || ''}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          curtains: { ...base, description: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff] resize-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Button Action Label</label>
+                                  <input 
+                                    type="text"
+                                    value={base.buttonText || 'Explore Curtains'}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          curtains: { ...base, buttonText: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* WALLPAPERS */}
+                      {(() => {
+                        const base = captions.categoryShowcase?.wallpapers || DEFAULT_SITE_CONFIG.categoryShowcase!.wallpapers;
+                        return (
+                          <div className="border border-[#c5def2] rounded-xl p-4 bg-[#fbfdff] space-y-4 flex flex-col justify-between shadow-sm">
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between border-b border-[#e2effa] pb-2">
+                                <span className="font-serif text-sm font-bold text-[#002b49]">Product 2: Wallpapers</span>
+                                <span className="text-[10px] bg-blue-100 text-[#006699] font-bold px-2 py-0.5 rounded">Card #2</span>
+                              </div>
+                              <div className="relative h-44 w-full rounded-lg overflow-hidden border border-[#b8dcfa] bg-slate-100">
+                                <img 
+                                  src={base.thumbnail || 'https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=600&q=80'} 
+                                  alt="Wallpapers thumbnail"
+                                  className="w-full h-full object-cover"
+                                />
+                                <div className="absolute top-2 right-2 bg-[#0099ff] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
+                                  {base.badge || '1500+'}
+                                </div>
+                              </div>
+                              <div>
+                                <label className="cursor-pointer w-full bg-[#0099ff] hover:bg-[#0088ee] text-white py-2 px-3 text-xs font-bold uppercase rounded-lg flex items-center justify-center space-x-2 shadow transition-all">
+                                  <Camera className="h-3.5 w-3.5" />
+                                  <span>Upload Wallpaper Thumbnail</span>
+                                  <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    onChange={(e) => handleUploadShowcaseThumbnail('wallpapers', e)}
+                                    className="hidden" 
+                                  />
+                                </label>
+                              </div>
+                              <div>
+                                <label className="block text-[9px] text-[#006699] font-bold uppercase tracking-wider mb-1">Thumbnail Image URL</label>
+                                <input 
+                                  type="text"
+                                  value={base.thumbnail || ''}
+                                  onChange={(e) => {
+                                    const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                    const updated = {
+                                      ...captions,
+                                      categoryShowcase: {
+                                        ...showcase,
+                                        wallpapers: { ...base, thumbnail: e.target.value }
+                                      }
+                                    };
+                                    setCaptions(updated);
+                                    onUpdateConfig(updated);
+                                  }}
+                                  placeholder="https://..."
+                                  className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                />
+                              </div>
+                              <div className="space-y-2 pt-2 border-t border-[#e2effa]">
+                                <span className="text-[10px] font-bold text-[#006699] uppercase tracking-wider block">Strings Edit Session</span>
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Title</label>
+                                  <input 
+                                    type="text"
+                                    value={base.title || 'Wallpapers'}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          wallpapers: { ...base, title: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Designs Counter Badge</label>
+                                  <input 
+                                    type="text"
+                                    value={base.badge || '1500+'}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          wallpapers: { ...base, badge: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Description Text</label>
+                                  <textarea 
+                                    rows={2}
+                                    value={base.description || ''}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          wallpapers: { ...base, description: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff] resize-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Button Action Label</label>
+                                  <input 
+                                    type="text"
+                                    value={base.buttonText || 'Explore Wallpapers'}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          wallpapers: { ...base, buttonText: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* BLINDS */}
+                      {(() => {
+                        const base = captions.categoryShowcase?.blinds || DEFAULT_SITE_CONFIG.categoryShowcase!.blinds;
+                        return (
+                          <div className="border border-[#c5def2] rounded-xl p-4 bg-[#fbfdff] space-y-4 flex flex-col justify-between shadow-sm">
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between border-b border-[#e2effa] pb-2">
+                                <span className="font-serif text-sm font-bold text-[#002b49]">Product 3: Blinds</span>
+                                <span className="text-[10px] bg-blue-100 text-[#006699] font-bold px-2 py-0.5 rounded">Card #3</span>
+                              </div>
+                              <div className="relative h-44 w-full rounded-lg overflow-hidden border border-[#b8dcfa] bg-slate-100">
+                                <img 
+                                  src={base.thumbnail || 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=600&q=80'} 
+                                  alt="Blinds thumbnail"
+                                  className="w-full h-full object-cover"
+                                />
+                                <div className="absolute top-2 right-2 bg-[#0099ff] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
+                                  {base.badge || '600+'}
+                                </div>
+                              </div>
+                              <div>
+                                <label className="cursor-pointer w-full bg-[#0099ff] hover:bg-[#0088ee] text-white py-2 px-3 text-xs font-bold uppercase rounded-lg flex items-center justify-center space-x-2 shadow transition-all">
+                                  <Camera className="h-3.5 w-3.5" />
+                                  <span>Upload Blinds Thumbnail</span>
+                                  <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    onChange={(e) => handleUploadShowcaseThumbnail('blinds', e)}
+                                    className="hidden" 
+                                  />
+                                </label>
+                              </div>
+                              <div>
+                                <label className="block text-[9px] text-[#006699] font-bold uppercase tracking-wider mb-1">Thumbnail Image URL</label>
+                                <input 
+                                  type="text"
+                                  value={base.thumbnail || ''}
+                                  onChange={(e) => {
+                                    const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                    const updated = {
+                                      ...captions,
+                                      categoryShowcase: {
+                                        ...showcase,
+                                        blinds: { ...base, thumbnail: e.target.value }
+                                      }
+                                    };
+                                    setCaptions(updated);
+                                    onUpdateConfig(updated);
+                                  }}
+                                  placeholder="https://..."
+                                  className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                />
+                              </div>
+                              <div className="space-y-2 pt-2 border-t border-[#e2effa]">
+                                <span className="text-[10px] font-bold text-[#006699] uppercase tracking-wider block">Strings Edit Session</span>
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Title</label>
+                                  <input 
+                                    type="text"
+                                    value={base.title || 'Blinds'}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          blinds: { ...base, title: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Designs Counter Badge</label>
+                                  <input 
+                                    type="text"
+                                    value={base.badge || '600+'}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          blinds: { ...base, badge: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Description Text</label>
+                                  <textarea 
+                                    rows={2}
+                                    value={base.description || ''}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          blinds: { ...base, description: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff] resize-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Button Action Label</label>
+                                  <input 
+                                    type="text"
+                                    value={base.buttonText || 'Explore Blinds'}
+                                    onChange={(e) => {
+                                      const showcase = captions.categoryShowcase || DEFAULT_SITE_CONFIG.categoryShowcase!;
+                                      const updated = {
+                                        ...captions,
+                                        categoryShowcase: {
+                                          ...showcase,
+                                          blinds: { ...base, buttonText: e.target.value }
+                                        }
+                                      };
+                                      setCaptions(updated);
+                                      onUpdateConfig(updated);
+                                    }}
+                                    className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* 3. TAILOR-MADE CUSTOMIZATION SESSION */}
+                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 shadow-sm space-y-6">
+                    <div className="border-b border-[#e2effa] pb-3">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[12px] font-bold tracking-widest text-[#0099ff] uppercase">
+                          3. TAILOR-MADE CUSTOMIZATION SECTION IMAGES & STRINGS
+                        </span>
+                        <span className="bg-purple-50 text-purple-700 text-[10px] font-semibold px-2 py-0.5 rounded border border-purple-200">
+                          Curtains & Wallpaper Customization
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#335577] mt-0.5">
+                        Change the custom photography and titles for the two Tailor-Made bespoke styling cards.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#f8fbfe] p-4 rounded-xl border border-[#d2e5f5]">
+                      <div>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                          Section Eyebrow Label
+                        </label>
+                        <input 
+                          type="text"
+                          value={captions.customizationSectionSubtitle || 'BESPOKE STYLING'}
+                          onChange={(e) => setCaptions({ ...captions, customizationSectionSubtitle: e.target.value })}
+                          className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                          Main Section Heading
+                        </label>
+                        <input 
+                          type="text"
+                          value={captions.customizationSectionTitle || 'Tailor-Made Customization'}
+                          onChange={(e) => setCaptions({ ...captions, customizationSectionTitle: e.target.value })}
+                          className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* CARD 1: DESIGN YOUR OWN CURTAINS */}
+                      <div className="border border-[#c5def2] rounded-xl p-5 bg-[#fbfdff] space-y-4 shadow-sm">
+                        <div className="flex items-center justify-between border-b border-[#e2effa] pb-2">
+                          <span className="font-serif text-sm font-bold text-[#002b49]">Card 1: Design Your Own Curtains</span>
+                          <span className="text-[10px] bg-sky-100 text-[#006699] font-bold px-2 py-0.5 rounded">Curtains Bespoke</span>
+                        </div>
+                        <div className="relative h-48 w-full rounded-xl overflow-hidden border border-[#b8dcfa] bg-[#021E3B]">
+                          <img 
+                            src={captions.customizationCurtainsImage || DEFAULT_SITE_CONFIG.customizationCurtainsImage || 'https://images.unsplash.com/photo-1616046229478-9901c5536a45?auto=format&fit=crop&w=600&q=80'} 
+                            alt="Curtains customization visual"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-y-0 left-0 w-[40%] bg-gradient-to-r from-[#021E3B] to-transparent pointer-events-none" />
+                          <div className="absolute bottom-3 left-3 text-white text-xs font-bold drop-shadow">
+                            Curtains Texture
+                          </div>
+                        </div>
+                        <div>
+                          <label className="cursor-pointer w-full bg-[#0099ff] hover:bg-[#0088ee] text-white py-2.5 px-3 text-xs font-bold uppercase rounded-lg flex items-center justify-center space-x-2 shadow transition-all">
+                            <Camera className="h-3.5 w-3.5" />
+                            <span>Upload Curtains Customization Photo</span>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={(e) => handleUploadCustomizationImage('curtains', e)}
+                              className="hidden" 
+                            />
+                          </label>
+                        </div>
+                        <div>
+                          <label className="block text-[9px] text-[#006699] font-bold uppercase tracking-wider mb-1">Or Image URL</label>
+                          <input 
+                            type="text"
+                            value={captions.customizationCurtainsImage || ''}
+                            onChange={(e) => {
+                              const updated = { ...captions, customizationCurtainsImage: e.target.value };
+                              setCaptions(updated);
+                              onUpdateConfig(updated);
+                            }}
+                            placeholder="https://..."
+                            className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                          />
+                        </div>
+                        <div className="space-y-3 pt-2 border-t border-[#e2effa]">
+                          <div>
+                            <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Heading</label>
+                            <input 
+                              type="text"
+                              value={captions.customizationCurtainsTitle || 'Design Your Own Curtains'}
+                              onChange={(e) => {
+                                const updated = { ...captions, customizationCurtainsTitle: e.target.value };
+                                setCaptions(updated);
+                                onUpdateConfig(updated);
+                              }}
+                              className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Description</label>
+                            <textarea 
+                              rows={2}
+                              value={captions.customizationCurtainsDesc || 'Customize your curtains with your favorite fabric, color & style. Get precision fit.'}
+                              onChange={(e) => {
+                                const updated = { ...captions, customizationCurtainsDesc: e.target.value };
+                                setCaptions(updated);
+                                onUpdateConfig(updated);
+                              }}
+                              className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff] resize-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* CARD 2: DESIGN YOUR OWN WALLPAPER */}
+                      <div className="border border-[#c5def2] rounded-xl p-5 bg-[#fbfdff] space-y-4 shadow-sm">
+                        <div className="flex items-center justify-between border-b border-[#e2effa] pb-2">
+                          <span className="font-serif text-sm font-bold text-[#002b49]">Card 2: Design Your Own Wallpaper</span>
+                          <span className="text-[10px] bg-sky-100 text-[#006699] font-bold px-2 py-0.5 rounded">Wallpaper Bespoke</span>
+                        </div>
+                        <div className="relative h-48 w-full rounded-xl overflow-hidden border border-[#b8dcfa] bg-[#021E3B]">
+                          <img 
+                            src={captions.customizationWallpaperImage || DEFAULT_SITE_CONFIG.customizationWallpaperImage || 'https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=600&q=80'} 
+                            alt="Wallpaper customization visual"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-y-0 left-0 w-[40%] bg-gradient-to-r from-[#021E3B] to-transparent pointer-events-none" />
+                          <div className="absolute bottom-3 left-3 text-white text-xs font-bold drop-shadow">
+                            Wallpaper Texture
+                          </div>
+                        </div>
+                        <div>
+                          <label className="cursor-pointer w-full bg-[#0099ff] hover:bg-[#0088ee] text-white py-2.5 px-3 text-xs font-bold uppercase rounded-lg flex items-center justify-center space-x-2 shadow transition-all">
+                            <Camera className="h-3.5 w-3.5" />
+                            <span>Upload Wallpaper Customization Photo</span>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={(e) => handleUploadCustomizationImage('wallpaper', e)}
+                              className="hidden" 
+                            />
+                          </label>
+                        </div>
+                        <div>
+                          <label className="block text-[9px] text-[#006699] font-bold uppercase tracking-wider mb-1">Or Image URL</label>
+                          <input 
+                            type="text"
+                            value={captions.customizationWallpaperImage || ''}
+                            onChange={(e) => {
+                              const updated = { ...captions, customizationWallpaperImage: e.target.value };
+                              setCaptions(updated);
+                              onUpdateConfig(updated);
+                            }}
+                            placeholder="https://..."
+                            className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                          />
+                        </div>
+                        <div className="space-y-3 pt-2 border-t border-[#e2effa]">
+                          <div>
+                            <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Heading</label>
+                            <input 
+                              type="text"
+                              value={captions.customizationWallpaperTitle || 'Design Your Own Wallpaper'}
+                              onChange={(e) => {
+                                const updated = { ...captions, customizationWallpaperTitle: e.target.value };
+                                setCaptions(updated);
+                                onUpdateConfig(updated);
+                              }}
+                              className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] text-zinc-500 font-semibold mb-0.5">Card Description</label>
+                            <textarea 
+                              rows={2}
+                              value={captions.customizationWallpaperDesc || 'Create unique wallpaper designs that reflect your personality and style perfectly.'}
+                              onChange={(e) => {
+                                const updated = { ...captions, customizationWallpaperDesc: e.target.value };
+                                setCaptions(updated);
+                                onUpdateConfig(updated);
+                              }}
+                              className="w-full bg-white border border-[#c5def2] text-[#002b49] px-2.5 py-1.5 text-xs rounded-lg focus:outline-none focus:border-[#0099ff] resize-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. WHY CHOOSE US SECTION */}
+                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 shadow-sm space-y-6">
+                    <div className="border-b border-[#e2effa] pb-3">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[12px] font-bold tracking-widest text-[#0099ff] uppercase">
+                          4. WHY CHOOSE US - LUXURY DRAPES IMAGE & COPY
+                        </span>
+                        <span className="bg-amber-50 text-amber-800 text-[10px] font-semibold px-2 py-0.5 rounded border border-amber-200">
+                          Supabase Account Storage
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#335577] mt-0.5">
+                        Change the featured luxury curtains image and copy for the "Why Choose Us" showcase section. When uploaded, this image is saved directly to your Supabase account.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                      <div className="lg:col-span-5">
+                        <div className="relative aspect-[4/3] sm:aspect-video lg:aspect-[4/5] max-h-[360px] rounded-2xl overflow-hidden border-2 border-[#b8dcfa] bg-[#021E3B] shadow-md group">
+                          <img 
+                            src={captions.whyChooseUsImageUrl || DEFAULT_SITE_CONFIG.whyChooseUsImageUrl || "https://images.unsplash.com/photo-1540518614846-7eded433c457?auto=format&fit=crop&w=800&q=80"} 
+                            alt="Why Choose Us visual preview"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="text-white text-xs font-bold uppercase tracking-wider bg-black/60 px-3 py-1.5 rounded-full border border-white/20">
+                              Active Why Choose Us Visual
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="lg:col-span-7 space-y-4">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <label className="cursor-pointer bg-[#0099ff] hover:bg-[#0088ee] text-white px-5 py-3 text-xs font-bold uppercase tracking-wider rounded-lg flex items-center space-x-2 shadow-md shadow-[#0099ff]/25 transition-all">
+                            <Camera className="h-4 w-4" />
+                            <span>Upload Why Choose Us Photo</span>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={handleUploadWhyChooseUsImage} 
+                              className="hidden" 
+                            />
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = { ...captions, whyChooseUsImageUrl: DEFAULT_SITE_CONFIG.whyChooseUsImageUrl };
+                              setCaptions(updated);
+                              onUpdateConfig(updated);
+                            }}
+                            className="text-xs font-semibold text-[#006699] hover:text-[#002b49] px-3 py-2 rounded-lg border border-[#c5def2] hover:bg-slate-50 transition-colors cursor-pointer"
+                          >
+                            Reset to Default Image
+                          </button>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                            Direct Image URL (Supabase CDN or Web Path)
+                          </label>
+                          <input 
+                            type="text"
+                            value={captions.whyChooseUsImageUrl || ''}
+                            onChange={(e) => {
+                              const updated = { ...captions, whyChooseUsImageUrl: e.target.value };
+                              setCaptions(updated);
+                              onUpdateConfig(updated);
+                            }}
+                            placeholder="https://..."
+                            className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                          />
+                        </div>
+
+                        <div className="space-y-3 pt-2 border-t border-[#e2effa]">
+                          <div>
+                            <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                              Section Eyebrow Subtitle
+                            </label>
+                            <input 
+                              type="text"
+                              value={captions.whyChooseUsSubtitle || 'WHY CHOOSE US'}
+                              onChange={(e) => {
+                                const updated = { ...captions, whyChooseUsSubtitle: e.target.value };
+                                setCaptions(updated);
+                                onUpdateConfig(updated);
+                              }}
+                              className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                              Main Section Title
+                            </label>
+                            <input 
+                              type="text"
+                              value={captions.whyChooseUsTitle || 'Quality, Service & Satisfaction You Can Trust'}
+                              onChange={(e) => {
+                                const updated = { ...captions, whyChooseUsTitle: e.target.value };
+                                setCaptions(updated);
+                                onUpdateConfig(updated);
+                              }}
+                              className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">
+                              Description Paragraph
+                            </label>
+                            <textarea 
+                              rows={3}
+                              value={captions.whyChooseUsDesc || ''}
+                              onChange={(e) => {
+                                const updated = { ...captions, whyChooseUsDesc: e.target.value };
+                                setCaptions(updated);
+                                onUpdateConfig(updated);
+                              }}
+                              className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] resize-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="text-[11px] text-[#557799] bg-[#f0f7fc] p-3 rounded-lg border border-[#d2e5f5] leading-relaxed">
+                          💡 <strong>Universal Supabase Sync:</strong> When you upload a photo here, it saves to your Supabase account storage &amp; database table, and whenever visitors open the site, the site pulls this exact image path from Supabase.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Universal Sync Action Banner */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-[#eaf4fd] border border-[#b8dcfa] rounded-xl gap-4">
+                    <div>
+                      <span className="font-bold text-[#0077c2] uppercase tracking-wider block text-xs">
+                        Universal Cloud Sync Ready
+                      </span>
+                      <p className="text-xs text-[#335577] mt-0.5">
+                        Click below to commit your Hero image, 3 product showcase thumbnails, Why Choose Us image, and tailor-made customization images to your database.
+                      </p>
+                    </div>
+                    <button 
+                      onClick={handleSaveShowcaseSections}
+                      className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-6 py-3 text-xs font-bold tracking-widest uppercase rounded-lg shadow-md shadow-[#0099ff]/25 transition-all flex items-center space-x-2 cursor-pointer self-start sm:self-auto shrink-0"
+                    >
+                      <Save className="h-4 w-4" />
+                      <span>SAVE ALL SECTION CHANGES</span>
+                    </button>
                   </div>
                 </div>
               )}
 
-              {activeTab === 'media' && (
-                <div className="space-y-6">
-                  {/* Upload Form */}
-                  <div className="p-4 rounded-xl border border-stone-200 bg-stone-50 space-y-4">
-                    <h4 className="font-bold text-stone-800 text-sm">Upload New Asset to Supabase</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* TAB 1: CAPTIONS AND TEXT */}
+              {activeTab === 'captions' && (
+                <div className="space-y-6 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#d8eaf7] pb-5 gap-4">
+                    <div>
+                      <h3 className="font-serif text-2xl font-bold text-[#002b49]">Homepage Banners & Typography Binders</h3>
+                      <p className="font-sans text-xs text-[#335577] mt-1">Adjust titles, body copy, about sections, and milestones. Changes sync universally to Supabase.</p>
+                    </div>
+                    <button 
+                      onClick={handleSaveCaptions}
+                      className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-5 py-2.5 text-xs font-bold tracking-widest uppercase rounded-lg shadow-md shadow-[#0099ff]/25 transition-all flex items-center space-x-2 cursor-pointer self-start sm:self-auto"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                      <span>SAVE ALL CAPTIONS</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4 bg-white border border-[#c5def2] rounded-xl p-5 shadow-sm">
+                      <h4 className="text-[11px] font-bold tracking-widest text-[#0099ff] uppercase border-b border-[#e2effa] pb-2 mb-3">Hero Section Banners</h4>
                       <div>
-                        <label className="block text-xs font-bold text-stone-700 uppercase mb-1">Target Section</label>
-                        <select
-                          value={uploadCategory}
-                          onChange={(e: any) => setUploadCategory(e.target.value)}
-                          className="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg bg-white"
-                        >
-                          <option value="hero">Hero Showcase</option>
-                          <option value="curtains">Curtains Collection</option>
-                          <option value="wallpapers">Wallpapers Collection</option>
-                          <option value="blinds">Blinds Collection</option>
-                          <option value="why_choose_us">Why Choose Us</option>
-                          <option value="customization">Customization Section</option>
-                          <option value="general">General Media Library</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-stone-700 uppercase mb-1">Asset Title / Name</label>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Top Accent Tagline</label>
                         <input
                           type="text"
-                          value={uploadTitle}
-                          onChange={(e) => setUploadTitle(e.target.value)}
-                          placeholder="e.g. Royal Silk Curtain"
-                          className="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg bg-white"
+                          value={captions.heroLabel}
+                          onChange={(e) => setCaptions({ ...captions, heroLabel: e.target.value })}
+                          className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="col-span-2">
+                          <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Headline Leading Text</label>
+                          <input
+                            type="text"
+                            value={captions.heroHeadline1}
+                            onChange={(e) => setCaptions({ ...captions, heroHeadline1: e.target.value })}
+                            className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Italic Word</label>
+                          <input
+                            type="text"
+                            value={captions.heroHeadlineItalic}
+                            onChange={(e) => setCaptions({ ...captions, heroHeadlineItalic: e.target.value })}
+                            className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Headline Ending Text</label>
+                        <input
+                          type="text"
+                          value={captions.heroHeadline2}
+                          onChange={(e) => setCaptions({ ...captions, heroHeadline2: e.target.value })}
+                          className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Bold Subtitle Accent</label>
+                          <input
+                            type="text"
+                            value={captions.heroSub1}
+                            onChange={(e) => setCaptions({ ...captions, heroSub1: e.target.value })}
+                            className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Colored Subtitle</label>
+                          <input
+                            type="text"
+                            value={captions.heroSub2}
+                            onChange={(e) => setCaptions({ ...captions, heroSub2: e.target.value })}
+                            className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Main Hero Description</label>
+                        <textarea
+                          rows={3}
+                          value={captions.heroDesc}
+                          onChange={(e) => setCaptions({ ...captions, heroDesc: e.target.value })}
+                          className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] resize-none transition-colors"
                         />
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                      <label className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition">
-                        <Upload className="w-4 h-4" />
-                        <span>{isUploading ? 'Uploading...' : 'Choose Image File'}</span>
+                    <div className="space-y-4 bg-white border border-[#c5def2] rounded-xl p-5 shadow-sm">
+                      <h4 className="text-[11px] font-bold tracking-widest text-[#0099ff] uppercase border-b border-[#e2effa] pb-2 mb-3">About Us Narrative</h4>
+                      <div>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Top Eyebrow Title</label>
                         <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleFileUpload}
-                          disabled={isUploading}
-                          className="hidden"
+                          type="text"
+                          value={captions.aboutTitle}
+                          onChange={(e) => setCaptions({ ...captions, aboutTitle: e.target.value })}
+                          className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
                         />
-                      </label>
-                      {uploadMessage && <span className="text-xs text-stone-600">{uploadMessage}</span>}
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Experience Years Label</label>
+                        <input
+                          type="text"
+                          value={captions.aboutExperience}
+                          onChange={(e) => setCaptions({ ...captions, aboutExperience: e.target.value })}
+                          className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Narrative Paragraph 1</label>
+                        <textarea
+                          rows={4}
+                          value={captions.aboutText1}
+                          onChange={(e) => setCaptions({ ...captions, aboutText1: e.target.value })}
+                          className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] resize-none transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Narrative Paragraph 2</label>
+                        <textarea
+                          rows={4}
+                          value={captions.aboutText2}
+                          onChange={(e) => setCaptions({ ...captions, aboutText2: e.target.value })}
+                          className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] resize-none transition-colors"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: THEME & BRAND LOGO */}
+              {activeTab === 'theme' && (
+                <div className="space-y-8 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
+                  <div className="border-b border-[#d8eaf7] pb-4">
+                    <h3 className="font-serif text-2xl font-bold text-[#002b49]">Theme Styling & Typography Presets</h3>
+                    <p className="font-sans text-xs text-[#335577] mt-1">Live swap styling sheets, paint palettes, typography couplings, and change your brand logo universally.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="bg-white border border-[#c5def2] rounded-xl p-6 space-y-5 shadow-sm">
+                      <div className="flex items-center space-x-2 text-[#0099ff]">
+                        <Palette className="h-4 w-4" />
+                        <h4 className="text-xs font-bold uppercase tracking-wider">Select Premium Color Preset</h4>
+                      </div>
+
+                      <div className="space-y-3">
+                        {[
+                          { id: 'sapphire', name: 'Royal Sapphire Blue', desc: 'Elite deep ocean navy backing paired with cyan highlights (Default)', primary: '#0099ff', bg: '#021e3b' },
+                          { id: 'amber', name: 'Royal Amber Gold', desc: 'Warm stone grey backing paired with rich amber luster accents', primary: '#e5c158', bg: '#1c1917' },
+                          { id: 'emerald', name: 'Classic Gold & Emerald', desc: 'Historical forest green backing with royal leaf gold touches', primary: '#d4af37', bg: '#064e3b' },
+                          { id: 'crimson', name: 'Crimson Burgundy', desc: 'High-luxury deep wine red base matching classical opera drape textures', primary: '#cca43b', bg: '#450a0a' },
+                          { id: 'obsidian', name: 'Modern Obsidian Dark', desc: 'Clean, futuristic dark backing with glowing amber control accents', primary: '#f59e0b', bg: '#121214' },
+                        ].map((th) => (
+                          <button
+                            key={th.id}
+                            onClick={() => handleSaveTheme(th.id as any, captions.fontPreset)}
+                            className={`w-full p-4 border text-left flex items-center justify-between rounded-xl transition-all cursor-pointer ${captions.themePreset === th.id ? 'border-[#0099ff] bg-[#e3f2fd] shadow-sm' : 'border-[#d8eaf7] bg-[#f8fbfe] hover:border-[#0099ff]/50'}`}
+                          >
+                            <div className="space-y-1">
+                              <span className="text-xs font-bold block text-[#002b49]">{th.name}</span>
+                              <span className="text-[10px] text-[#335577] block leading-relaxed">{th.desc}</span>
+                            </div>
+                            <div className="flex items-center space-x-1.5 ml-4">
+                              <div className="h-4 w-4 rounded-full border border-slate-300" style={{ backgroundColor: th.bg }} title="Background" />
+                              <div className="h-4 w-4 rounded-full border border-slate-300" style={{ backgroundColor: th.primary }} title="Accent" />
+                              {captions.themePreset === th.id && (
+                                <Check className="h-4 w-4 text-[#0099ff] ml-1" />
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="bg-white border border-[#c5def2] rounded-xl p-6 space-y-5 shadow-sm">
+                        <div className="flex items-center space-x-2 text-[#0099ff]">
+                          <Type className="h-4 w-4" />
+                          <h4 className="text-xs font-bold uppercase tracking-wider">Select Typographical Coupling</h4>
+                        </div>
+
+                        <div className="space-y-3">
+                          {[
+                            { id: 'jakarta_playfair', title: 'Plus Jakarta Sans & Playfair Display', desc: 'Sleek, fluid geometric body paired with grand classic headings (Default)' },
+                            { id: 'inter_cinzel', title: 'Cinzel & Inter', desc: 'Imperial, Roman display typography paired with clean structural sans body' },
+                            { id: 'outfit_bodoni', title: 'Outfit & Bodoni Moda', desc: 'Avant-garde editorial fashion pairing with warm italic curvatures' },
+                          ].map((f) => (
+                            <button
+                              key={f.id}
+                              onClick={() => handleSaveTheme(captions.themePreset, f.id as any)}
+                              className={`w-full p-4 border text-left flex items-center justify-between rounded-xl transition-all cursor-pointer ${captions.fontPreset === f.id ? 'border-[#0099ff] bg-[#e3f2fd] shadow-sm' : 'border-[#d8eaf7] bg-[#f8fbfe] hover:border-[#0099ff]/50'}`}
+                            >
+                              <div className="space-y-1">
+                                <span className="text-xs font-bold block text-[#002b49]">{f.title}</span>
+                                <span className="text-[10px] text-[#335577] block leading-relaxed">{f.desc}</span>
+                              </div>
+                              {captions.fontPreset === f.id && (
+                                <Check className="h-4 w-4 text-[#0099ff] ml-2" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="bg-white border border-[#c5def2] rounded-xl p-6 space-y-4 shadow-sm">
+                        <div className="flex items-center space-x-2 text-[#0099ff]">
+                          <Link className="h-4 w-4" />
+                          <h4 className="text-xs font-bold uppercase tracking-wider">Brand Logo Link Control</h4>
+                        </div>
+                        <p className="font-sans text-[11px] text-[#335577] leading-relaxed">
+                          Provide any relative path or online image link to immediately replace the header and footer brand emblems.
+                        </p>
+                        
+                        <div className="flex space-x-2">
+                          <input
+                            type="text"
+                            value={captions.brandLogoUrl}
+                            onChange={(e) => setCaptions({ ...captions, brandLogoUrl: e.target.value })}
+                            className="flex-1 bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff]"
+                            placeholder="e.g. /logo.svg or external https://..."
+                          />
+                          <button
+                            onClick={() => handleSaveLogo(captions.brandLogoUrl)}
+                            className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-5 py-2 text-xs font-bold tracking-wider uppercase rounded-lg shadow-md shadow-[#0099ff]/25 transition-colors cursor-pointer"
+                          >
+                            UPDATE
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: PRODUCTS CATALOG */}
+              {activeTab === 'products' && (
+                <div className="space-y-6 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#d8eaf7] pb-5">
+                    <div>
+                      <h3 className="font-serif text-2xl font-bold text-[#002b49]">Dynamic Products Catalog Master Control</h3>
+                      <p className="font-sans text-xs text-[#335577] mt-1">Directly edit, delete, or append newly structured curtains, wallpapers, and blinds. Automatically broadcasted to Supabase.</p>
+                    </div>
+                    <button
+                      onClick={startAddProduct}
+                      className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-5 py-2.5 text-xs font-bold tracking-widest uppercase rounded-lg shadow-md shadow-[#0099ff]/25 transition-all flex items-center space-x-2 self-start cursor-pointer"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>ADD NEW PRODUCT</span>
+                    </button>
+                  </div>
+
+                  <div className="flex border border-[#c5def2] bg-white p-1 rounded-xl max-w-md shadow-sm">
+                    {[
+                      { id: 'curtains', label: 'Curtains Installation' },
+                      { id: 'wallpapers', label: 'Wallpaper Coverings' },
+                      { id: 'blinds', label: 'Bespoke Blinds' }
+                    ].map((cat) => (
+                      <button
+                        key={cat.id}
+                        onClick={() => {
+                          setSelectedProductCategory(cat.id as any);
+                          setIsAddingProduct(false);
+                          setEditingProduct(null);
+                        }}
+                        className={`flex-1 py-2 text-center text-[10px] font-bold tracking-wider uppercase rounded-lg transition-colors cursor-pointer ${selectedProductCategory === cat.id ? 'bg-[#0099ff] text-white shadow-sm' : 'text-[#006699] hover:bg-[#e3f2fd]'}`}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {(isAddingProduct || editingProduct) && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-white border border-[#c5def2] rounded-xl p-6 space-y-6 shadow-md"
+                    >
+                      <div className="flex items-center justify-between border-b border-[#e2effa] pb-3">
+                        <span className="font-serif text-lg font-bold text-[#002b49]">
+                          {isAddingProduct ? 'Append New Premium Product' : `Modifying: ${editingProduct.name}`}
+                        </span>
+                        <button 
+                          onClick={() => {
+                            setIsAddingProduct(false);
+                            setEditingProduct(null);
+                          }}
+                          className="text-[#335577] hover:text-[#002b49] text-xs uppercase font-bold cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+
+                      <form onSubmit={handleProductSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Product Name *</label>
+                            <input
+                              type="text"
+                              required
+                              value={productForm.name}
+                              onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                              className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                              placeholder="e.g. Royal Silk Drapery"
+                            />
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider">
+                                Image Link (CDN URL or Direct Supabase Upload) *
+                              </label>
+                              <label className="inline-flex items-center space-x-1.5 px-2.5 py-1 bg-[#e3f2fd] hover:bg-[#d0e8f9] text-[#006699] border border-[#90cdf4] text-[10px] font-bold tracking-wider uppercase rounded-md cursor-pointer transition-colors shadow-2xs">
+                                <UploadCloud className="h-3 w-3 text-[#0099ff]" />
+                                <span>{isUploadingProductInline ? 'Uploading to Supabase...' : 'Upload to Supabase'}</span>
+                                <input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  disabled={isUploadingProductInline}
+                                  onChange={handleProductInlineUpload} 
+                                  className="hidden" 
+                                />
+                              </label>
+                            </div>
+                            <input
+                              type="text"
+                              required
+                              value={productForm.image}
+                              onChange={(e) => setProductForm({ ...productForm, image: e.target.value })}
+                              className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                              placeholder="Paste URL or click 'Upload to Supabase' above"
+                            />
+                            {productForm.image && (
+                              <div className="mt-2 flex items-center space-x-2.5 bg-[#f8fbfe] border border-[#c5def2] p-2 rounded-lg">
+                                <img src={productForm.image} alt="Preview" className="h-10 w-10 object-cover rounded-md border border-[#c5def2] bg-white" />
+                                <div className="text-[10px] truncate">
+                                  <span className="font-semibold text-[#002b49] block truncate">Active Image Selected</span>
+                                  <span className="text-[#335577] truncate block max-w-[280px]">{productForm.image}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {selectedProductCategory === 'curtains' ? (
+                            <div>
+                              <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Price Class Classification</label>
+                              <select
+                                value={productForm.priceClass}
+                                onChange={(e) => setProductForm({ ...productForm, priceClass: e.target.value })}
+                                className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                              >
+                                <option value="Premium">Premium</option>
+                                <option value="Signature">Signature</option>
+                                <option value="Reserve">Reserve Luxury</option>
+                              </select>
+                            </div>
+                          ) : (
+                            <div>
+                              <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Design Style Type</label>
+                              {selectedProductCategory === 'wallpapers' ? (
+                                <select
+                                  value={productForm.style}
+                                  onChange={(e) => setProductForm({ ...productForm, style: e.target.value })}
+                                  className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                                >
+                                  <option value="Classic">Classic</option>
+                                  <option value="Botanical">Botanical</option>
+                                  <option value="Textured">Textured</option>
+                                  <option value="Modern">Modern</option>
+                                </select>
+                              ) : (
+                                <select
+                                  value={productForm.style}
+                                  onChange={(e) => setProductForm({ ...productForm, style: e.target.value })}
+                                  className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                                >
+                                  <option value="Roman">Roman Shade</option>
+                                  <option value="Roller">Roller Shade</option>
+                                  <option value="Venetian">Venetian blind</option>
+                                  <option value="Motorized">Motorized blind</option>
+                                  <option value="Zebra">Zebra blind</option>
+                                </select>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Material Composition (Comma-separated)</label>
+                            <input
+                              type="text"
+                              value={productForm.materials}
+                              onChange={(e) => setProductForm({ ...productForm, materials: e.target.value })}
+                              className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                              placeholder="e.g. Pure Merino Wool, Thermal Sateen, Brass Rings"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] text-[#006699] font-bold uppercase tracking-wider mb-1">Product Narrative Description *</label>
+                            <textarea
+                              rows={4}
+                              required
+                              value={productForm.description}
+                              onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+                              className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] resize-none transition-colors"
+                              placeholder="Type elegant marketing detail description..."
+                            />
+                          </div>
+
+                          <div className="pt-4 flex justify-end space-x-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsAddingProduct(false);
+                                setEditingProduct(null);
+                              }}
+                              className="border border-[#c5def2] hover:bg-[#e3f2fd] text-[#002b49] px-6 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg cursor-pointer transition-colors"
+                            >
+                              CANCEL
+                            </button>
+                            <button
+                              type="submit"
+                              className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-6 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg shadow-md shadow-[#0099ff]/25 transition-colors cursor-pointer"
+                            >
+                              {isAddingProduct ? 'CONFIRM ADDITION' : 'SAVE CHANGES'}
+                            </button>
+                          </div>
+                        </div>
+                      </form>
+                    </motion.div>
+                  )}
+
+                  {/* PRODUCTS TABLE */}
+                  <div className="border border-[#c5def2] bg-white rounded-xl overflow-x-auto shadow-sm">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-[#c5def2] bg-[#e3f2fd] text-[10px] font-bold tracking-wider text-[#006699] uppercase">
+                          <th className="p-4 w-16">Preview</th>
+                          <th className="p-4 w-48">Product Detail</th>
+                          <th className="p-4">Narrative Description</th>
+                          <th className="p-4 w-32">Classification</th>
+                          <th className="p-4 w-28 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#e2effa]">
+                        {selectedProductCategory === 'curtains' && curtains.map((item) => (
+                          <tr key={item.id} className="hover:bg-[#f8fbfe] transition-colors">
+                            <td className="p-4">
+                              <img src={item.image} alt={item.name} className="h-12 w-12 object-cover rounded-lg border border-[#c5def2]" />
+                            </td>
+                            <td className="p-4 font-semibold">
+                              <span className="block text-[#002b49] text-xs font-bold">{item.name}</span>
+                              <span className="block text-[10px] text-[#335577] mt-0.5 font-normal">ID: {item.id}</span>
+                            </td>
+                            <td className="p-4 text-[11px] text-[#335577] max-w-sm line-clamp-2">
+                              {item.description}
+                            </td>
+                            <td className="p-4">
+                              <span className="inline-block px-2 py-0.5 bg-[#e3f2fd] text-[#0077c2] border border-[#90cdf4] text-[9px] font-bold tracking-wider uppercase rounded-md">
+                                {item.priceClass}
+                              </span>
+                            </td>
+                            <td className="p-4 text-right space-x-1 whitespace-nowrap">
+                              <label 
+                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer align-middle"
+                                title="Upload Photo Directly to Supabase"
+                              >
+                                <Camera className="h-3.5 w-3.5" />
+                                <input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  onChange={(e) => handleQuickUploadProductPhoto(item, 'curtains', e)} 
+                                  className="hidden" 
+                                />
+                              </label>
+                              <button 
+                                onClick={() => startEditProduct(item)}
+                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer align-middle"
+                                title="Edit Product"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteProduct(item.id, 'curtains')}
+                                className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors inline-block cursor-pointer align-middle"
+                                title="Delete Product"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+
+                        {selectedProductCategory === 'wallpapers' && wallpapers.map((item) => (
+                          <tr key={item.id} className="hover:bg-[#f8fbfe] transition-colors">
+                            <td className="p-4">
+                              <img src={item.image} alt={item.name} className="h-12 w-12 object-cover rounded-lg border border-[#c5def2]" />
+                            </td>
+                            <td className="p-4 font-semibold">
+                              <span className="block text-[#002b49] text-xs font-bold">{item.name}</span>
+                              <span className="block text-[10px] text-[#335577] mt-0.5 font-normal">ID: {item.id}</span>
+                            </td>
+                            <td className="p-4 text-[11px] text-[#335577] max-w-sm line-clamp-2">
+                              {item.description}
+                            </td>
+                            <td className="p-4">
+                              <span className="inline-block px-2 py-0.5 bg-[#e3f2fd] text-[#0077c2] border border-[#90cdf4] text-[9px] font-bold tracking-wider uppercase rounded-md">
+                                {item.style}
+                              </span>
+                            </td>
+                            <td className="p-4 text-right space-x-1 whitespace-nowrap">
+                              <label 
+                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer align-middle"
+                                title="Upload Photo Directly to Supabase"
+                              >
+                                <Camera className="h-3.5 w-3.5" />
+                                <input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  onChange={(e) => handleQuickUploadProductPhoto(item, 'wallpapers', e)} 
+                                  className="hidden" 
+                                />
+                              </label>
+                              <button 
+                                onClick={() => startEditProduct(item)}
+                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer align-middle"
+                                title="Edit Product"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteProduct(item.id, 'wallpapers')}
+                                className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors inline-block cursor-pointer align-middle"
+                                title="Delete Product"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+
+                        {selectedProductCategory === 'blinds' && blinds.map((item) => (
+                          <tr key={item.id} className="hover:bg-[#f8fbfe] transition-colors">
+                            <td className="p-4">
+                              <img src={item.image} alt={item.name} className="h-12 w-12 object-cover rounded-lg border border-[#c5def2]" />
+                            </td>
+                            <td className="p-4 font-semibold">
+                              <span className="block text-[#002b49] text-xs font-bold">{item.name}</span>
+                              <span className="block text-[10px] text-[#335577] mt-0.5 font-normal">ID: {item.id}</span>
+                            </td>
+                            <td className="p-4 text-[11px] text-[#335577] max-w-sm line-clamp-2">
+                              {item.description}
+                            </td>
+                            <td className="p-4">
+                              <span className="inline-block px-2 py-0.5 bg-[#e3f2fd] text-[#0077c2] border border-[#90cdf4] text-[9px] font-bold tracking-wider uppercase rounded-md">
+                                {item.style}
+                              </span>
+                            </td>
+                            <td className="p-4 text-right space-x-1 whitespace-nowrap">
+                              <label 
+                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer align-middle"
+                                title="Upload Photo Directly to Supabase"
+                              >
+                                <Camera className="h-3.5 w-3.5" />
+                                <input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  onChange={(e) => handleQuickUploadProductPhoto(item, 'blinds', e)} 
+                                  className="hidden" 
+                                />
+                              </label>
+                              <button 
+                                onClick={() => startEditProduct(item)}
+                                className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer align-middle"
+                                title="Edit Product"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteProduct(item.id, 'blinds')}
+                                className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors inline-block cursor-pointer align-middle"
+                                title="Delete Product"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: MEDIA LIBRARY */}
+              {activeTab === 'media' && (
+                <div className="space-y-8 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-5 border-b border-[#d8eaf7] gap-4">
+                    <div>
+                      <h3 className="font-serif text-2xl font-bold flex items-center space-x-2.5 text-[#002b49]">
+                        <ImageIcon className="h-6 w-6 text-[#0099ff]" />
+                        <span>Supabase Media &amp; Image Upload Center</span>
+                        <span className="text-xs px-2.5 py-0.5 bg-[#e3f2fd] text-[#0077c2] border border-[#90cdf4] font-sans font-bold rounded-md">
+                          {uploadedImages.length} Files in Database
+                        </span>
+                      </h3>
+                      <p className="font-sans text-xs text-[#335577] mt-1">
+                        Upload photography directly into your Supabase account. Files are saved in Supabase Storage with metadata recorded in <code className="bg-[#e3f2fd] text-[#006699] px-1.5 py-0.5 rounded font-mono text-[11px]">public.uploaded_images</code>.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center space-x-3 shrink-0">
+                      <button
+                        onClick={handleLoadMedia}
+                        disabled={isLoadingMedia}
+                        className="px-4 py-2 bg-white hover:bg-[#e3f2fd] text-[#006699] border border-[#c5def2] rounded-lg text-xs font-bold tracking-wider uppercase transition-colors flex items-center space-x-2 cursor-pointer shadow-2xs"
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${isLoadingMedia ? 'animate-spin text-[#0099ff]' : ''}`} />
+                        <span>Refresh Media</span>
+                      </button>
                     </div>
                   </div>
 
-                  {/* Media Gallery Grid */}
-                  <div>
-                    <h4 className="font-bold text-stone-800 text-sm mb-3">
-                      Uploaded Assets ({mediaList.length})
+                  <div className={`p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+                    supabaseStatus === 'connected' 
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
+                      : 'bg-amber-50 border-amber-200 text-amber-900'
+                  }`}>
+                    <div className="flex items-center space-x-2.5">
+                      {supabaseStatus === 'connected' ? (
+                        <>
+                          <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className="text-xs font-bold tracking-wide">
+                            Connected to Supabase Project: Uploads save directly to your Supabase Storage bucket &amp; database table!
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                          <span className="text-xs font-medium">
+                            Supabase database is currently unlinked or testing. Connect your Supabase credentials in the <strong>Database</strong> tab.
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    {supabaseStatus !== 'connected' && (
+                      <button
+                        onClick={() => setActiveTab('database')}
+                        className="text-[11px] font-bold text-[#0077c2] underline hover:text-[#005588] shrink-0"
+                      >
+                        Go to Database Setup &rarr;
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Drag & Drop Zone */}
+                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 shadow-sm">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-[#006699] mb-4 flex items-center space-x-2">
+                      <UploadCloud className="h-4 w-4 text-[#0099ff]" />
+                      <span>Upload New Image File to Supabase</span>
                     </h4>
-                    {mediaList.length === 0 ? (
-                      <p className="text-xs text-stone-500 italic">No media uploaded yet.</p>
-                    ) : (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                        {mediaList.map((item) => (
-                          <div
-                            key={item.id}
-                            className="group relative border border-stone-200 rounded-xl overflow-hidden bg-white shadow-sm flex flex-col"
+
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDraggingOver(true);
+                      }}
+                      onDragLeave={() => setIsDraggingOver(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDraggingOver(false);
+                        const files = e.dataTransfer.files;
+                        if (files && files[0]) {
+                          setSelectedUploadFile(files[0]);
+                          if (!uploadTitle) {
+                            setUploadTitle(files[0].name.replace(/\.[^/.]+$/, ''));
+                          }
+                        }
+                      }}
+                      className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all ${
+                        isDraggingOver 
+                          ? 'border-[#0099ff] bg-[#e3f2fd]/60 scale-[1.005]' 
+                          : 'border-[#c5def2] bg-[#f8fbfe] hover:bg-[#eef7fc]'
+                      }`}
+                    >
+                      <input
+                        type="file"
+                        id="supabase-media-file-input"
+                        accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setSelectedUploadFile(file);
+                            if (!uploadTitle) {
+                              setUploadTitle(file.name.replace(/\.[^/.]+$/, ''));
+                            }
+                          }
+                        }}
+                      />
+
+                      <div className="flex flex-col items-center justify-center space-y-3">
+                        <div className="h-14 w-14 rounded-full bg-[#e3f2fd] flex items-center justify-center text-[#0099ff] shadow-inner">
+                          <UploadCloud className="h-7 w-7" />
+                        </div>
+                        <div>
+                          <p className="font-serif text-base font-bold text-[#002b49]">
+                            {selectedUploadFile ? selectedUploadFile.name : 'Drag & Drop your image file here'}
+                          </p>
+                          <p className="font-sans text-xs text-[#52779a] mt-0.5">
+                            {selectedUploadFile 
+                              ? `Size: ${(selectedUploadFile.size / (1024 * 1024)).toFixed(2)} MB • Type: ${selectedUploadFile.type || 'image'}` 
+                              : 'Supports JPG, PNG, WebP, GIF, SVG up to 25MB'}
+                          </p>
+                        </div>
+
+                        <label
+                          htmlFor="supabase-media-file-input"
+                          className="px-5 py-2.5 bg-[#0099ff] hover:bg-[#0088ee] text-white text-xs font-bold tracking-wider uppercase rounded-lg cursor-pointer shadow-md shadow-[#0099ff]/25 transition-all inline-flex items-center space-x-2"
+                        >
+                          <FolderOpen className="h-3.5 w-3.5" />
+                          <span>{selectedUploadFile ? 'Select Different File' : 'Browse Local Files'}</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {selectedUploadFile && (
+                      <div className="mt-5 p-4 bg-[#f8fbfe] border border-[#c5def2] rounded-xl space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-bold tracking-wider uppercase text-[#006699] mb-1">
+                              Image Title / Label (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={uploadTitle}
+                              onChange={(e) => setUploadTitle(e.target.value)}
+                              placeholder="e.g. Belgian Charcoal Velvet Swatch"
+                              className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold tracking-wider uppercase text-[#006699] mb-1">
+                              Target Category / Placement
+                            </label>
+                            <select
+                              value={uploadCategory}
+                              onChange={(e) => setUploadCategory(e.target.value as any)}
+                              className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3.5 py-2 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                            >
+                              <option value="curtains">Curtains Product Catalog</option>
+                              <option value="wallpapers">Wallpapers Product Catalog</option>
+                              <option value="blinds">Blinds Product Catalog</option>
+                              <option value="hero">Homepage Hero &amp; Banners</option>
+                              <option value="gallery">Showcase &amp; Testimonials</option>
+                              <option value="general">General Media</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-[#e2effa]">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedUploadFile(null);
+                              setUploadTitle('');
+                            }}
+                            className="px-4 py-2 border border-[#c5def2] hover:bg-white text-[#52779a] hover:text-[#002b49] text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
                           >
-                            <div className="aspect-video bg-stone-100 overflow-hidden relative">
-                              <img
-                                src={item.file_url || item.base64_data}
-                                alt={item.title || item.filename}
-                                className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                              />
-                              <button
-                                onClick={() => handleDeleteMedia(item)}
-                                className="absolute top-2 right-2 p-1.5 bg-red-600/80 hover:bg-red-700 text-white rounded-md opacity-0 group-hover:opacity-100 transition shadow"
-                                title="Delete Image"
+                            Cancel
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={isUploadingMedia}
+                            onClick={() => handleExecuteUpload()}
+                            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold tracking-widest uppercase rounded-lg shadow-md shadow-emerald-600/25 transition-all flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+                          >
+                            {isUploadingMedia ? (
+                              <>
+                                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                <span>UPLOADING TO SUPABASE...</span>
+                              </>
+                            ) : (
+                              <>
+                                <UploadCloud className="h-4 w-4" />
+                                <span>SAVE FILE TO SUPABASE ACCOUNT</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {uploadSuccessMsg && (
+                      <div className="mt-4 p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl flex items-start space-x-3 text-xs leading-relaxed">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <span className="font-bold block">Upload Confirmed!</span>
+                          <p>{uploadSuccessMsg}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {uploadErrorMsg && (
+                      <div className="mt-4 p-4 bg-red-50 border border-red-200 text-red-900 rounded-xl flex items-start space-x-3 text-xs leading-relaxed">
+                        <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <span className="font-bold block">Upload Error</span>
+                          <p>{uploadErrorMsg}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* GALLERY LIST */}
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                      <h4 className="text-xs font-bold uppercase tracking-widest text-[#006699]">
+                        Uploaded Database Assets ({uploadedImages.length})
+                      </h4>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="relative">
+                          <Search className="h-3.5 w-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <input
+                            type="text"
+                            value={mediaSearchQuery}
+                            onChange={(e) => setMediaSearchQuery(e.target.value)}
+                            placeholder="Filter by title or filename..."
+                            className="bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] pl-9 pr-3 py-1.5 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors w-48 sm:w-60"
+                          />
+                        </div>
+
+                        <select
+                          value={mediaCategoryFilter}
+                          onChange={(e) => setMediaCategoryFilter(e.target.value)}
+                          className="bg-white border border-[#c5def2] focus:border-[#0099ff] text-[#002b49] px-3 py-1.5 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                        >
+                          <option value="all">All Categories</option>
+                          <option value="curtains">Curtains</option>
+                          <option value="wallpapers">Wallpapers</option>
+                          <option value="blinds">Blinds</option>
+                          <option value="hero">Hero &amp; Banners</option>
+                          <option value="gallery">Showcase &amp; Reviews</option>
+                          <option value="general">General</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const filtered = uploadedImages.filter(img => {
+                        const matchesCategory = mediaCategoryFilter === 'all' || img.category === mediaCategoryFilter;
+                        const q = mediaSearchQuery.toLowerCase().trim();
+                        const matchesSearch = !q || 
+                          (img.title && img.title.toLowerCase().includes(q)) || 
+                          img.filename.toLowerCase().includes(q);
+                        return matchesCategory && matchesSearch;
+                      });
+
+                      if (isLoadingMedia) {
+                        return (
+                          <div className="py-16 text-center bg-white border border-[#c5def2] rounded-xl space-y-3">
+                            <RefreshCw className="h-7 w-7 text-[#0099ff] animate-spin mx-auto" />
+                            <p className="text-xs text-[#52779a]">Querying uploaded files from Supabase...</p>
+                          </div>
+                        );
+                      }
+
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="py-16 text-center bg-white border border-[#c5def2] rounded-xl space-y-3 shadow-sm">
+                            <ImageIcon className="h-10 w-10 text-slate-300 mx-auto" />
+                            <p className="font-serif text-base font-bold text-[#002b49]">No media files found</p>
+                            <p className="text-xs text-[#52779a] max-w-sm mx-auto">
+                              {mediaSearchQuery || mediaCategoryFilter !== 'all'
+                                ? 'No uploaded images match your current filter criteria.'
+                                : 'Upload your first photography file using the drag-and-drop zone above to store it in Supabase.'}
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                          {filtered.map((image) => {
+                            const isCopied = copiedMediaId === image.id;
+                            const sizeKb = image.size_bytes ? (image.size_bytes / 1024).toFixed(0) + ' KB' : '';
+                            const dateFormatted = image.created_at ? new Date(image.created_at).toLocaleDateString() : '';
+
+                            return (
+                              <div
+                                key={image.id}
+                                className="bg-white border border-[#c5def2] hover:border-[#0099ff] rounded-xl overflow-hidden flex flex-col justify-between transition-all duration-300 hover:shadow-lg group"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <div className="relative aspect-4/3 bg-slate-100 overflow-hidden cursor-pointer" onClick={() => setPreviewModalImage(image)}>
+                                  <img
+                                    src={image.file_url}
+                                    alt={image.title || image.filename}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                                  />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2 text-white">
+                                    <span className="text-[11px] font-bold tracking-wider uppercase bg-black/60 px-2.5 py-1 rounded backdrop-blur-xs flex items-center space-x-1">
+                                      <Eye className="h-3 w-3" />
+                                      <span>Preview</span>
+                                    </span>
+                                  </div>
+                                  <span className="absolute top-2 left-2 text-[9px] font-bold tracking-wider uppercase px-2 py-0.5 rounded shadow-sm bg-white/95 text-[#006699] border border-[#c5def2]">
+                                    {image.category || 'general'}
+                                  </span>
+                                </div>
+
+                                <div className="p-3.5 flex flex-col justify-between flex-1 space-y-3">
+                                  <div>
+                                    <h5 className="font-semibold text-xs text-[#002b49] truncate" title={image.title || image.filename}>
+                                      {image.title || image.filename}
+                                    </h5>
+                                    <div className="flex items-center justify-between text-[10px] text-[#52779a] mt-1">
+                                      <span>{sizeKb || 'Image'}</span>
+                                      <span>{dateFormatted}</span>
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-1.5 pt-2 border-t border-[#e2effa]">
+                                    <button
+                                      onClick={() => handleCopyUrl(image.file_url, image.id)}
+                                      className={`w-full py-1.5 px-2.5 text-[10px] font-bold tracking-wider uppercase rounded-md flex items-center justify-center space-x-1.5 transition-colors cursor-pointer ${
+                                        isCopied 
+                                          ? 'bg-emerald-600 text-white' 
+                                          : 'bg-[#e3f2fd] hover:bg-[#d0e8f9] text-[#006699] border border-[#90cdf4]'
+                                      }`}
+                                    >
+                                      {isCopied ? (
+                                        <>
+                                          <Check className="h-3 w-3" />
+                                          <span>COPIED URL!</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Copy className="h-3 w-3" />
+                                          <span>COPY SUPABASE URL</span>
+                                        </>
+                                      )}
+                                    </button>
+
+                                    <div className="grid grid-cols-3 gap-1 pt-1">
+                                      <button
+                                        onClick={() => handleApplyToProduct(image.file_url, 'curtains')}
+                                        className="py-1 px-1 bg-white hover:bg-[#e3f2fd] text-[#006699] border border-[#c5def2] text-[9px] font-semibold rounded truncate transition-colors cursor-pointer"
+                                        title="Create new curtain product with this image"
+                                      >
+                                        + Curtain
+                                      </button>
+                                      <button
+                                        onClick={() => handleApplyToProduct(image.file_url, 'wallpapers')}
+                                        className="py-1 px-1 bg-white hover:bg-[#e3f2fd] text-[#006699] border border-[#c5def2] text-[9px] font-semibold rounded truncate transition-colors cursor-pointer"
+                                        title="Create new wallpaper product with this image"
+                                      >
+                                        + Wallpaper
+                                      </button>
+                                      <button
+                                        onClick={() => handleApplyToProduct(image.file_url, 'blinds')}
+                                        className="py-1 px-1 bg-white hover:bg-[#e3f2fd] text-[#006699] border border-[#c5def2] text-[9px] font-semibold rounded truncate transition-colors cursor-pointer"
+                                        title="Create new blind product with this image"
+                                      >
+                                        + Blind
+                                      </button>
+                                    </div>
+
+                                    <div className="flex justify-end pt-1">
+                                      <button
+                                        onClick={() => handleDeleteMedia(image)}
+                                        className="text-[10px] text-slate-400 hover:text-red-600 flex items-center space-x-1 transition-colors cursor-pointer"
+                                        title="Delete from Supabase"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                        <span>Delete</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  <div className="bg-[#eef7fc] border border-[#c5def2] rounded-xl p-5 text-xs text-[#002b49] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2 font-bold text-[#006699] uppercase tracking-wider">
+                        <Database className="h-4 w-4" />
+                        <span>Supabase Storage &amp; Database Configuration Guide</span>
+                      </div>
+                      <button
+                        onClick={handleCopySql}
+                        className="text-[11px] font-bold text-[#0077c2] bg-white border border-[#c5def2] hover:bg-[#e3f2fd] px-3 py-1 rounded-md transition-colors cursor-pointer flex items-center space-x-1"
+                      >
+                        <Copy className="h-3 w-3" />
+                        <span>{sqlCopied ? 'SQL Copied!' : 'Copy SQL Schema'}</span>
+                      </button>
+                    </div>
+                    <p className="text-[#335577] leading-relaxed">
+                      Images uploaded here are saved into the Supabase PostgreSQL table <code className="bg-white px-1 py-0.5 rounded border border-[#c5def2] font-mono">public.uploaded_images</code> and public CDN bucket <code className="bg-white px-1 py-0.5 rounded border border-[#c5def2] font-mono">images</code>.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: FEEDBACK & REVIEWS */}
+              {activeTab === 'feedback' && (
+                <div className="space-y-8 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-5 border-b border-[#d8eaf7] gap-4">
+                    <div>
+                      <h3 className="font-serif text-2xl font-bold flex items-center space-x-2 text-[#002b49]">
+                        <span>Customer Feedback Master Controller</span>
+                        <span className="text-xs px-2.5 py-0.5 bg-[#e3f2fd] text-[#0077c2] border border-[#90cdf4] font-sans font-bold rounded-md">
+                          {testimonials.length} Active Reviews
+                        </span>
+                      </h3>
+                      <p className="font-sans text-xs text-[#335577] mt-1">
+                        Manage customer reviews, 5-star ratings, and profile icons.
+                      </p>
+                    </div>
+
+                    {!isAddingFeedback && !editingFeedback && (
+                      <button
+                        onClick={handleStartAddFeedback}
+                        className="px-5 py-2.5 bg-[#0099ff] text-white hover:bg-[#0088ee] text-xs font-bold tracking-wider uppercase flex items-center justify-center space-x-2 transition-all cursor-pointer shrink-0 shadow-md shadow-[#0099ff]/25 rounded-lg"
+                      >
+                        <Plus className="h-4 w-4" />
+                        <span>Add New Feedback</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {feedbackSuccessMsg && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-lg flex items-center space-x-2 shadow-sm">
+                      <CheckCheck className="h-4 w-4 shrink-0 text-emerald-600" />
+                      <span>{feedbackSuccessMsg}</span>
+                    </div>
+                  )}
+
+                  {(isAddingFeedback || editingFeedback) && (
+                    <div className="bg-white border border-[#c5def2] rounded-xl p-6 space-y-6 shadow-md relative">
+                      <div className="flex items-center justify-between border-b border-[#e2effa] pb-3">
+                        <div className="flex items-center space-x-2">
+                          <span className="px-2.5 py-0.5 text-[9px] font-bold tracking-widest uppercase bg-[#0099ff] text-white rounded-md">
+                            {isAddingFeedback ? 'Create New' : 'Editing Entry'}
+                          </span>
+                          <h4 className="font-serif text-lg font-bold text-[#002b49]">
+                            {isAddingFeedback ? 'Add Customer Testimonial' : `Edit Review from "${feedbackForm.name}"`}
+                          </h4>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingFeedback(false);
+                            setEditingFeedback(null);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-[#002b49] rounded-lg hover:bg-slate-100 cursor-pointer transition-colors"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <form onSubmit={handleFeedbackSubmit} className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-bold tracking-wider uppercase text-[#006699] mb-1.5">Customer Name *</label>
+                            <input
+                              type="text"
+                              value={feedbackForm.name}
+                              onChange={(e) => setFeedbackForm(prev => ({ ...prev, name: e.target.value }))}
+                              placeholder="e.g. Priya Sharma"
+                              required
+                              className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] px-3.5 py-2 text-xs text-[#002b49] outline-none rounded-lg focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold tracking-wider uppercase text-[#006699] mb-1.5">Location / City</label>
+                            <input
+                              type="text"
+                              value={feedbackForm.location || ''}
+                              onChange={(e) => setFeedbackForm(prev => ({ ...prev, location: e.target.value }))}
+                              placeholder="e.g. Race Course, Coimbatore"
+                              className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] px-3.5 py-2 text-xs text-[#002b49] outline-none rounded-lg focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold tracking-wider uppercase text-[#006699] mb-1.5">Customer Role / Title</label>
+                            <input
+                              type="text"
+                              value={feedbackForm.role || ''}
+                              onChange={(e) => setFeedbackForm(prev => ({ ...prev, role: e.target.value }))}
+                              placeholder="e.g. Villa Owner / Interior Designer"
+                              className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] px-3.5 py-2 text-xs text-[#002b49] outline-none rounded-lg focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold tracking-wider uppercase text-[#006699] mb-1.5">
+                            Star Rating: {feedbackForm.rating || 5} of 5 Stars
+                          </label>
+                          <div className="flex items-center space-x-2">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                type="button"
+                                onClick={() => setFeedbackForm(prev => ({ ...prev, rating: star }))}
+                                className="p-1 hover:scale-110 transition-transform cursor-pointer"
+                              >
+                                <Star
+                                  className={`h-6 w-6 ${
+                                    star <= (feedbackForm.rating || 5)
+                                      ? 'fill-amber-400 text-amber-400'
+                                      : 'text-slate-300'
+                                  }`}
+                                />
                               </button>
-                            </div>
-                            <div className="p-2 text-[11px] bg-white">
-                              <p className="font-bold text-stone-800 truncate">{item.title || item.filename}</p>
-                              <span className="inline-block mt-0.5 text-[10px] px-1.5 py-0.5 bg-stone-100 text-stone-600 rounded">
-                                {item.category}
+                            ))}
+                            <span className="text-xs text-[#335577] ml-2 font-mono">
+                              ({feedbackForm.rating === 5 ? '5.0 - Exceptional Experience' : `${feedbackForm.rating}.0 Stars`})
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="p-5 bg-[#f8fbfe] border border-[#c5def2] rounded-xl space-y-4">
+                          <div className="flex items-center justify-between border-b border-[#e2effa] pb-3">
+                            <div className="flex items-center space-x-2">
+                              <User className="h-4 w-4 text-[#0099ff]" />
+                              <span className="text-xs font-bold tracking-wider uppercase text-[#002b49]">
+                                Profile Icon & Avatar Master Controller
                               </span>
+                            </div>
+                            <span className="text-[10px] text-[#006699] font-medium bg-[#e3f2fd] px-2 py-0.5 rounded-md">
+                              Intelligent Avatar Fallback System
+                            </span>
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row items-center gap-6 pt-2">
+                            <div className="flex flex-col items-center justify-center p-4 bg-white border border-[#c5def2] rounded-xl shrink-0 min-w-[140px] shadow-sm">
+                              <span className="text-[9px] uppercase tracking-widest text-[#006699] mb-2 font-bold">
+                                Live Icon Preview
+                              </span>
+                              <CustomerAvatar
+                                name={feedbackForm.name || 'Customer'}
+                                image={feedbackForm.image}
+                                size="xl"
+                              />
+                              <span className="text-[10px] text-[#002b49] font-bold mt-2 truncate max-w-[120px]">
+                                {feedbackForm.name || 'Customer Name'}
+                              </span>
+                            </div>
+
+                            <div className="flex-1 w-full space-y-3">
+                              {feedbackForm.image ? (
+                                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between">
+                                  <div className="flex items-center space-x-2 text-emerald-700 text-xs font-medium">
+                                    <Check className="h-4 w-4 shrink-0 text-emerald-600" />
+                                    <span>Custom Profile Photo Active</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={handleRemoveFeedbackPhoto}
+                                    className="text-xs text-red-600 hover:text-red-700 underline font-medium cursor-pointer"
+                                  >
+                                    Remove Photo (Use First Letter)
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="p-2.5 bg-sky-50 border border-sky-200 rounded-lg">
+                                  <div className="flex items-center space-x-2 text-sky-800 text-xs font-medium">
+                                    <Sparkles className="h-4 w-4 shrink-0 text-[#0099ff]" />
+                                    <span>
+                                      First-Letter Avatar Active: &quot;{(feedbackForm.name?.trim()?.charAt(0) || 'C').toUpperCase()}&quot;
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                <label className="px-4 py-2 bg-[#e3f2fd] hover:bg-[#d0e8f9] text-[#006699] border border-[#90cdf4] text-xs font-bold tracking-wider uppercase flex items-center justify-center space-x-2 cursor-pointer transition-colors shrink-0 rounded-lg">
+                                  <Upload className="h-3.5 w-3.5 text-[#0099ff]" />
+                                  <span>Upload Photo File</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleFeedbackImageFileUpload}
+                                    className="hidden"
+                                  />
+                                </label>
+                                <span className="text-[11px] text-[#335577] text-center sm:text-left font-medium">or URL:</span>
+                                <input
+                                  type="text"
+                                  value={feedbackForm.image || ''}
+                                  onChange={(e) => setFeedbackForm(prev => ({ ...prev, image: e.target.value }))}
+                                  placeholder="Paste direct profile image URL (https://...)"
+                                  className="flex-1 bg-white border border-[#c5def2] focus:border-[#0099ff] px-3.5 py-2 text-xs text-[#002b49] outline-none rounded-lg focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold tracking-wider uppercase text-[#006699] mb-1.5">
+                            Customer Review / Testimonial Text *
+                          </label>
+                          <textarea
+                            rows={4}
+                            value={feedbackForm.review}
+                            onChange={(e) => setFeedbackForm(prev => ({ ...prev, review: e.target.value }))}
+                            placeholder="Type or paste the client's verified testimonial..."
+                            required
+                            className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] p-3.5 text-xs text-[#002b49] outline-none rounded-lg focus:ring-1 focus:ring-[#0099ff] transition-colors resize-y leading-relaxed"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-end space-x-3 pt-4 border-t border-[#e2effa]">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingFeedback(false);
+                              setEditingFeedback(null);
+                            }}
+                            className="px-5 py-2.5 border border-[#c5def2] hover:bg-[#e3f2fd] text-[#002b49] text-xs font-bold tracking-wider uppercase rounded-lg transition-colors cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-6 py-2.5 bg-[#0099ff] text-white hover:bg-[#0088ee] text-xs font-bold tracking-wider uppercase flex items-center space-x-2 transition-all cursor-pointer font-sans shadow-md shadow-[#0099ff]/25 rounded-lg"
+                          >
+                            <Save className="h-4 w-4" />
+                            <span>{isAddingFeedback ? 'Save & Publish Feedback' : 'Save Feedback Changes'}</span>
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  )}
+
+                  {/* FEEDBACK TABLE */}
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="relative flex-1 max-w-md">
+                        <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          value={feedbackSearch}
+                          onChange={(e) => setFeedbackSearch(e.target.value)}
+                          placeholder="Search feedback by customer name, location, or words..."
+                          className="w-full bg-white border border-[#c5def2] focus:border-[#0099ff] pl-9 pr-4 py-2.5 text-xs text-[#002b49] outline-none rounded-lg shadow-sm focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                        />
+                      </div>
+                      <span className="text-xs text-[#335577] font-medium">
+                        Showing {testimonials.filter(t => 
+                          t.name.toLowerCase().includes(feedbackSearch.toLowerCase()) ||
+                          t.review.toLowerCase().includes(feedbackSearch.toLowerCase()) ||
+                          (t.location && t.location.toLowerCase().includes(feedbackSearch.toLowerCase()))
+                        ).length} of {testimonials.length} reviews
+                      </span>
+                    </div>
+
+                    <div className="border border-[#c5def2] overflow-x-auto bg-white rounded-xl shadow-sm">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-[#c5def2] bg-[#e3f2fd] text-[10px] font-bold tracking-wider uppercase text-[#006699]">
+                            <th className="p-3.5">Customer & Avatar</th>
+                            <th className="p-3.5">Avatar Mode</th>
+                            <th className="p-3.5">Rating</th>
+                            <th className="p-3.5">Testimonial Content</th>
+                            <th className="p-3.5 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#e2effa]">
+                          {testimonials
+                            .filter(t => 
+                              t.name.toLowerCase().includes(feedbackSearch.toLowerCase()) ||
+                              t.review.toLowerCase().includes(feedbackSearch.toLowerCase()) ||
+                              (t.location && t.location.toLowerCase().includes(feedbackSearch.toLowerCase()))
+                            )
+                            .map((item) => (
+                              <tr key={item.id} className="hover:bg-[#f8fbfe] transition-colors">
+                                <td className="p-3.5 whitespace-nowrap">
+                                  <div className="flex items-center space-x-3">
+                                    <CustomerAvatar name={item.name} image={item.image} size="md" />
+                                    <div>
+                                      <p className="font-bold text-[#002b49] text-xs">{item.name}</p>
+                                      <p className="text-[11px] text-[#335577]">
+                                        {[item.role, item.location].filter(Boolean).join(' • ') || 'Client'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="p-3.5 whitespace-nowrap">
+                                  {item.image ? (
+                                    <span className="inline-flex items-center px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 rounded">
+                                      Custom Photo
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase bg-[#e3f2fd] text-[#0077c2] border border-[#90cdf4] rounded">
+                                      Initial: &quot;{item.name.trim().charAt(0).toUpperCase()}&quot;
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="p-3.5 whitespace-nowrap">
+                                  <div className="flex items-center space-x-1 text-amber-400">
+                                    {Array.from({ length: item.rating || 5 }).map((_, i) => (
+                                      <Star key={i} className="h-3.5 w-3.5 fill-amber-400" />
+                                    ))}
+                                    <span className="text-[11px] text-[#335577] ml-1 font-semibold">({item.rating || 5}.0)</span>
+                                  </div>
+                                </td>
+                                <td className="p-3.5 max-w-xs text-[#335577] line-clamp-2 leading-relaxed">
+                                  &quot;{item.review}&quot;
+                                </td>
+                                <td className="p-3.5 text-right whitespace-nowrap space-x-2">
+                                  <button
+                                    onClick={() => handleStartEditFeedback(item)}
+                                    className="p-1.5 hover:bg-[#e3f2fd] text-[#006699] hover:text-[#0099ff] rounded-lg transition-colors inline-block cursor-pointer"
+                                    title="Edit Feedback & Profile Icon"
+                                  >
+                                    <Edit2 className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteFeedback(item.id, item.name)}
+                                    className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors inline-block cursor-pointer"
+                                    title="Delete Feedback"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: INQUIRIES & CONSULTATIONS */}
+              {activeTab === 'inquiries' && (
+                <div className="space-y-8 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
+                  <div className="border-b border-[#d8eaf7] pb-5">
+                    <h3 className="font-serif text-2xl font-bold text-[#002b49]">Inbound Leads & Consultation Inquiries</h3>
+                    <p className="font-sans text-xs text-[#335577] mt-1">Review live inquiry submissions dispatched by clients requesting on-site consultations or custom quotes.</p>
+                  </div>
+
+                  {/* Section A: Consultation Bookings */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-[#006699]">
+                      Consultation Bookings ({bookings.length})
+                    </h4>
+
+                    {bookings.length === 0 ? (
+                      <div className="text-center py-12 bg-white border border-[#c5def2] rounded-xl space-y-2 shadow-sm">
+                        <Inbox className="h-8 w-8 text-slate-400 mx-auto" />
+                        <p className="font-sans text-xs text-[#335577]">No consultation bookings registered yet.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {bookings.map((booking) => (
+                          <div 
+                            key={booking.id} 
+                            className="bg-white border border-[#c5def2] rounded-xl p-6 relative group transition-all hover:border-[#0099ff] shadow-sm"
+                            id={`booking-card-${booking.id}`}
+                          >
+                            <button 
+                              onClick={() => handleDeleteBooking(booking.id)}
+                              className="absolute top-4 right-4 p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors cursor-pointer"
+                              title="Delete Log"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                              <div className="md:col-span-1 space-y-1">
+                                <span className="block text-[10px] font-bold tracking-widest text-[#006699] uppercase">CLIENT ACCOUNT</span>
+                                <strong className="block text-[#002b49] font-serif text-base">{booking.name}</strong>
+                                <span className="block text-xs text-[#335577]">{booking.phone}</span>
+                                {booking.email && <span className="block text-xs text-[#0099ff] underline">{booking.email}</span>}
+                              </div>
+                              
+                              <div className="md:col-span-1 space-y-1">
+                                <span className="block text-[10px] font-bold tracking-widest text-[#006699] uppercase">CONSULT PARAMETERS</span>
+                                <span className="block text-xs font-semibold text-[#002b49]">Project: {booking.projectType}</span>
+                                <span className="block text-xs text-[#335577]">Budget: {booking.budget || 'Unspecified'}</span>
+                                <span className="block text-xs text-[#335577]">Preferred: {booking.preferredDate || 'Flexible'}</span>
+                              </div>
+
+                              <div className="md:col-span-2 space-y-1">
+                                <span className="block text-[10px] font-bold tracking-widest text-[#006699] uppercase">LOGGED TIMESTAMP</span>
+                                <span className="block text-[11px] text-[#335577]">{new Date(booking.timestamp).toLocaleString()}</span>
+                                {booking.message && (
+                                  <p className="text-xs bg-[#f8fbfe] p-3.5 mt-2 border border-[#d2e5f5] text-[#335577] italic rounded-lg leading-relaxed">
+                                    "{booking.message}"
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Section B: Contact Messages */}
+                  <div className="space-y-4 pt-5 border-t border-[#d8eaf7]">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-[#006699]">
+                      General Contact Enquiries ({inquiries.length})
+                    </h4>
+
+                    {inquiries.length === 0 ? (
+                      <div className="text-center py-12 bg-white border border-[#c5def2] rounded-xl space-y-2 shadow-sm">
+                        <Mail className="h-8 w-8 text-slate-400 mx-auto" />
+                        <p className="font-sans text-xs text-[#335577]">No general contact form messages registered yet.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {inquiries.map((inq) => (
+                          <div 
+                            key={inq.id} 
+                            className="bg-white border border-[#c5def2] rounded-xl p-6 relative group transition-all hover:border-[#0099ff] shadow-sm"
+                            id={`inquiry-card-${inq.id}`}
+                          >
+                            <button 
+                              onClick={() => handleDeleteInquiry(inq.id)}
+                              className="absolute top-4 right-4 p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors cursor-pointer"
+                              title="Delete Log"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                              <div className="md:col-span-1 space-y-1">
+                                <span className="block text-[10px] font-bold tracking-widest text-[#006699] uppercase">INQUIRER</span>
+                                <strong className="block text-[#002b49] font-serif text-base">{inq.name}</strong>
+                                <span className="block text-xs text-[#335577]">{inq.phone}</span>
+                                {inq.email && <span className="block text-xs text-[#0099ff] underline">{inq.email}</span>}
+                              </div>
+                              
+                              <div className="md:col-span-1 space-y-1">
+                                <span className="block text-[10px] font-bold tracking-widest text-[#006699] uppercase">CATEGORY & LOCATION</span>
+                                <span className="block text-xs font-semibold text-[#002b49]">{inq.project_type || inq.projectType}</span>
+                                <span className="block text-xs text-[#335577]">{inq.location || 'Location Not Specified'}</span>
+                              </div>
+
+                              <div className="md:col-span-2 space-y-1">
+                                <span className="block text-[10px] font-bold tracking-widest text-[#006699] uppercase">MESSAGE & DATE</span>
+                                <span className="block text-[11px] text-[#335577]">{new Date(inq.timestamp).toLocaleString()}</span>
+                                {inq.message && (
+                                  <p className="text-xs bg-[#f8fbfe] p-3.5 mt-2 border border-[#d2e5f5] text-[#335577] italic rounded-lg leading-relaxed">
+                                    "{inq.message}"
+                                  </p>
+                                )}
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -572,12 +3823,252 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* TAB 5: UNIVERSAL SUPABASE DATABASE */}
+              {activeTab === 'database' && (
+                <div className="space-y-8 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
+                  <div className="border-b border-[#d8eaf7] pb-5">
+                    <h3 className="font-serif text-2xl font-bold text-[#002b49]">Supabase Universal Database & Realtime Sync Engine</h3>
+                    <p className="font-sans text-xs text-[#335577] mt-1">
+                      Connect your Supabase database project so that product edits, captions, themes, bookings, and inquiries persist centrally.
+                    </p>
+                  </div>
+
+                  <div className={`p-5 rounded-xl border ${supabaseStatus === 'connected' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : supabaseStatus === 'testing' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-white border-[#c5def2] text-[#002b49]'}`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-start space-x-3.5">
+                        <div className={`p-2.5 rounded-full mt-0.5 ${supabaseStatus === 'connected' ? 'bg-emerald-100 text-emerald-600' : 'bg-sky-100 text-[#0099ff]'}`}>
+                          <Database className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <h4 className="text-sm font-bold uppercase tracking-wider">
+                              {supabaseStatus === 'connected' ? 'Universal Database Connected' : supabaseStatus === 'testing' ? 'Verifying Supabase Connection...' : 'Supabase Not Connected'}
+                            </h4>
+                            {isSupabaseFromEnv && (
+                              <span className="bg-[#e3f2fd] text-[#0077c2] text-[9px] px-2 py-0.5 font-bold uppercase border border-[#90cdf4] rounded">
+                                Loaded from .env
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-[#335577] mt-1 leading-relaxed">
+                            {supabaseStatusMessage || 'Enter your Supabase Project URL and Anon Key below to establish universal live database persistence.'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2 self-start sm:self-center">
+                        <button
+                          onClick={handleTestConnection}
+                          disabled={!supabaseUrl || !supabaseKey}
+                          className="border border-[#c5def2] bg-white hover:bg-[#e3f2fd] text-[#002b49] disabled:opacity-40 px-3.5 py-2 text-xs font-bold tracking-wider uppercase rounded-lg transition-colors flex items-center space-x-1.5 cursor-pointer shadow-sm"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5 text-[#0099ff]" />
+                          <span>TEST STATUS</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 space-y-6 shadow-sm">
+                    <div className="flex items-center space-x-2 text-[#0099ff]">
+                      <ShieldCheck className="h-4 w-4" />
+                      <h4 className="text-xs font-bold uppercase tracking-widest text-[#002b49]">Supabase Project API Credentials</h4>
+                    </div>
+
+                    <form onSubmit={handleSaveSupabaseConfig} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] text-[#006699] font-bold uppercase mb-1 tracking-wider">
+                            Supabase Project URL *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={supabaseUrl}
+                            onChange={(e) => setSupabaseUrl(e.target.value)}
+                            placeholder="https://your-project-id.supabase.co"
+                            className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2.5 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] transition-colors"
+                          />
+                          <span className="text-[10px] text-[#335577] mt-1 block">
+                            Found in Supabase Dashboard &gt; Project Settings &gt; API &gt; Project URL
+                          </span>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] text-[#006699] font-bold uppercase mb-1 tracking-wider">
+                            Supabase Anon Public API Key *
+                          </label>
+                          <input
+                            type="password"
+                            required
+                            value={supabaseKey}
+                            onChange={(e) => setSupabaseKey(e.target.value)}
+                            placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                            className="w-full bg-[#f8fbfe] border border-[#c5def2] focus:bg-white focus:border-[#0099ff] text-[#002b49] px-3.5 py-2.5 text-xs rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0099ff] font-mono transition-colors"
+                          />
+                          <span className="text-[10px] text-[#335577] mt-1 block">
+                            Found in Supabase Dashboard &gt; Project Settings &gt; API &gt; Project API keys (anon public)
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 pt-2">
+                        <button
+                          type="submit"
+                          className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-6 py-2.5 text-xs font-bold tracking-widest uppercase rounded-lg shadow-md shadow-[#0099ff]/25 transition-all flex items-center space-x-2 cursor-pointer"
+                        >
+                          <Save className="h-3.5 w-3.5" />
+                          <span>SAVE & ACTIVATE SUPABASE</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            clearStoredSupabaseCredentials();
+                            setSupabaseUrl('');
+                            setSupabaseKey('');
+                            setSupabaseStatus('unconfigured');
+                            setSupabaseStatusMessage('Credentials cleared.');
+                            alert('Supabase credentials cleared.');
+                          }}
+                          className="border border-[#c5def2] hover:bg-red-50 hover:border-red-200 text-red-500 px-4 py-2.5 text-xs font-bold tracking-widest uppercase rounded-lg transition-colors cursor-pointer"
+                        >
+                          DISCONNECT
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white border border-[#c5def2] rounded-xl p-6 space-y-4 shadow-sm">
+                      <div className="flex items-center space-x-2 text-[#0099ff]">
+                        <UploadCloud className="h-4 w-4" />
+                        <h4 className="text-xs font-bold uppercase tracking-widest text-[#002b49]">Push & Seed Local Catalog to Supabase</h4>
+                      </div>
+                      <p className="text-xs text-[#335577] leading-relaxed">
+                        Populate your Supabase tables with all 50+ rich curtain models, textured wallpaper collections, bespoke motorized blinds, and site configuration.
+                      </p>
+                      <button
+                        onClick={handleSeedSupabase}
+                        disabled={!isSupabaseConfigured() || isSeedingDatabase}
+                        className="bg-[#0099ff] hover:bg-[#0088ee] disabled:opacity-40 text-white px-5 py-2.5 text-xs font-bold tracking-widest uppercase rounded-lg shadow-md shadow-[#0099ff]/25 transition-colors flex items-center space-x-2 cursor-pointer"
+                      >
+                        <UploadCloud className="h-3.5 w-3.5" />
+                        <span>{isSeedingDatabase ? 'SEEDING DATABASE...' : 'SEED COMPLETE CATALOG (50+ ITEMS)'}</span>
+                      </button>
+                    </div>
+
+                    <div className="bg-white border border-[#c5def2] rounded-xl p-6 space-y-4 shadow-sm">
+                      <div className="flex items-center space-x-2 text-[#0099ff]">
+                        <DownloadCloud className="h-4 w-4" />
+                        <h4 className="text-xs font-bold uppercase tracking-widest text-[#002b49]">Pull Live Universal State from Supabase</h4>
+                      </div>
+                      <p className="text-xs text-[#335577] leading-relaxed">
+                        Fetch the latest universal catalog, site captions, active theme, and consultation bookings directly from Supabase.
+                      </p>
+                      <button
+                        onClick={handlePullFromSupabase}
+                        disabled={!isSupabaseConfigured() || isPullingData}
+                        className="border border-[#c5def2] hover:bg-[#e3f2fd] disabled:opacity-40 text-[#002b49] px-5 py-2.5 text-xs font-bold tracking-widest uppercase rounded-lg transition-colors flex items-center space-x-2 cursor-pointer"
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 text-[#0099ff] ${isPullingData ? 'animate-spin' : ''}`} />
+                        <span>{isPullingData ? 'PULLING FROM SUPABASE...' : 'REFRESH & SYNC FROM SUPABASE'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-[#c5def2] rounded-xl p-6 space-y-4 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2 text-[#0099ff]">
+                        <FileText className="h-4 w-4" />
+                        <h4 className="text-xs font-bold uppercase tracking-widest text-[#002b49]">Supabase SQL Table Schema & RLS Setup Script</h4>
+                      </div>
+                      <button
+                        onClick={handleCopySql}
+                        className="bg-[#0099ff] hover:bg-[#0088ee] text-white px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-lg shadow-md shadow-[#0099ff]/25 transition-colors flex items-center space-x-1.5 cursor-pointer"
+                      >
+                        {sqlCopied ? <CheckCheck className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                        <span>{sqlCopied ? 'COPIED TO CLIPBOARD!' : 'COPY SQL SCRIPT'}</span>
+                      </button>
+                    </div>
+
+                    <div className="text-xs text-[#335577] space-y-2">
+                      <p>
+                        <strong>How to run:</strong> Open your <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-[#0099ff] underline inline-flex items-center space-x-1 font-semibold"><span>Supabase Dashboard</span> <ExternalLink className="h-3 w-3 inline" /></a> &gt; <strong>SQL Editor</strong> &gt; <strong>New query</strong> &gt; Paste this script &gt; Click <strong>Run</strong>.
+                      </p>
+                    </div>
+
+                    <div className="relative">
+                      <pre className="bg-[#001f35] border border-[#003960] p-4 text-[11px] font-mono text-sky-100 rounded-lg overflow-x-auto max-h-64 scrollbar-thin scrollbar-thumb-sky-700">
+                        {SUPABASE_SQL_SCHEMA}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
+
+      {/* FULL SCREEN MEDIA LIGHTBOX PREVIEW MODAL */}
+      <AnimatePresence>
+        {previewModalImage && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" onClick={() => setPreviewModalImage(null)}>
+            <div 
+              className="relative max-w-4xl w-full bg-[#00172e] border border-[#003866] rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-[#003366] bg-[#001f3f]">
+                <div className="flex items-center space-x-2 text-white">
+                  <ImageIcon className="h-5 w-5 text-[#0099ff]" />
+                  <span className="font-semibold text-sm truncate">{previewModalImage.title || previewModalImage.filename}</span>
+                </div>
+                <button 
+                  onClick={() => setPreviewModalImage(null)}
+                  className="p-1.5 hover:bg-[#002b49] text-slate-300 hover:text-white rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="p-6 flex flex-col items-center justify-center bg-black/40 max-h-[70vh] overflow-hidden">
+                <img 
+                  src={previewModalImage.file_url} 
+                  alt={previewModalImage.title || previewModalImage.filename}
+                  className="max-h-[60vh] max-w-full object-contain rounded-lg shadow-xl"
+                />
+              </div>
+
+              <div className="p-5 border-t border-[#003366] bg-[#00172e] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
+                <div className="space-y-0.5 text-slate-300">
+                  <p><strong>Category:</strong> <span className="uppercase text-[#0099ff]">{previewModalImage.category || 'general'}</span></p>
+                  <p><strong>Direct CDN URL:</strong> <span className="font-mono text-[11px] text-slate-400 truncate max-w-md inline-block align-bottom">{previewModalImage.file_url}</span></p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleCopyUrl(previewModalImage.file_url, previewModalImage.id)}
+                    className="px-4 py-2 bg-[#0099ff] hover:bg-[#0088ee] text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors flex items-center space-x-1.5 cursor-pointer"
+                  >
+                    {copiedMediaId === previewModalImage.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    <span>{copiedMediaId === previewModalImage.id ? 'COPIED!' : 'COPY URL'}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleDeleteMedia(previewModalImage);
+                    }}
+                    className="px-4 py-2 bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/30 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors flex items-center space-x-1.5 cursor-pointer"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>DELETE</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
-};
-
-export default AdminPanel;
+}
