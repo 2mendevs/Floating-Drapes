@@ -220,6 +220,9 @@ export default function App() {
                 ...DEFAULT_SITE_CONFIG,
                 ...prev,
                 ...configObj,
+                portfolioData: configObj.portfolioData || configObj.portfolio_data || prev.portfolioData,
+                beforeAfterTitle: configObj.beforeAfterTitle || configObj.before_after_title || prev.beforeAfterTitle,
+                beforeAfterSubtitle: configObj.beforeAfterSubtitle || configObj.before_after_subtitle || prev.beforeAfterSubtitle,
                 categoryShowcase: {
                   curtains: {
                     ...DEFAULT_SITE_CONFIG.categoryShowcase!.curtains,
