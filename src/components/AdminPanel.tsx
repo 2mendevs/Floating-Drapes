@@ -200,7 +200,6 @@ export default function AdminPanel({
       return;
     }
 
-    // If token is a Supabase session token
     if (token.startsWith('sb.')) {
       setIsAuthenticated(true);
       setIsVerifyingSession(false);
