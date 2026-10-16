@@ -1073,20 +1073,24 @@ export default function AdminPanel({
 
     setPortfolioList(updatedList);
 
+    // 1. Create the new config object
     const updatedConfig: SiteConfig = {
       ...captions,
       portfolioData: updatedList
     };
 
+    // 2. Update panel state AND broadcast to App.tsx immediately
     setCaptions(updatedConfig);
     onUpdateConfig(updatedConfig);
+    
+    // 3. Save locally
     localStorage.setItem('floatingdrapes_config', JSON.stringify(updatedConfig));
 
+    // 4. Sync to Supabase
     if (isSupabaseConfigured()) {
       await syncSiteConfigToSupabase(updatedConfig);
       setBeforeAfterSuccessMsg(isAddingPortfolioItem ? 'New transformation card created & synced to Supabase!' : 'Transformation card updated & synced to Supabase!');
       setTimeout(() => setBeforeAfterSuccessMsg(''), 4000);
-      alert('Before & After comparison card saved and synchronized in Supabase database!');
     } else {
       alert('Saved locally! Connect Supabase in Database tab to sync universally.');
     }
@@ -4074,7 +4078,7 @@ export default function AdminPanel({
               )}
 
               {/* -------------------------------------------------------------------------------- */}
-              {/* TAB: BEFORE & AFTER MASTER CONTROLLER                                           */}
+              {/* TAB: BEFORE & AFTER MASTER CONTROLLER                                            */}
               {/* -------------------------------------------------------------------------------- */}
               {activeTab === 'beforeAfter' && (
                 <div className="space-y-8 bg-[#F4F9FD] border border-[#d2e5f5] rounded-2xl p-6 sm:p-8 text-[#002b49] shadow-xl">
