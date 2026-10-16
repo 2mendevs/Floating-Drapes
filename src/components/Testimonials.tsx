@@ -48,7 +48,7 @@ export default function Testimonials({
     <section className="bg-zinc-50 py-10 lg:py-14 border-b border-[#EAEAEA]" id="testimonials-section">
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
         
-        {/* Header Block (Now completely dynamic) */}
+        {/* Header Block (Dynamically controlled via Admin Panel & Supabase) */}
         <div className="text-center max-w-2xl mx-auto mb-16 relative">
           <span className="font-sans text-[13px] font-semibold tracking-[0.25em] text-[#029BFA] uppercase mb-3 block">
             {subtitle}
