@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Sparkles, CheckCircle, Calendar, DollarSign, PenTool } from 'lucide-react';
+import { X, Sparkles, CheckCircle, Calendar, PenTool, Check, MessageSquare } from 'lucide-react';
 import { BookingSubmission } from '../types';
 import { insertBookingToSupabase } from '../services/supabaseClient';
 
@@ -15,11 +15,19 @@ export default function BookingModal({ isOpen, onClose }: BookingModalProps) {
     phone: '',
     preferredDate: '',
     projectType: 'Curtains Installation',
-    budget: '$2,000 - $5,000',
+    budget: '', // Kept for type compatibility but removed from UI
+    preferredCommunication: 'Call',
+    whatsappNumber: '',
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  // Calculate today's date in local time for the date picker minimum restriction
+  const getLocalToday = () => {
+    const today = new Date();
+    return new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,17 +36,28 @@ export default function BookingModal({ isOpen, onClose }: BookingModalProps) {
       return;
     }
 
+    if (formData.preferredCommunication === 'WhatsApp' && !formData.whatsappNumber) {
+      alert('Please provide your WhatsApp number for chat communication.');
+      return;
+    }
+
     setIsSubmitting(true);
 
+    const contactMethodStr = formData.preferredCommunication === 'WhatsApp' 
+      ? `WhatsApp Chat (Number: ${formData.whatsappNumber})` 
+      : 'Phone Call';
+
+    const finalMessage = `Preferred Contact Method: ${contactMethodStr}`;
+
     try {
-      // Dispatch server-side SMTP email notification to floatingdrips@gmail.com
+      // Dispatch server-side SMTP email notification
       const res = await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           formType: 'Private Consultation Booking Form',
           formData: formData,
-          result: `Preferred Date: ${formData.preferredDate || 'Flexible'}, Project Type: ${formData.projectType}, Budget Bracket: ${formData.budget}`
+          result: `Preferred Date: ${formData.preferredDate || 'Flexible'}, Project Type: ${formData.projectType}, Contact Via: ${contactMethodStr}`
         })
       });
 
@@ -51,7 +70,12 @@ export default function BookingModal({ isOpen, onClose }: BookingModalProps) {
 
       const newSubmission: BookingSubmission = {
         id: 'b-' + Date.now(),
-        ...formData,
+        name: formData.name,
+        phone: formData.phone,
+        preferredDate: formData.preferredDate,
+        projectType: formData.projectType,
+        budget: '', // Deprecated in UI
+        message: finalMessage,
         timestamp: new Date().toISOString()
       };
       
@@ -70,14 +94,21 @@ export default function BookingModal({ isOpen, onClose }: BookingModalProps) {
         phone: '',
         preferredDate: '',
         projectType: 'Curtains Installation',
-        budget: '$2,000 - $5,000',
+        budget: '',
+        preferredCommunication: 'Call',
+        whatsappNumber: '',
       });
     } catch (err) {
       console.error('Failed to dispatch notification:', err);
       // Fail gracefully so that network interruptions or unconfigured systems still allow local UI completion
       const fallbackSubmission: BookingSubmission = {
         id: 'b-' + Date.now(),
-        ...formData,
+        name: formData.name,
+        phone: formData.phone,
+        preferredDate: formData.preferredDate,
+        projectType: formData.projectType,
+        budget: '',
+        message: finalMessage,
         timestamp: new Date().toISOString()
       };
       insertBookingToSupabase(fallbackSubmission).catch(console.error);
@@ -97,14 +128,6 @@ export default function BookingModal({ isOpen, onClose }: BookingModalProps) {
     'Complete Villa Styling',
     'Commercial Showcase',
     'Bespoke Automation Request'
-  ];
-
-  const budgets = [
-    'Under $2,000',
-    '$2,000 - $5,000',
-    '$5,000 - $15,000',
-    '$15,000 - $50,000',
-    'Estate Premium ($50k+)'
   ];
 
   return (
@@ -218,9 +241,10 @@ export default function BookingModal({ isOpen, onClose }: BookingModalProps) {
                       </label>
                       <input
                         type="date"
+                        min={getLocalToday()}
                         value={formData.preferredDate}
                         onChange={(e) => setFormData({ ...formData, preferredDate: e.target.value })}
-                        className="w-full bg-white/5 border border-gold/15 px-4 py-3 text-xs text-white focus:outline-none focus:border-gold transition-colors rounded-none"
+                        className="w-full bg-white/5 border border-gold/15 px-4 py-3 text-xs text-white focus:outline-none focus:border-gold transition-colors rounded-none [&::-webkit-calendar-picker-indicator]:invert"
                       />
                     </div>
 
@@ -244,24 +268,72 @@ export default function BookingModal({ isOpen, onClose }: BookingModalProps) {
                     </div>
                   </div>
 
-                  {/* Estimated budget */}
-                  <div>
-                    <label className="block text-[9px] font-bold tracking-[0.2em] text-gold uppercase mb-2">
-                      <span className="flex items-center space-x-1">
-                        <DollarSign className="h-3 w-3" />
-                        <span>Estimated Budget</span>
-                      </span>
+                  {/* Communication Preference */}
+                  <div className="pt-2">
+                    <label className="block text-[9px] font-bold tracking-[0.2em] text-gold uppercase mb-3">
+                      Preferred Communication Method
                     </label>
-                    <select
-                      value={formData.budget}
-                      onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
-                      className="w-full bg-luxury-sec border border-gold/15 px-3 py-3 text-xs text-white focus:outline-none focus:border-gold transition-colors rounded-none"
-                    >
-                      {budgets.map((b) => (
-                        <option key={b} value={b} className="bg-luxury-sec text-white">{b}</option>
-                      ))}
-                    </select>
+                    <div className="flex items-center space-x-6">
+                      <label className="flex items-center space-x-2.5 cursor-pointer group">
+                        <div className={`h-4 w-4 border flex items-center justify-center transition-colors ${formData.preferredCommunication === 'Call' ? 'border-gold bg-gold/20' : 'border-gold/30 bg-transparent group-hover:border-gold/60'}`}>
+                          {formData.preferredCommunication === 'Call' && <Check className="h-3 w-3 text-gold" />}
+                        </div>
+                        <span className="text-xs text-white">Phone Call</span>
+                        <input 
+                          type="radio" 
+                          name="contactMethod"
+                          value="Call" 
+                          checked={formData.preferredCommunication === 'Call'}
+                          onChange={(e) => setFormData({ ...formData, preferredCommunication: e.target.value })}
+                          className="hidden" 
+                        />
+                      </label>
+                      
+                      <label className="flex items-center space-x-2.5 cursor-pointer group">
+                        <div className={`h-4 w-4 border flex items-center justify-center transition-colors ${formData.preferredCommunication === 'WhatsApp' ? 'border-gold bg-gold/20' : 'border-gold/30 bg-transparent group-hover:border-gold/60'}`}>
+                          {formData.preferredCommunication === 'WhatsApp' && <Check className="h-3 w-3 text-gold" />}
+                        </div>
+                        <span className="text-xs text-white">WhatsApp Chat</span>
+                        <input 
+                          type="radio" 
+                          name="contactMethod"
+                          value="WhatsApp" 
+                          checked={formData.preferredCommunication === 'WhatsApp'}
+                          onChange={(e) => setFormData({ ...formData, preferredCommunication: e.target.value })}
+                          className="hidden" 
+                        />
+                      </label>
+                    </div>
                   </div>
+
+                  {/* WhatsApp Number Conditional Input */}
+                  <AnimatePresence>
+                    {formData.preferredCommunication === 'WhatsApp' && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="pt-1">
+                          <label className="block text-[9px] font-bold tracking-[0.2em] text-gold uppercase mb-2">
+                            <span className="flex items-center space-x-1">
+                              <MessageSquare className="h-3 w-3" />
+                              <span>WhatsApp Number *</span>
+                            </span>
+                          </label>
+                          <input
+                            type="tel"
+                            required
+                            value={formData.whatsappNumber}
+                            onChange={(e) => setFormData({ ...formData, whatsappNumber: e.target.value })}
+                            placeholder="e.g. +1 (555) 019-2831"
+                            className="w-full bg-white/5 border border-gold/15 px-4 py-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-gold transition-colors rounded-none"
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   {/* Submit Button */}
                   <div className="pt-4">
@@ -272,7 +344,7 @@ export default function BookingModal({ isOpen, onClose }: BookingModalProps) {
                       id="submit-booking-modal-btn"
                     >
                       {isSubmitting ? (
-                        <span>TRANSMITTING ADVISORY SECURELY...</span>
+                        <span>TRANSMITTING SECURELY...</span>
                       ) : (
                         <span>CONFIRM BOOKING SESSION</span>
                       )}
