@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Header } from './components/Header';
-import { Hero } from './components/Hero';
-import { CurtainsWallpapersSection } from './components/CurtainsWallpapersSection';
-import { SignatureCollections } from './components/SignatureCollections';
-import { CustomizationSection } from './components/CustomizationSection';
-import { BeforeAfterSection } from './components/BeforeAfterSection';
-import { WhyChooseUs } from './components/WhyChooseUs';
-import { ProcessSection } from './components/ProcessSection';
-import { Testimonials } from './components/Testimonials';
-import { CTASection } from './components/CTASection';
-import { Footer } from './components/Footer';
-import { ContactForm } from './components/ContactForm';
-import { BookingModal } from './components/BookingModal';
-import { WhatsAppButton } from './components/WhatsAppButton';
-import { AdminPanel } from './components/AdminPanel';
+import Header from './components/Header';
+import Hero from './components/Hero';
+import CurtainsWallpapersSection from './components/CurtainsWallpapersSection';
+import SignatureCollections from './components/SignatureCollections';
+import CustomizationSection from './components/CustomizationSection';
+import BeforeAfterSection from './components/BeforeAfterSection';
+import WhyChooseUs from './components/WhyChooseUs';
+import ProcessSection from './components/ProcessSection';
+import Testimonials from './components/Testimonials';
+import CTASection from './components/CTASection';
+import Footer from './components/Footer';
+import ContactForm from './components/ContactForm';
+import BookingModal from './components/BookingModal';
+import WhatsAppButton from './components/WhatsAppButton';
+import AdminPanel from './components/AdminPanel';
 import ThemeInjector from './components/ThemeInjector';
 
 import {
