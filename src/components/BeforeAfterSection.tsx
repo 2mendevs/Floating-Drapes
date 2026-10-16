@@ -63,7 +63,6 @@ function CompareCard({ beforeImage, afterImage, title, description }: CompareCar
         onTouchMove={handleTouchMove}
         onMouseMove={handleMouseMove}
       >
-        {/* AFTER IMAGE (Full width backdrop) */}
         <img
           src={getOptimizedImageUrl(afterImage, 800, 75)}
           alt="After Transformation"
@@ -76,7 +75,6 @@ function CompareCard({ beforeImage, afterImage, title, description }: CompareCar
           AFTER
         </div>
 
-        {/* BEFORE IMAGE (Clipped on top) */}
         <div 
           className="absolute inset-y-0 left-0 overflow-hidden pointer-events-none"
           style={{ width: `${sliderPos}%` }}
@@ -95,7 +93,6 @@ function CompareCard({ beforeImage, afterImage, title, description }: CompareCar
           </div>
         </div>
 
-        {/* Slider Divider line and handle */}
         <div 
           className="absolute inset-y-0 w-[2px] bg-white cursor-ew-resize flex items-center justify-center pointer-events-none"
           style={{ left: `${sliderPos}%` }}
@@ -105,7 +102,6 @@ function CompareCard({ beforeImage, afterImage, title, description }: CompareCar
           </div>
         </div>
 
-        {/* Range input transparent overlay */}
         <input 
           type="range" 
           min="0" 
@@ -117,7 +113,6 @@ function CompareCard({ beforeImage, afterImage, title, description }: CompareCar
         />
       </div>
 
-      {/* Description copy beneath */}
       <div className="p-6 text-left space-y-2 flex-grow flex flex-col justify-between">
         <div>
           <h3 className="font-serif text-[20px] font-bold text-[#021E3B] leading-tight">
@@ -154,7 +149,7 @@ export default function BeforeAfterSection({
   };
 
   const nextSlide = () => {
-    setCurrentIndex((prev) => (prev === 0 ? comparisons.length - 1 : (prev + 1) % comparisons.length));
+    setCurrentIndex((prev) => (prev + 1) % comparisons.length);
   };
 
   const getVisibleItems = () => {
@@ -247,7 +242,7 @@ export default function BeforeAfterSection({
             )}
           </div>
 
-          {/* Navigation Controls on Mobile */}
+          {/* Mobile Controls */}
           {comparisons.length > 1 && (
             <div className="flex justify-between items-center sm:hidden mt-6">
               <button
@@ -281,7 +276,7 @@ export default function BeforeAfterSection({
             </div>
           )}
 
-          {/* Dots Indicator for Desktop / Tablet */}
+          {/* Desktop/Tablet Dots */}
           {comparisons.length > 1 && (
             <div className="hidden sm:flex justify-center items-center space-x-2 mt-10">
               {comparisons.map((_, idx) => (
