@@ -62,7 +62,7 @@ export default function Footer({ setActivePage, openBookingModal, brandLogoUrl =
               <button 
                 type="button"
                 onClick={() => {
-                  window.open("https://instagram.com", "InstagramPopup", "width=600,height=750,resizable=yes,scrollbars=yes");
+                  window.open("https://www.instagram.com/official_floatingdrapes", "InstagramPopup", "width=600,height=750,resizable=yes,scrollbars=yes");
                 }}
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-[#EAEAEA] text-zinc-600 hover:text-[#029BFA] hover:border-[#029BFA] transition-all bg-white shadow-sm cursor-pointer"
                 aria-label="Instagram"
