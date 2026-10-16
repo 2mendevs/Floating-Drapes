@@ -1,64 +1,47 @@
 import React, { useState, useEffect } from 'react';
-import { getOptimizedImageUrl } from '../utils/imageUtils';
+
+const DEFAULT_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1200&q=80';
 
 interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
-  src: string;
-  alt: string;
-  width?: number;
-  quality?: number;
-  priority?: boolean;
-  className?: string;
-  containerClassName?: string;
+  fallbackSrc?: string;
 }
 
-export default function OptimizedImage({
+export const OptimizedImage: React.FC<OptimizedImageProps> = ({
   src,
-  alt,
-  width = 600,
-  quality = 75,
-  priority = false,
+  alt = '',
   className = '',
-  containerClassName = '',
-  ...rest
-}: OptimizedImageProps) {
-  const [isLoaded, setIsLoaded] = useState(false);
+  fallbackSrc = DEFAULT_FALLBACK_IMAGE,
+  ...props
+}) => {
+  const resolvedInitialSrc = (src && typeof src === 'string' && src.trim() !== '') ? src.trim() : fallbackSrc;
+  const [imgSrc, setImgSrc] = useState<string>(resolvedInitialSrc);
   const [hasError, setHasError] = useState(false);
 
-  // When image src changes (e.g. from an upload or Supabase sync), reset loading and error state
   useEffect(() => {
-    setIsLoaded(false);
-    setHasError(false);
-  }, [src]);
-
-  const optimizedSrc = getOptimizedImageUrl(src, width, quality);
-
-  // Default fallback image if original link is broken
-  const fallbackSrc = 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format,compress&fm=webp&w=600&q=70';
+    if (src && typeof src === 'string' && src.trim() !== '') {
+      setImgSrc(src.trim());
+      setHasError(false);
+    } else {
+      setImgSrc(fallbackSrc);
+      setHasError(false);
+    }
+  }, [src, fallbackSrc]);
 
   return (
-    <div className={`relative overflow-hidden ${containerClassName || 'w-full h-full'}`}>
-      {/* Shimmering Skeleton Loader while image is downloading */}
-      {!isLoaded && !hasError && (
-        <div className="absolute inset-0 bg-gradient-to-r from-zinc-200 via-zinc-100 to-zinc-200 dark:from-zinc-900 dark:via-zinc-800 dark:to-zinc-900 animate-pulse z-10" />
-      )}
-
-      {/* Actual Image */}
-      <img
-        src={hasError ? fallbackSrc : optimizedSrc}
-        alt={alt}
-        loading={priority ? 'eager' : 'lazy'}
-        decoding="async"
-        referrerPolicy="no-referrer"
-        onLoad={() => setIsLoaded(true)}
-        onError={() => {
+    <img
+      src={hasError || !imgSrc ? fallbackSrc : imgSrc}
+      alt={alt}
+      className={className}
+      onError={() => {
+        if (!hasError) {
           setHasError(true);
-          setIsLoaded(true);
-        }}
-        className={`w-full h-full object-cover transition-opacity duration-500 ease-in-out ${
-          isLoaded ? 'opacity-100' : 'opacity-0'
-        } ${className}`}
-        {...rest}
-      />
-    </div>
+          setImgSrc(fallbackSrc);
+        }
+      }}
+      loading="lazy"
+      {...props}
+    />
   );
-}
+};
+
+export default OptimizedImage;
