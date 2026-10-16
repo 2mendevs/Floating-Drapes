@@ -19,11 +19,11 @@ import OptimizedImage from './components/OptimizedImage';
 import { 
   SIGNATURE_COLLECTIONS, 
   CurtainItem, 
-  WallpaperItem,
-  SiteConfig,
-  DEFAULT_SITE_CONFIG,
-  Testimonial,
-  TESTIMONIALS_DATA
+  WallpaperItem, 
+  SiteConfig, 
+  DEFAULT_SITE_CONFIG, 
+  Testimonial, 
+  TESTIMONIALS_DATA 
 } from './types';
 
 import AdminPanel from './components/AdminPanel';
@@ -152,7 +152,7 @@ export default function App() {
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
 
-    // 1. Initial Universal Fetch from Supabase (syncs with backend server so all phones/laptops connect)
+    // 1. Initial Universal Fetch from Supabase (syncs with backend server so all devices connect)
     initUniversalSupabase().then((configured) => {
       if (configured) {
         fetchUniversalSiteData()
@@ -208,160 +208,160 @@ export default function App() {
 
         // 2. Subscribe to universal realtime changes across all tables
         unsubscribe = subscribeToUniversalChanges((table: string, payload: any) => {
-        console.log(`[Supabase Realtime Event] Table: ${table}, Event: ${payload?.eventType}`, payload);
-        const eventType = payload?.eventType;
-        const newRecord = payload?.new;
-        const oldRecord = payload?.old;
+          console.log(`[Supabase Realtime Event] Table: ${table}, Event: ${payload?.eventType}`, payload);
+          const eventType = payload?.eventType;
+          const newRecord = payload?.new;
+          const oldRecord = payload?.old;
 
-        if (table === 'site_config' && newRecord && (newRecord.config || newRecord.config_data)) {
-          const configObj = newRecord.config || newRecord.config_data;
-          setSiteConfig(prev => {
-            const merged: SiteConfig = {
-              ...DEFAULT_SITE_CONFIG,
-              ...prev,
-              ...configObj,
-              categoryShowcase: {
-                curtains: {
-                  ...DEFAULT_SITE_CONFIG.categoryShowcase!.curtains,
-                  ...(prev.categoryShowcase?.curtains || {}),
-                  ...(configObj?.categoryShowcase?.curtains || {})
-                },
-                wallpapers: {
-                  ...DEFAULT_SITE_CONFIG.categoryShowcase!.wallpapers,
-                  ...(prev.categoryShowcase?.wallpapers || {}),
-                  ...(configObj?.categoryShowcase?.wallpapers || {})
-                },
-                blinds: {
-                  ...DEFAULT_SITE_CONFIG.categoryShowcase!.blinds,
-                  ...(prev.categoryShowcase?.blinds || {}),
-                  ...(configObj?.categoryShowcase?.blinds || {})
+          if (table === 'site_config' && newRecord && (newRecord.config || newRecord.config_data)) {
+            const configObj = newRecord.config || newRecord.config_data;
+            setSiteConfig(prev => {
+              const merged: SiteConfig = {
+                ...DEFAULT_SITE_CONFIG,
+                ...prev,
+                ...configObj,
+                categoryShowcase: {
+                  curtains: {
+                    ...DEFAULT_SITE_CONFIG.categoryShowcase!.curtains,
+                    ...(prev.categoryShowcase?.curtains || {}),
+                    ...(configObj?.categoryShowcase?.curtains || {})
+                  },
+                  wallpapers: {
+                    ...DEFAULT_SITE_CONFIG.categoryShowcase!.wallpapers,
+                    ...(prev.categoryShowcase?.wallpapers || {}),
+                    ...(configObj?.categoryShowcase?.wallpapers || {})
+                  },
+                  blinds: {
+                    ...DEFAULT_SITE_CONFIG.categoryShowcase!.blinds,
+                    ...(prev.categoryShowcase?.blinds || {}),
+                    ...(configObj?.categoryShowcase?.blinds || {})
+                  }
                 }
+              };
+              localStorage.setItem('floatingdrapes_config', JSON.stringify(merged));
+              return merged;
+            });
+          } else if (table === 'uploaded_images' && newRecord && (newRecord.file_url || newRecord.base64_data)) {
+            const fileUrl = newRecord.file_url || newRecord.base64_data;
+            const cat = newRecord.category;
+            setSiteConfig(prev => {
+              const next = { ...prev };
+              if (cat === 'hero') {
+                next.heroImageUrl = fileUrl;
+              } else if (cat === 'curtains') {
+                next.categoryShowcase = {
+                  ...next.categoryShowcase!,
+                  curtains: { ...next.categoryShowcase!.curtains, thumbnail: fileUrl }
+                };
+              } else if (cat === 'wallpapers') {
+                next.categoryShowcase = {
+                  ...next.categoryShowcase!,
+                  wallpapers: { ...next.categoryShowcase!.wallpapers, thumbnail: fileUrl }
+                };
+              } else if (cat === 'blinds') {
+                next.categoryShowcase = {
+                  ...next.categoryShowcase!,
+                  blinds: { ...next.categoryShowcase!.blinds, thumbnail: fileUrl }
+                };
+              } else if (cat === 'why_choose_us') {
+                next.whyChooseUsImageUrl = fileUrl;
+              } else if (cat === 'customization_curtains') {
+                next.customizationCurtainsImage = fileUrl;
+              } else if (cat === 'customization_wallpaper') {
+                next.customizationWallpaperImage = fileUrl;
               }
-            };
-            localStorage.setItem('floatingdrapes_config', JSON.stringify(merged));
-            return merged;
-          });
-        } else if (table === 'uploaded_images' && newRecord && (newRecord.file_url || newRecord.base64_data)) {
-          const fileUrl = newRecord.file_url || newRecord.base64_data;
-          const cat = newRecord.category;
-          setSiteConfig(prev => {
-            const next = { ...prev };
-            if (cat === 'hero') {
-              next.heroImageUrl = fileUrl;
-            } else if (cat === 'curtains') {
-              next.categoryShowcase = {
-                ...next.categoryShowcase!,
-                curtains: { ...next.categoryShowcase!.curtains, thumbnail: fileUrl }
+              localStorage.setItem('floatingdrapes_config', JSON.stringify(next));
+              return next;
+            });
+          } else if (table === 'curtains') {
+            if (eventType === 'DELETE' && oldRecord) {
+              setCurtains((prev) => prev.filter((item) => item.id !== oldRecord.id));
+            } else if (newRecord) {
+              const formattedItem: CurtainItem = {
+                id: newRecord.id,
+                name: newRecord.name,
+                description: newRecord.description,
+                image: newRecord.image,
+                priceClass: newRecord.price_class || newRecord.priceClass || 'Premium',
+                materials: Array.isArray(newRecord.materials) ? newRecord.materials : []
               };
-            } else if (cat === 'wallpapers') {
-              next.categoryShowcase = {
-                ...next.categoryShowcase!,
-                wallpapers: { ...next.categoryShowcase!.wallpapers, thumbnail: fileUrl }
-              };
-            } else if (cat === 'blinds') {
-              next.categoryShowcase = {
-                ...next.categoryShowcase!,
-                blinds: { ...next.categoryShowcase!.blinds, thumbnail: fileUrl }
-              };
-            } else if (cat === 'why_choose_us') {
-              next.whyChooseUsImageUrl = fileUrl;
-            } else if (cat === 'customization_curtains') {
-              next.customizationCurtainsImage = fileUrl;
-            } else if (cat === 'customization_wallpaper') {
-              next.customizationWallpaperImage = fileUrl;
+              setCurtains((prev) => {
+                const exists = prev.some((p) => p.id === formattedItem.id);
+                if (exists) {
+                  return prev.map((p) => (p.id === formattedItem.id ? formattedItem : p));
+                } else {
+                  return [formattedItem, ...prev];
+                }
+              });
             }
-            localStorage.setItem('floatingdrapes_config', JSON.stringify(next));
-            return next;
-          });
-        } else if (table === 'curtains') {
-          if (eventType === 'DELETE' && oldRecord) {
-            setCurtains((prev) => prev.filter((item) => item.id !== oldRecord.id));
-          } else if (newRecord) {
-            const formattedItem: CurtainItem = {
-              id: newRecord.id,
-              name: newRecord.name,
-              description: newRecord.description,
-              image: newRecord.image,
-              priceClass: newRecord.price_class || newRecord.priceClass || 'Premium',
-              materials: Array.isArray(newRecord.materials) ? newRecord.materials : []
-            };
-            setCurtains((prev) => {
-              const exists = prev.some((p) => p.id === formattedItem.id);
-              if (exists) {
-                return prev.map((p) => (p.id === formattedItem.id ? formattedItem : p));
-              } else {
-                return [formattedItem, ...prev];
-              }
-            });
+          } else if (table === 'wallpapers') {
+            if (eventType === 'DELETE' && oldRecord) {
+              setWallpapers((prev) => prev.filter((item) => item.id !== oldRecord.id));
+            } else if (newRecord) {
+              const formattedItem: WallpaperItem = {
+                id: newRecord.id,
+                name: newRecord.name,
+                description: newRecord.description,
+                image: newRecord.image,
+                style: newRecord.style || 'Classic',
+                materials: Array.isArray(newRecord.materials) ? newRecord.materials : []
+              };
+              setWallpapers((prev) => {
+                const exists = prev.some((p) => p.id === formattedItem.id);
+                if (exists) {
+                  return prev.map((p) => (p.id === formattedItem.id ? formattedItem : p));
+                } else {
+                  return [formattedItem, ...prev];
+                }
+              });
+            }
+          } else if (table === 'blinds') {
+            if (eventType === 'DELETE' && oldRecord) {
+              setBlinds((prev) => prev.filter((item) => item.id !== oldRecord.id));
+            } else if (newRecord) {
+              const formattedItem: BlindItem = {
+                id: newRecord.id,
+                name: newRecord.name,
+                description: newRecord.description,
+                image: newRecord.image,
+                style: newRecord.style || 'Roman',
+                materials: Array.isArray(newRecord.materials) ? newRecord.materials : []
+              };
+              setBlinds((prev) => {
+                const exists = prev.some((p) => p.id === formattedItem.id);
+                if (exists) {
+                  return prev.map((p) => (p.id === formattedItem.id ? formattedItem : p));
+                } else {
+                  return [formattedItem, ...prev];
+                }
+              });
+            }
+          } else if (table === 'testimonials') {
+            if (eventType === 'DELETE' && oldRecord) {
+              setTestimonials((prev) => prev.filter((item) => item.id !== oldRecord.id));
+            } else if (newRecord) {
+              const formattedItem: Testimonial = {
+                id: newRecord.id,
+                name: newRecord.name,
+                location: newRecord.location || '',
+                role: newRecord.role || '',
+                review: newRecord.review,
+                rating: typeof newRecord.rating === 'number' ? newRecord.rating : 5,
+                image: newRecord.image || ''
+              };
+              setTestimonials((prev) => {
+                const exists = prev.some((p) => p.id === formattedItem.id);
+                if (exists) {
+                  return prev.map((p) => (p.id === formattedItem.id ? formattedItem : p));
+                } else {
+                  return [formattedItem, ...prev];
+                }
+              });
+            }
           }
-        } else if (table === 'wallpapers') {
-          if (eventType === 'DELETE' && oldRecord) {
-            setWallpapers((prev) => prev.filter((item) => item.id !== oldRecord.id));
-          } else if (newRecord) {
-            const formattedItem: WallpaperItem = {
-              id: newRecord.id,
-              name: newRecord.name,
-              description: newRecord.description,
-              image: newRecord.image,
-              style: newRecord.style || 'Classic',
-              materials: Array.isArray(newRecord.materials) ? newRecord.materials : []
-            };
-            setWallpapers((prev) => {
-              const exists = prev.some((p) => p.id === formattedItem.id);
-              if (exists) {
-                return prev.map((p) => (p.id === formattedItem.id ? formattedItem : p));
-              } else {
-                return [formattedItem, ...prev];
-              }
-            });
-          }
-        } else if (table === 'blinds') {
-          if (eventType === 'DELETE' && oldRecord) {
-            setBlinds((prev) => prev.filter((item) => item.id !== oldRecord.id));
-          } else if (newRecord) {
-            const formattedItem: BlindItem = {
-              id: newRecord.id,
-              name: newRecord.name,
-              description: newRecord.description,
-              image: newRecord.image,
-              style: newRecord.style || 'Roman',
-              materials: Array.isArray(newRecord.materials) ? newRecord.materials : []
-            };
-            setBlinds((prev) => {
-              const exists = prev.some((p) => p.id === formattedItem.id);
-              if (exists) {
-                return prev.map((p) => (p.id === formattedItem.id ? formattedItem : p));
-              } else {
-                return [formattedItem, ...prev];
-              }
-            });
-          }
-        } else if (table === 'testimonials') {
-          if (eventType === 'DELETE' && oldRecord) {
-            setTestimonials((prev) => prev.filter((item) => item.id !== oldRecord.id));
-          } else if (newRecord) {
-            const formattedItem: Testimonial = {
-              id: newRecord.id,
-              name: newRecord.name,
-              location: newRecord.location || '',
-              role: newRecord.role || '',
-              review: newRecord.review,
-              rating: typeof newRecord.rating === 'number' ? newRecord.rating : 5,
-              image: newRecord.image || ''
-            };
-            setTestimonials((prev) => {
-              const exists = prev.some((p) => p.id === formattedItem.id);
-              if (exists) {
-                return prev.map((p) => (p.id === formattedItem.id ? formattedItem : p));
-              } else {
-                return [formattedItem, ...prev];
-              }
-            });
-          }
-        }
-      });
-    }
-  });
+        });
+      }
+    });
 
     return () => {
       if (unsubscribe) unsubscribe();
@@ -371,7 +371,6 @@ export default function App() {
   // Keyboard shortcut listener for Ctrl + M / Cmd + M
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Check if Ctrl + M is pressed
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'm') {
         e.preventDefault();
         setAdminPanelOpen(prev => !prev);
@@ -460,8 +459,21 @@ export default function App() {
                 openBookingModal={() => setBookingModalOpen(true)} 
                 siteConfig={siteConfig}
               />
-              <BeforeAfterSection />
-              <Testimonials testimonials={testimonials} />
+
+              {/* DYNAMIC BEFORE & AFTER TRANSFORMATION SLIDER */}
+              <BeforeAfterSection 
+                comparisons={siteConfig.portfolioData}
+                subtitle={siteConfig.beforeAfterSubtitle}
+                title={siteConfig.beforeAfterTitle}
+              />
+
+              {/* DYNAMIC TESTIMONIALS SECTION */}
+              <Testimonials 
+                testimonials={testimonials} 
+                subtitle={siteConfig.testimonialsSectionSubtitle}
+                title={siteConfig.testimonialsSectionTitle}
+              />
+
               <CTASection 
                 openBookingModal={() => setBookingModalOpen(true)} 
                 openWhatsApp={openWhatsAppDirect} 
@@ -977,8 +989,6 @@ export default function App() {
                     <p className="text-[11px] text-muted-text font-light mt-2 max-w-xs mx-auto">Every window cavity is mapped digitally in 3D before fabric layouts are finalized.</p>
                   </div>
                 </div>
-
-
 
                 {/* Frequently Asked Questions FAQ block */}
                 <div className="bg-luxury-sec border border-gold/15 p-8 sm:p-12">
