@@ -60,7 +60,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
-  const [activePage, setActivePage] = useState<string>('home');
+  const [activePage, setActivePage] = useState<string>(() => {   return sessionStorage.getItem('floatingdrapes_activePage') || 'home'; });  useEffect(() => {   sessionStorage.setItem('floatingdrapes_activePage', activePage); }, [activePage]);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [selectedCurtainFilter, setSelectedCurtainFilter] = useState<string>('All');
   const [selectedWallpaperFilter, setSelectedWallpaperFilter] = useState<string>('All');
