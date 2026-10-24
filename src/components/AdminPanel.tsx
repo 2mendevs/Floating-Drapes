@@ -39,6 +39,9 @@ import {
   deleteBlindFromSupabase,
   upsertFeedbackToSupabase,
   deleteFeedbackFromSupabase,
+  upsertTransformationToSupabase,
+  deleteTransformationFromSupabase,
+  syncAllTransformationsToSupabase,
   deleteBookingFromSupabase,
   deleteInquiryFromSupabase,
   seedDefaultCatalogToSupabase,
@@ -255,10 +258,12 @@ export default function AdminPanel({
       });
   }, [isOpen]);
 
-  // Load Supabase credentials & initial data on mount/open
+  // 1. Sync captions & portfolioList from siteConfig prop ONLY when not actively editing a card
   useEffect(() => {
-    setCaptions({
+    if (!siteConfig) return;
+    setCaptions(prev => ({
       ...DEFAULT_SITE_CONFIG,
+      ...prev,
       ...siteConfig,
       categoryShowcase: {
         curtains: {
@@ -274,11 +279,16 @@ export default function AdminPanel({
           ...(siteConfig?.categoryShowcase?.blinds || {})
         }
       }
-    });
+    }));
 
-    if (siteConfig.portfolioData && siteConfig.portfolioData.length > 0) {
+    if (!isAddingPortfolioItem && !editingPortfolioItem && siteConfig.portfolioData && siteConfig.portfolioData.length > 0) {
       setPortfolioList(siteConfig.portfolioData);
     }
+  }, [siteConfig, isAddingPortfolioItem, editingPortfolioItem]);
+
+  // 2. Load Supabase credentials & initial data on mount/open ONLY (not on every siteConfig edit)
+  useEffect(() => {
+    if (!isOpen) return;
 
     // Load stored credentials
     const creds = getSupabaseCredentials();
@@ -322,6 +332,19 @@ export default function AdminPanel({
       }
     }
 
+    // Load local storage transformations as fallback
+    const storedTransformations = localStorage.getItem('floatingdrapes_transformations');
+    if (storedTransformations) {
+      try {
+        const parsedTransformations = JSON.parse(storedTransformations);
+        if (Array.isArray(parsedTransformations) && parsedTransformations.length > 0) {
+          setPortfolioList(parsedTransformations);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     // Load uploaded media images from Supabase or local cache
     fetchUploadedImagesFromSupabase().then(images => {
       if (images) {
@@ -329,7 +352,7 @@ export default function AdminPanel({
       }
     });
 
-    // If Supabase is configured, fetch live records for inquiries
+    // If Supabase is configured, fetch live records once on panel open
     if (isSupabaseConfigured()) {
       fetchUniversalSiteData().then(data => {
         if (data.bookings && data.bookings.length > 0) {
@@ -341,12 +364,14 @@ export default function AdminPanel({
         if (data.testimonials && data.testimonials.length > 0) {
           setTestimonials(data.testimonials);
         }
-        if (data.siteConfig?.portfolioData && data.siteConfig.portfolioData.length > 0) {
+        if (data.transformations && data.transformations.length > 0) {
+          setPortfolioList(data.transformations);
+        } else if (data.siteConfig?.portfolioData && data.siteConfig.portfolioData.length > 0) {
           setPortfolioList(data.siteConfig.portfolioData);
         }
       });
     }
-  }, [siteConfig, isOpen]);
+  }, [isOpen]);
 
   // Database connection indicating light helper
   const renderIndicatorLight = (size: 'sm' | 'md' = 'sm') => {
@@ -1036,7 +1061,7 @@ export default function AdminPanel({
 
     try {
       const res = await uploadImageToSupabase(file, {
-        category: 'gallery',
+        category: 'portfolio',
         title: `${portfolioForm.title || 'Transformation'} - ${type.toUpperCase()}`
       });
 
@@ -1047,7 +1072,10 @@ export default function AdminPanel({
         }));
         const fresh = await fetchUploadedImagesFromSupabase();
         setUploadedImages(fresh);
-        alert(`${type.toUpperCase()} image uploaded directly to Supabase Storage!`);
+        setBeforeAfterSuccessMsg(`${type.toUpperCase()} image uploaded directly to Supabase Storage!`);
+        setTimeout(() => setBeforeAfterSuccessMsg(''), 4000);
+      } else {
+        alert(res.error || 'Failed to upload image. Please try again.');
       }
     } catch (err: any) {
       alert(`Error uploading ${type} image: ${err?.message || 'Failed'}`);
@@ -1064,11 +1092,17 @@ export default function AdminPanel({
       return;
     }
 
+    const updatedItem: PortfolioItem = {
+      ...portfolioForm,
+      title: portfolioForm.title.trim(),
+      description: portfolioForm.description.trim()
+    };
+
     let updatedList: PortfolioItem[];
     if (isAddingPortfolioItem) {
-      updatedList = [portfolioForm, ...portfolioList];
+      updatedList = [updatedItem, ...portfolioList];
     } else {
-      updatedList = portfolioList.map(c => c.id === portfolioForm.id ? portfolioForm : c);
+      updatedList = portfolioList.map(c => c.id === updatedItem.id ? updatedItem : c);
     }
 
     setPortfolioList(updatedList);
@@ -1085,14 +1119,25 @@ export default function AdminPanel({
     
     // 3. Save locally
     localStorage.setItem('floatingdrapes_config', JSON.stringify(updatedConfig));
+    localStorage.setItem('floatingdrapes_transformations', JSON.stringify(updatedList));
 
-    // 4. Sync to Supabase
+    // 4. Sync to Supabase: save directly to transformations table AND site_config
     if (isSupabaseConfigured()) {
-      await syncSiteConfigToSupabase(updatedConfig);
-      setBeforeAfterSuccessMsg(isAddingPortfolioItem ? 'New transformation card created & synced to Supabase!' : 'Transformation card updated & synced to Supabase!');
-      setTimeout(() => setBeforeAfterSuccessMsg(''), 4000);
+      setBeforeAfterSuccessMsg('Syncing transformation to Supabase database...');
+      const rowSuccess = await upsertTransformationToSupabase(updatedItem);
+      const configSuccess = await syncSiteConfigToSupabase(updatedConfig);
+
+      if (rowSuccess || configSuccess) {
+        setBeforeAfterSuccessMsg(isAddingPortfolioItem 
+          ? 'New transformation card created & synced universally to Supabase database!' 
+          : 'Transformation card updated & synced universally to Supabase database!');
+      } else {
+        setBeforeAfterSuccessMsg('Saved locally! Please verify Supabase connection.');
+      }
+      setTimeout(() => setBeforeAfterSuccessMsg(''), 5000);
     } else {
-      alert('Saved locally! Connect Supabase in Database tab to sync universally.');
+      setBeforeAfterSuccessMsg('Saved locally! Connect Supabase in Database tab to sync universally.');
+      setTimeout(() => setBeforeAfterSuccessMsg(''), 5000);
     }
 
     setIsAddingPortfolioItem(false);
@@ -1113,9 +1158,13 @@ export default function AdminPanel({
     setCaptions(updatedConfig);
     onUpdateConfig(updatedConfig);
     localStorage.setItem('floatingdrapes_config', JSON.stringify(updatedConfig));
+    localStorage.setItem('floatingdrapes_transformations', JSON.stringify(updatedList));
 
     if (isSupabaseConfigured()) {
+      await deleteTransformationFromSupabase(id);
       await syncSiteConfigToSupabase(updatedConfig);
+      setBeforeAfterSuccessMsg(`Transformation "${title}" deleted from Supabase database.`);
+      setTimeout(() => setBeforeAfterSuccessMsg(''), 4000);
     }
 
     if (editingPortfolioItem?.id === id) {
@@ -1131,12 +1180,15 @@ export default function AdminPanel({
     if (isSupabaseConfigured()) {
       const ok = await syncSiteConfigToSupabase(captions);
       if (ok) {
-        alert('Before & After section headers saved and synced to Supabase database!');
+        setBeforeAfterSuccessMsg('Before & After section headers saved and synced to Supabase database!');
+        setTimeout(() => setBeforeAfterSuccessMsg(''), 4000);
       } else {
-        alert('Saved locally. Check Database settings.');
+        setBeforeAfterSuccessMsg('Saved locally. Check Database settings.');
+        setTimeout(() => setBeforeAfterSuccessMsg(''), 4000);
       }
     } else {
-      alert('Headers saved locally. Connect Supabase to sync.');
+      setBeforeAfterSuccessMsg('Headers saved locally. Connect Supabase to sync.');
+      setTimeout(() => setBeforeAfterSuccessMsg(''), 4000);
     }
   };
 
@@ -1231,10 +1283,15 @@ export default function AdminPanel({
         onUpdateConfig(data.siteConfig);
         setCaptions(data.siteConfig);
         localStorage.setItem('floatingdrapes_config', JSON.stringify(data.siteConfig));
-        if (data.siteConfig.portfolioData) {
-          setPortfolioList(data.siteConfig.portfolioData);
-        }
         updatedCount++;
+      }
+      if (data.transformations && data.transformations.length > 0) {
+        setPortfolioList(data.transformations);
+        localStorage.setItem('floatingdrapes_transformations', JSON.stringify(data.transformations));
+        updatedCount++;
+      } else if (data.siteConfig?.portfolioData && data.siteConfig.portfolioData.length > 0) {
+        setPortfolioList(data.siteConfig.portfolioData);
+        localStorage.setItem('floatingdrapes_transformations', JSON.stringify(data.siteConfig.portfolioData));
       }
       if (data.curtains && data.curtains.length > 0) {
         setCurtains(data.curtains);

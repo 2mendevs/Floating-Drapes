@@ -65,7 +65,7 @@ export interface UploadedImage {
   filename: string;
   file_url: string;
   storage_path?: string;
-  category?: 'curtains' | 'wallpapers' | 'blinds' | 'hero' | 'gallery' | 'general' | 'why_choose_us' | 'customization';
+  category?: 'curtains' | 'wallpapers' | 'blinds' | 'hero' | 'gallery' | 'general' | 'why_choose_us' | 'customization' | 'portfolio' | 'transformations';
   size_bytes?: number;
   mime_type?: string;
   title?: string;

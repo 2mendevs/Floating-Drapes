@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { SiteConfig, CurtainItem, WallpaperItem, BookingSubmission, DEFAULT_SITE_CONFIG, Testimonial, TESTIMONIALS_DATA, UploadedImage, PortfolioItem } from '../types';
+import { SiteConfig, CurtainItem, WallpaperItem, BookingSubmission, DEFAULT_SITE_CONFIG, Testimonial, TESTIMONIALS_DATA, UploadedImage, PortfolioItem, PORTFOLIO_DATA } from '../types';
 import { BlindItem, EXTENDED_CURTAINS_DATA, EXTENDED_WALLPAPERS_DATA, EXTENDED_BLINDS_DATA } from '../data/productsData';
 
 // Storage keys for custom Supabase credentials configured via Admin Panel
@@ -164,7 +164,7 @@ export async function testSupabaseConnection(): Promise<{
     };
   }
 
-  const expectedTables = ['site_config', 'curtains', 'wallpapers', 'blinds', 'testimonials', 'bookings', 'inquiries', 'uploaded_images'];
+  const expectedTables = ['site_config', 'curtains', 'wallpapers', 'blinds', 'testimonials', 'bookings', 'inquiries', 'uploaded_images', 'transformations'];
   const tablesFound: string[] = [];
   const missingTables: string[] = [];
 
@@ -217,6 +217,7 @@ export async function fetchUniversalSiteData(): Promise<{
   bookings: BookingSubmission[] | null;
   inquiries: any[] | null;
   uploadedImages: UploadedImage[] | null;
+  transformations: PortfolioItem[] | null;
 }> {
   const client = getSupabaseClient();
   if (!client) {
@@ -228,12 +229,13 @@ export async function fetchUniversalSiteData(): Promise<{
       testimonials: null,
       bookings: null,
       inquiries: null,
-      uploadedImages: null
+      uploadedImages: null,
+      transformations: null
     };
   }
 
   try {
-    const [configRes, curtainsRes, wallpapersRes, blindsRes, testimonialsRes, bookingsRes, inquiriesRes, uploadedImagesRes] = await Promise.allSettled([
+    const [configRes, curtainsRes, wallpapersRes, blindsRes, testimonialsRes, bookingsRes, inquiriesRes, uploadedImagesRes, transformationsRes] = await Promise.allSettled([
       client.from('site_config').select('*').limit(5),
       client.from('curtains').select('*').order('created_at', { ascending: false }),
       client.from('wallpapers').select('*').order('created_at', { ascending: false }),
@@ -241,8 +243,21 @@ export async function fetchUniversalSiteData(): Promise<{
       client.from('testimonials').select('*').order('created_at', { ascending: false }),
       client.from('bookings').select('*').order('timestamp', { ascending: false }),
       client.from('inquiries').select('*').order('timestamp', { ascending: false }),
-      client.from('uploaded_images').select('*').order('created_at', { ascending: false }).limit(50)
+      client.from('uploaded_images').select('*').order('created_at', { ascending: false }).limit(50),
+      client.from('transformations').select('*').order('created_at', { ascending: false })
     ]);
+
+    let transformations: PortfolioItem[] | null = null;
+    if (transformationsRes.status === 'fulfilled' && transformationsRes.value.data && transformationsRes.value.data.length > 0) {
+      transformations = transformationsRes.value.data.map((item: any) => ({
+        id: item.id,
+        category: item.category || 'Living Room',
+        title: item.title,
+        description: item.description || '',
+        beforeImage: item.before_image || item.beforeImage || item.before || '',
+        afterImage: item.after_image || item.afterImage || item.after || ''
+      }));
+    }
 
     let siteConfig: SiteConfig | null = null;
     if (configRes.status === 'fulfilled' && configRes.value.data && configRes.value.data.length > 0) {
@@ -251,10 +266,16 @@ export async function fetchUniversalSiteData(): Promise<{
       const parsed = targetRecord.config || targetRecord.config_data || (targetRecord.heroLabel ? targetRecord : null);
       if (parsed) {
         const parsedObj = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+        const effectivePortfolio = (transformations && transformations.length > 0)
+          ? transformations
+          : (parsedObj.portfolioData && Array.isArray(parsedObj.portfolioData) && parsedObj.portfolioData.length > 0
+              ? parsedObj.portfolioData
+              : DEFAULT_SITE_CONFIG.portfolioData);
+
         siteConfig = {
           ...DEFAULT_SITE_CONFIG,
           ...parsedObj,
-          portfolioData: parsedObj.portfolioData || DEFAULT_SITE_CONFIG.portfolioData,
+          portfolioData: effectivePortfolio,
           beforeAfterTitle: parsedObj.beforeAfterTitle || DEFAULT_SITE_CONFIG.beforeAfterTitle,
           beforeAfterSubtitle: parsedObj.beforeAfterSubtitle || DEFAULT_SITE_CONFIG.beforeAfterSubtitle,
           testimonialsSectionTitle: parsedObj.testimonialsSectionTitle || DEFAULT_SITE_CONFIG.testimonialsSectionTitle,
@@ -275,6 +296,11 @@ export async function fetchUniversalSiteData(): Promise<{
           }
         };
       }
+    } else if (transformations && transformations.length > 0) {
+      siteConfig = {
+        ...DEFAULT_SITE_CONFIG,
+        portfolioData: transformations
+      };
     }
 
     let uploadedImages: UploadedImage[] = [];
@@ -439,7 +465,7 @@ export async function fetchUniversalSiteData(): Promise<{
       inquiries = inquiriesRes.value.data;
     }
 
-    return { siteConfig, curtains, wallpapers, blinds, testimonials, bookings, inquiries, uploadedImages };
+    return { siteConfig, curtains, wallpapers, blinds, testimonials, bookings, inquiries, uploadedImages, transformations };
   } catch (err) {
     console.error('Error fetching data from Supabase:', err);
     return {
@@ -450,7 +476,8 @@ export async function fetchUniversalSiteData(): Promise<{
       testimonials: null,
       bookings: null,
       inquiries: null,
-      uploadedImages: null
+      uploadedImages: null,
+      transformations: null
     };
   }
 }
@@ -463,6 +490,11 @@ export async function syncSiteConfigToSupabase(config: SiteConfig): Promise<bool
   if (!client) return false;
 
   try {
+    // If config contains portfolio transformations, sync them to transformations table as well
+    if (config.portfolioData && Array.isArray(config.portfolioData) && config.portfolioData.length > 0) {
+      syncAllTransformationsToSupabase(config.portfolioData).catch(() => {});
+    }
+
     let { error } = await client.from('site_config').upsert({
       id: 'current_config',
       config: config,
@@ -773,6 +805,117 @@ export async function deleteFeedbackFromSupabase(id: string): Promise<boolean> {
   } catch (err) {
     console.error('Failed to delete testimonial from Supabase:', err);
     return false;
+  }
+}
+
+/**
+ * Universal Transformations / Before & After Mutations
+ */
+export async function upsertTransformationToSupabase(item: PortfolioItem): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (!client) return false;
+
+  try {
+    const payload: any = {
+      id: item.id,
+      title: item.title,
+      description: item.description || '',
+      before_image: item.beforeImage,
+      after_image: item.afterImage,
+      category: item.category || 'Living Room',
+      updated_at: new Date().toISOString()
+    };
+    const { error } = await client.from('transformations').upsert(payload);
+    if (error) {
+      console.warn('Initial transformation upsert notice:', error.message);
+      // Fallback with camelCase properties if table was created with camelCase
+      const fallback = {
+        id: item.id,
+        title: item.title,
+        description: item.description || '',
+        beforeImage: item.beforeImage,
+        afterImage: item.afterImage,
+        category: item.category || 'Living Room'
+      };
+      const res2 = await client.from('transformations').upsert(fallback);
+      if (res2.error) {
+        console.warn('Fallback transformation upsert notice:', res2.error.message);
+      }
+    }
+    return true;
+  } catch (err) {
+    console.warn('Failed to upsert transformation in Supabase:', err);
+    return false;
+  }
+}
+
+export async function deleteTransformationFromSupabase(id: string): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (!client) return false;
+
+  try {
+    const { error } = await client.from('transformations').delete().eq('id', id);
+    if (error) {
+      console.warn('Transformation delete notice:', error.message);
+    }
+    return true;
+  } catch (err) {
+    console.warn('Failed to delete transformation from Supabase:', err);
+    return false;
+  }
+}
+
+export async function syncAllTransformationsToSupabase(items: PortfolioItem[]): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (!client || !items || items.length === 0) return false;
+
+  try {
+    const payload = items.map((item, index) => ({
+      id: item.id,
+      title: item.title,
+      description: item.description || '',
+      before_image: item.beforeImage,
+      after_image: item.afterImage,
+      category: item.category || 'Living Room',
+      updated_at: new Date(Date.now() - index * 1000).toISOString()
+    }));
+    const { error } = await client.from('transformations').upsert(payload);
+    if (error) {
+      console.warn('Batch transformations upsert notice:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Batch transformations sync error:', err);
+    return false;
+  }
+}
+
+export async function fetchTransformationsFromSupabase(): Promise<PortfolioItem[] | null> {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  try {
+    const { data, error } = await client
+      .from('transformations')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error || !data || data.length === 0) {
+      return null;
+    }
+
+    return data.map((item: any) => ({
+      id: item.id,
+      category: item.category || 'Living Room',
+      title: item.title,
+      description: item.description || '',
+      beforeImage: item.before_image || item.beforeImage || item.before || '',
+      afterImage: item.after_image || item.afterImage || item.after || ''
+    }));
+  } catch (err) {
+    console.warn('Failed to fetch transformations from Supabase:', err);
+    return null;
   }
 }
 
@@ -1139,9 +1282,26 @@ export async function seedDefaultCatalogToSupabase(customConfig?: SiteConfig): P
     }));
     await client.from('testimonials').upsert(testimonialsPayload);
 
+    // 6. Seed Transformations / Before & After Cards
+    const transformationsPayload = PORTFOLIO_DATA.map((p, i) => ({
+      id: p.id,
+      title: p.title,
+      description: p.description,
+      before_image: p.beforeImage,
+      after_image: p.afterImage,
+      category: p.category || 'Living Room',
+      created_at: new Date(Date.now() - i * 1000).toISOString(),
+      updated_at: new Date(Date.now() - i * 1000).toISOString()
+    }));
+    try {
+      await client.from('transformations').upsert(transformationsPayload);
+    } catch {
+      // Table may not exist yet
+    }
+
     return {
       success: true,
-      message: `Universal seed completed! Seeded ${curtainsPayload.length} curtains, ${wallpapersPayload.length} wallpapers, ${blindsPayload.length} blinds, and ${testimonialsPayload.length} testimonials to Supabase.`,
+      message: `Universal seed completed! Seeded ${curtainsPayload.length} curtains, ${wallpapersPayload.length} wallpapers, ${blindsPayload.length} blinds, ${testimonialsPayload.length} testimonials, and ${transformationsPayload.length} transformations to Supabase.`,
       counts: {
         curtains: curtainsPayload.length,
         wallpapers: wallpapersPayload.length,
@@ -1193,6 +1353,11 @@ export function subscribeToUniversalChanges(onUpdate: (table: string, payload: a
         'postgres_changes',
         { event: '*', schema: 'public', table: 'testimonials' },
         payload => onUpdate('testimonials', payload)
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'transformations' },
+        payload => onUpdate('transformations', payload)
       )
       .on(
         'postgres_changes',
@@ -1325,6 +1490,17 @@ CREATE TABLE IF NOT EXISTS public.uploaded_images (
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS public.transformations (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT,
+  before_image TEXT NOT NULL,
+  after_image TEXT NOT NULL,
+  category TEXT DEFAULT 'Living Room',
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 ALTER TABLE public.site_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.curtains ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wallpapers ENABLE ROW LEVEL SECURITY;
@@ -1333,6 +1509,7 @@ ALTER TABLE public.testimonials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inquiries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.uploaded_images ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.transformations ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 BEGIN
@@ -1359,6 +1536,9 @@ BEGIN
 
   DROP POLICY IF EXISTS "Public All uploaded_images" ON public.uploaded_images;
   CREATE POLICY "Public All uploaded_images" ON public.uploaded_images FOR ALL USING (true) WITH CHECK (true);
+
+  DROP POLICY IF EXISTS "Public All transformations" ON public.transformations;
+  CREATE POLICY "Public All transformations" ON public.transformations FOR ALL USING (true) WITH CHECK (true);
 END $$;
 
 INSERT INTO storage.buckets (id, name, public)

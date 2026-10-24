@@ -23,7 +23,8 @@ import {
   SiteConfig, 
   DEFAULT_SITE_CONFIG, 
   Testimonial, 
-  TESTIMONIALS_DATA 
+  TESTIMONIALS_DATA,
+  PortfolioItem
 } from './types';
 
 import AdminPanel from './components/AdminPanel';
@@ -157,12 +158,19 @@ export default function App() {
       if (configured) {
         fetchUniversalSiteData()
           .then((data) => {
-            if (data.siteConfig) {
+            if (data.siteConfig || (data.transformations && data.transformations.length > 0)) {
               setSiteConfig(prev => {
+                const incomingPortfolio = (data.transformations && data.transformations.length > 0)
+                  ? data.transformations
+                  : (data.siteConfig?.portfolioData && data.siteConfig.portfolioData.length > 0
+                      ? data.siteConfig.portfolioData
+                      : prev.portfolioData);
+
                 const merged: SiteConfig = {
                   ...DEFAULT_SITE_CONFIG,
                   ...prev,
-                  ...data.siteConfig,
+                  ...(data.siteConfig || {}),
+                  portfolioData: incomingPortfolio,
                   categoryShowcase: {
                     curtains: {
                       ...DEFAULT_SITE_CONFIG.categoryShowcase!.curtains,
@@ -215,12 +223,15 @@ export default function App() {
 
           if (table === 'site_config' && newRecord && (newRecord.config || newRecord.config_data)) {
             const configObj = newRecord.config || newRecord.config_data;
+            const incomingPortfolio = configObj.portfolioData || configObj.portfolio_data;
             setSiteConfig(prev => {
               const merged: SiteConfig = {
                 ...DEFAULT_SITE_CONFIG,
                 ...prev,
                 ...configObj,
-                portfolioData: configObj.portfolioData || configObj.portfolio_data || prev.portfolioData,
+                portfolioData: (incomingPortfolio && Array.isArray(incomingPortfolio) && incomingPortfolio.length > 0)
+                  ? incomingPortfolio
+                  : (prev.portfolioData && prev.portfolioData.length > 0 ? prev.portfolioData : DEFAULT_SITE_CONFIG.portfolioData),
                 beforeAfterTitle: configObj.beforeAfterTitle || configObj.before_after_title || prev.beforeAfterTitle,
                 beforeAfterSubtitle: configObj.beforeAfterSubtitle || configObj.before_after_subtitle || prev.beforeAfterSubtitle,
                 categoryShowcase: {
@@ -244,38 +255,71 @@ export default function App() {
               localStorage.setItem('floatingdrapes_config', JSON.stringify(merged));
               return merged;
             });
+          } else if (table === 'transformations') {
+            if (eventType === 'DELETE' && oldRecord) {
+              setSiteConfig(prev => {
+                const currentList = prev.portfolioData || [];
+                const updatedList = currentList.filter(item => item.id !== oldRecord.id);
+                const next = { ...prev, portfolioData: updatedList };
+                localStorage.setItem('floatingdrapes_config', JSON.stringify(next));
+                return next;
+              });
+            } else if (newRecord) {
+              const formattedItem: PortfolioItem = {
+                id: newRecord.id,
+                title: newRecord.title,
+                description: newRecord.description || '',
+                beforeImage: newRecord.before_image || newRecord.beforeImage || newRecord.before || '',
+                afterImage: newRecord.after_image || newRecord.afterImage || newRecord.after || '',
+                category: newRecord.category || 'Living Room'
+              };
+              setSiteConfig(prev => {
+                const currentList = prev.portfolioData || [];
+                const exists = currentList.some(item => item.id === formattedItem.id);
+                const updatedList = exists
+                  ? currentList.map(item => item.id === formattedItem.id ? formattedItem : item)
+                  : [formattedItem, ...currentList];
+                const next = { ...prev, portfolioData: updatedList };
+                localStorage.setItem('floatingdrapes_config', JSON.stringify(next));
+                return next;
+              });
+            }
           } else if (table === 'uploaded_images' && newRecord && (newRecord.file_url || newRecord.base64_data)) {
             const fileUrl = newRecord.file_url || newRecord.base64_data;
             const cat = newRecord.category;
-            setSiteConfig(prev => {
-              const next = { ...prev };
-              if (cat === 'hero') {
-                next.heroImageUrl = fileUrl;
-              } else if (cat === 'curtains') {
-                next.categoryShowcase = {
-                  ...next.categoryShowcase!,
-                  curtains: { ...next.categoryShowcase!.curtains, thumbnail: fileUrl }
-                };
-              } else if (cat === 'wallpapers') {
-                next.categoryShowcase = {
-                  ...next.categoryShowcase!,
-                  wallpapers: { ...next.categoryShowcase!.wallpapers, thumbnail: fileUrl }
-                };
-              } else if (cat === 'blinds') {
-                next.categoryShowcase = {
-                  ...next.categoryShowcase!,
-                  blinds: { ...next.categoryShowcase!.blinds, thumbnail: fileUrl }
-                };
-              } else if (cat === 'why_choose_us') {
-                next.whyChooseUsImageUrl = fileUrl;
-              } else if (cat === 'customization_curtains') {
-                next.customizationCurtainsImage = fileUrl;
-              } else if (cat === 'customization_wallpaper') {
-                next.customizationWallpaperImage = fileUrl;
-              }
-              localStorage.setItem('floatingdrapes_config', JSON.stringify(next));
-              return next;
-            });
+            // Only update siteConfig for hero, categories, and customization sections
+            const sectionCategories = ['hero', 'curtains', 'wallpapers', 'blinds', 'why_choose_us', 'customization_curtains', 'customization_wallpaper'];
+            if (sectionCategories.includes(cat)) {
+              setSiteConfig(prev => {
+                const next = { ...prev };
+                if (cat === 'hero') {
+                  next.heroImageUrl = fileUrl;
+                } else if (cat === 'curtains') {
+                  next.categoryShowcase = {
+                    ...next.categoryShowcase!,
+                    curtains: { ...next.categoryShowcase!.curtains, thumbnail: fileUrl }
+                  };
+                } else if (cat === 'wallpapers') {
+                  next.categoryShowcase = {
+                    ...next.categoryShowcase!,
+                    wallpapers: { ...next.categoryShowcase!.wallpapers, thumbnail: fileUrl }
+                  };
+                } else if (cat === 'blinds') {
+                  next.categoryShowcase = {
+                    ...next.categoryShowcase!,
+                    blinds: { ...next.categoryShowcase!.blinds, thumbnail: fileUrl }
+                  };
+                } else if (cat === 'why_choose_us') {
+                  next.whyChooseUsImageUrl = fileUrl;
+                } else if (cat === 'customization_curtains') {
+                  next.customizationCurtainsImage = fileUrl;
+                } else if (cat === 'customization_wallpaper') {
+                  next.customizationWallpaperImage = fileUrl;
+                }
+                localStorage.setItem('floatingdrapes_config', JSON.stringify(next));
+                return next;
+              });
+            }
           } else if (table === 'curtains') {
             if (eventType === 'DELETE' && oldRecord) {
               setCurtains((prev) => prev.filter((item) => item.id !== oldRecord.id));
