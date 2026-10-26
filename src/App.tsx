@@ -29,6 +29,7 @@ import {
 
 import AdminPanel from './components/AdminPanel';
 import ThemeInjector from './components/ThemeInjector';
+import ProductImageModal, { ProductPreviewItem } from './components/ProductImageModal';
 
 import {
   EXTENDED_CURTAINS_DATA,
@@ -55,7 +56,8 @@ import {
   Sliders, 
   HelpCircle,
   Gem,
-  Wind
+  Wind,
+  ZoomIn
 } from 'lucide-react';
 
 import { motion, AnimatePresence } from 'motion/react';
@@ -67,6 +69,49 @@ export default function App() {
   const [selectedWallpaperFilter, setSelectedWallpaperFilter] = useState<string>('All');
   const [selectedBlindFilter, setSelectedBlindFilter] = useState<string>('All');
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
+
+  // Full-Screen Product Image Pop-up Lightbox State
+  const [selectedProductPreview, setSelectedProductPreview] = useState<{
+    product: ProductPreviewItem | null;
+    productsList: ProductPreviewItem[];
+    categoryName: string;
+  }>({
+    product: null,
+    productsList: [],
+    categoryName: 'Curtains'
+  });
+
+  const handleOpenProductPreview = (
+    item: CurtainItem | WallpaperItem | BlindItem,
+    itemsList: (CurtainItem | WallpaperItem | BlindItem)[],
+    categoryName: string
+  ) => {
+    setSelectedProductPreview({
+      product: {
+        id: item.id,
+        name: item.name,
+        image: item.image,
+        description: item.description,
+        priceClass: (item as CurtainItem).priceClass,
+        style: (item as WallpaperItem | BlindItem).style,
+        materials: item.materials
+      },
+      productsList: itemsList.map(p => ({
+        id: p.id,
+        name: p.name,
+        image: p.image,
+        description: p.description,
+        priceClass: (p as CurtainItem).priceClass,
+        style: (p as WallpaperItem | BlindItem).style,
+        materials: p.materials
+      })),
+      categoryName
+    });
+  };
+
+  const handleCloseProductPreview = () => {
+    setSelectedProductPreview(prev => ({ ...prev, product: null }));
+  };
 
   // Dynamic Site Customizer Config & Database States
   const [siteConfig, setSiteConfig] = useState<SiteConfig>(() => {
@@ -584,16 +629,35 @@ export default function App() {
                     >
                       {/* Product Image */}
                       <div className="w-full sm:w-[44%] lg:w-[44%] xl:w-[45%] flex-shrink-0 p-3 sm:p-3.5 pb-0 sm:pb-3.5 flex flex-col bg-[#F4F9FD]">
-                        <div className="relative h-[240px] sm:h-full min-h-[250px] sm:min-h-[320px] rounded-xl overflow-hidden w-full">
+                        <div 
+                          onClick={() => handleOpenProductPreview(item, filteredCurtains, 'Curtains')}
+                          className="relative h-[240px] sm:h-full min-h-[250px] sm:min-h-[320px] rounded-xl overflow-hidden w-full cursor-pointer group/img"
+                          title="Click to view full photo"
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleOpenProductPreview(item, filteredCurtains, 'Curtains');
+                            }
+                          }}
+                        >
                           <OptimizedImage
                             src={item.image}
                             alt={item.name}
                             width={600}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                            className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-700 ease-out"
                           />
-                          <span className="absolute top-3 left-3 bg-white/95 backdrop-blur-md border border-[#a2d4f8] text-[10px] font-bold tracking-[0.18em] text-[#0099ff] px-3.5 py-1 rounded-md uppercase z-10 shadow-sm">
+                          <span className="absolute top-3 left-3 bg-white/95 backdrop-blur-md border border-[#a2d4f8] text-[10px] font-bold tracking-[0.18em] text-[#0099ff] px-3.5 py-1 rounded-md uppercase z-10 shadow-sm pointer-events-none">
                             {item.priceClass}
                           </span>
+                          {/* Elegant hover expand badge */}
+                          <div className="absolute inset-0 bg-black/25 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                            <span className="bg-black/75 backdrop-blur-sm text-white text-[11px] font-bold tracking-wider uppercase px-3.5 py-1.5 rounded-full border border-white/25 flex items-center space-x-1.5 shadow-xl">
+                              <ZoomIn className="h-3.5 w-3.5 text-[#0099ff]" />
+                              <span>View Full Photo</span>
+                            </span>
+                          </div>
                         </div>
                       </div>
 
@@ -701,16 +765,35 @@ export default function App() {
                     >
                       {/* Product Image */}
                       <div className="w-full sm:w-[44%] lg:w-[44%] xl:w-[45%] flex-shrink-0 p-3 sm:p-3.5 pb-0 sm:pb-3.5 flex flex-col bg-[#F4F9FD]">
-                        <div className="relative h-[240px] sm:h-full min-h-[250px] sm:min-h-[320px] rounded-xl overflow-hidden w-full">
+                        <div 
+                          onClick={() => handleOpenProductPreview(item, filteredWallpapers, 'Wallpapers')}
+                          className="relative h-[240px] sm:h-full min-h-[250px] sm:min-h-[320px] rounded-xl overflow-hidden w-full cursor-pointer group/img"
+                          title="Click to view full photo"
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleOpenProductPreview(item, filteredWallpapers, 'Wallpapers');
+                            }
+                          }}
+                        >
                           <OptimizedImage
                             src={item.image}
                             alt={item.name}
                             width={600}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                            className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-700 ease-out"
                           />
-                          <span className="absolute top-3 left-3 bg-white/95 backdrop-blur-md border border-[#a2d4f8] text-[10px] font-bold tracking-[0.18em] text-[#0099ff] px-3.5 py-1 rounded-md uppercase z-10 shadow-sm">
+                          <span className="absolute top-3 left-3 bg-white/95 backdrop-blur-md border border-[#a2d4f8] text-[10px] font-bold tracking-[0.18em] text-[#0099ff] px-3.5 py-1 rounded-md uppercase z-10 shadow-sm pointer-events-none">
                             {item.style}
                           </span>
+                          {/* Elegant hover expand badge */}
+                          <div className="absolute inset-0 bg-black/25 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                            <span className="bg-black/75 backdrop-blur-sm text-white text-[11px] font-bold tracking-wider uppercase px-3.5 py-1.5 rounded-full border border-white/25 flex items-center space-x-1.5 shadow-xl">
+                              <ZoomIn className="h-3.5 w-3.5 text-[#0099ff]" />
+                              <span>View Full Photo</span>
+                            </span>
+                          </div>
                         </div>
                       </div>
 
@@ -818,16 +901,35 @@ export default function App() {
                     >
                       {/* Product Image */}
                       <div className="w-full sm:w-[44%] lg:w-[44%] xl:w-[45%] flex-shrink-0 p-3 sm:p-3.5 pb-0 sm:pb-3.5 flex flex-col bg-[#F4F9FD]">
-                        <div className="relative h-[240px] sm:h-full min-h-[250px] sm:min-h-[320px] rounded-xl overflow-hidden w-full">
+                        <div 
+                          onClick={() => handleOpenProductPreview(item, filteredBlinds, 'Blinds')}
+                          className="relative h-[240px] sm:h-full min-h-[250px] sm:min-h-[320px] rounded-xl overflow-hidden w-full cursor-pointer group/img"
+                          title="Click to view full photo"
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleOpenProductPreview(item, filteredBlinds, 'Blinds');
+                            }
+                          }}
+                        >
                           <OptimizedImage
                             src={item.image}
                             alt={item.name}
                             width={600}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                            className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-700 ease-out"
                           />
-                          <span className="absolute top-3 left-3 bg-white/95 backdrop-blur-md border border-[#a2d4f8] text-[10px] font-bold tracking-[0.18em] text-[#0099ff] px-3.5 py-1 rounded-md uppercase z-10 shadow-sm">
+                          <span className="absolute top-3 left-3 bg-white/95 backdrop-blur-md border border-[#a2d4f8] text-[10px] font-bold tracking-[0.18em] text-[#0099ff] px-3.5 py-1 rounded-md uppercase z-10 shadow-sm pointer-events-none">
                             {item.style}
                           </span>
+                          {/* Elegant hover expand badge */}
+                          <div className="absolute inset-0 bg-black/25 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                            <span className="bg-black/75 backdrop-blur-sm text-white text-[11px] font-bold tracking-wider uppercase px-3.5 py-1.5 rounded-full border border-white/25 flex items-center space-x-1.5 shadow-xl">
+                              <ZoomIn className="h-3.5 w-3.5 text-[#0099ff]" />
+                              <span>View Full Photo</span>
+                            </span>
+                          </div>
                         </div>
                       </div>
 
@@ -1178,6 +1280,17 @@ export default function App() {
       <BookingModal 
         isOpen={bookingModalOpen} 
         onClose={() => setBookingModalOpen(false)} 
+      />
+
+      {/* FULL PRODUCT IMAGE POP-UP LIGHTBOX */}
+      <ProductImageModal 
+        isOpen={Boolean(selectedProductPreview.product)}
+        onClose={handleCloseProductPreview}
+        product={selectedProductPreview.product}
+        productsList={selectedProductPreview.productsList}
+        categoryName={selectedProductPreview.categoryName}
+        onSelectProduct={(p) => setSelectedProductPreview(prev => ({ ...prev, product: p }))}
+        onInquire={handleInquireWhatsApp}
       />
 
       {/* GLOBAL FOOTER */}
